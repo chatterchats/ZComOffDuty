@@ -22,7 +22,7 @@ return {
 
     -- Ctrl+Shift+F sets these exact counts (case-insensitive name substring); press again to reset
     -- to them. Defaults cover each tier (1 Tired, 3 Exhausted, 5/7 Spent) and 0/1/2 injuries.
-    -- GE_Injured stacks to 2 at most.
+    -- Never more than 2 injuries: a third kills the operator. The probe caps it at 2 regardless.
     test_squad = {
         { name = "Tesh", fatigue = 1, injuries = 1 },
         { name = "Kabb", fatigue = 3, injuries = 2 },

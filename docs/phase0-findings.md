@@ -384,3 +384,8 @@ and has `BRG_StatusEffectUIData` and `BRG_InjuryNotificationComponent`.
 
 So fatigue can't borrow the banner by tag (it would read "N INJURY" and count as an injury).
 Plan: a second copy of the same widget per slot, driven from Lua (Ctrl+Shift+B prototype).
+
+### Injuries: 3 is death (user, 2026-10-08)
+
+A third `GE_Injured` stack kills the operator. Test tooling must never apply more than 2 (the probe
+caps both Ctrl+Shift+I and `config.test_squad` at 2), and Off Duty must never add injuries.

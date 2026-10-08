@@ -4,6 +4,8 @@
 local M = {}
 
 local RESULT_EFFECTS = "/Game/Game/GameData/Abilities/ResultEffects/"
+-- A third injury kills the operator. Never apply GE_Injured past this.
+local MAX_SAFE_INJURIES = 2
 local NEXT_MISSION_EFFECTS = "/Game/Game/GameData/Progression/NextMissionGameplayEffects/"
 local function class_path(directory, name) return directory .. name .. "." .. name .. "_C" end
 
@@ -967,6 +969,11 @@ function M.start(runtime, actions, logger, config)
                 local name = character_name(member.actor) or full_name(member.actor)
                 local asc = select(1, call(ability_library(), "GetAbilitySystemComponent", member.actor))
                 if valid(asc) then
+                    local before = tonumber((call(asc, "GetGameplayEffectCount", class, nil, true)))
+                    if before == nil or before >= MAX_SAFE_INJURIES then
+                        log("CONTROL | %s | has %s injuries; not adding (3 injuries kills)", name, tostring(before))
+                        return
+                    end
                     local context = select(1, call(asc, "MakeEffectContext"))
                     local _, err = call(asc, "BP_ApplyGameplayEffectToSelf", class, 1.0, context)
                     local stacks = select(1, call(asc, "GetGameplayEffectCount", class, nil, true))
@@ -1009,7 +1016,11 @@ function M.start(runtime, actions, logger, config)
                     if valid(asc) then
                         done[entry.name] = true
                         local f, f_err = set_effect_count(asc, fatigue, entry.fatigue or 0)
-                        local i, i_err = set_effect_count(asc, injured, entry.injuries or 0)
+                        local wanted_injuries = math.min(entry.injuries or 0, MAX_SAFE_INJURIES)
+                        if (entry.injuries or 0) > MAX_SAFE_INJURIES then
+                            log("SQUAD | %s | injuries capped at %d (3 injuries kills)", name, MAX_SAFE_INJURIES)
+                        end
+                        local i, i_err = set_effect_count(asc, injured, wanted_injuries)
                         log("SQUAD | %s | fatigue %d (wanted %d) | injuries %d (wanted %d)%s%s", name,
                             f, entry.fatigue or 0, i, entry.injuries or 0,
                             f_err and (" | fatigue error " .. f_err) or "", i_err and (" | injury error " .. i_err) or "")
