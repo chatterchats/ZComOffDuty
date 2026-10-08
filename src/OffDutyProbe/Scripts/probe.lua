@@ -694,7 +694,7 @@ function M.start(runtime, actions, logger, config)
         local function walk(widget, depth)
             if not valid(widget) or depth > 12 then return end
             nodes[#nodes + 1] = { widget = widget, depth = depth, name = widget_name(widget) }
-            local count = tonumber(select(1, call(widget, "GetChildrenCount"))) or 0
+            local count = tonumber((call(widget, "GetChildrenCount"))) or 0
             for i = 0, count - 1 do walk(select(1, call(widget, "GetChildAt", i)), depth + 1) end
         end
         walk(unwrap(root), 0)
@@ -718,7 +718,7 @@ function M.start(runtime, actions, logger, config)
             local name = member.actor and character_name(member.actor)
             local asc = name and select(1, call(ability_library(), "GetAbilitySystemComponent", member.actor))
             if valid(asc) then
-                stacks[name] = tonumber(select(1, call(asc, "GetGameplayEffectCount", class, nil, true))) or 0
+                stacks[name] = tonumber((call(asc, "GetGameplayEffectCount", class, nil, true))) or 0
             end
         end
         return stacks
