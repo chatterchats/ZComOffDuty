@@ -625,6 +625,7 @@ function M.start(runtime, actions, logger, config)
     -- AP-loss experiment: roll at each player operator's team turn start (Exhausted/Spent only).
     local TURN_HOOK = "/Script/BitReactorGame.BitReactorAbilitySystemComponent:OnTeamTurnStarted"
     local LOSE_AP = "/Game/OffDuty/Effects/GE_OffDuty_LoseAP.GE_OffDuty_LoseAP_C"
+    local PLAYER_TEAM = "/Game/Game/GameData/Teams/PlayerTeam.PlayerTeam_C"
     local seen_teams = {}
     pcall(function() math.randomseed(os.time()) end)
 
@@ -652,7 +653,9 @@ function M.start(runtime, actions, logger, config)
             seen_teams[team_name] = true
             log("TURN | team turn started: %s", team_name)
         end
-        if not team_name:lower():find("player", 1, true) then return end
+        -- Exact class: WorldTeam_PrePlayer also starts a turn each round (before AP refill), and a
+        -- substring match on "player" rolled twice per round.
+        if not team_name:find(PLAYER_TEAM, 1, true) then return end
         if not valid(asc) then return end
         local owner = select(1, call(asc, "GetOwner"))
         if not valid(owner) or select(1, call(unit_statics(), "IsPlayerTeamMember", owner)) ~= true then return end

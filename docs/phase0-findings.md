@@ -353,3 +353,22 @@ Run 1 concluded "1 action + 1 move" from **hub** attribute values (`ActionPoints
 budget is different: run 2's in-mission dump shows `ActionPoints=3` on every deployed operator, and a
 Zero Company turn is 3 AP spent on moving, shooting and abilities. Losing 1 AP costs a third of a
 turn, so AP penalties are back on the table (see `penalty-theorycraft.md` §7–8).
+
+### Probe run 5 (2026-10-08): tier penalties in a mission
+
+Spent was queued on 9 roster operators (Ctrl+Shift+3) before a mission, with `test_ap_loss_chance = 0.5`.
+
+- **Accuracy:** `AccuracyReduction` 0 → 3 (−15%) on every deployed Spent operator.
+- **Max HP ×0.9 works**, and operators start at the reduced maximum: Jae Mordant 73 → 66,
+  Cly Kullervo 85 → 77, Tesh Hawks 97 → 87 (Health equal to MaxHealth at mission start). The
+  multiplier applies to the aggregated value, not to the base of 28.
+- **Movement ×0.95 works:** `MovementPerAP` 500 → 475, 700 → 665.
+- **The AP loss works (3 → 2), but it rolled twice per round.** Each round starts team turns for
+  `WorldTeam_PrePlayer` and then `PlayerTeam`, and the probe's substring match on "player" caught both.
+  At `PrePlayer` the AP isn't refilled yet (the hook saw 1 or 2); at `PlayerTeam` it is already 3.
+  Fixed: match `/Game/Game/GameData/Teams/PlayerTeam.PlayerTeam_C` exactly.
+- **Rex was not penalized** because he isn't in the roster list the tier was queued on (a story/guest
+  unit). Real Off Duty should track whoever deploys, and decide whether guest units take fatigue at all.
+- **Nothing shows in the briefing or squad select.** Next-mission effects aren't surfaced there,
+  even the game's own `GE_Lose_NextMission_*`; the only native display is the "Penalty from
+  Operation" line in the hit breakdown. Off Duty needs its own UI (roster badge, squad-select warning).
