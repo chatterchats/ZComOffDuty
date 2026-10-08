@@ -389,3 +389,12 @@ Plan: a second copy of the same widget per slot, driven from Lua (Ctrl+Shift+B p
 
 A third `GE_Injured` stack kills the operator. Test tooling must never apply more than 2 (the probe
 caps both Ctrl+Shift+I and `config.test_squad` at 2), and Off Duty must never add injuries.
+
+### Banner colour (2026-10-08)
+
+`WBP_InjuryWarningEntry`'s design-time colours are the palette's AccentYellow (0.98, 0.45, 0.07) and it
+carries a `T_UI_Strategy_HighRiskInjury` icon, so it has a yellow warning look too. At runtime its
+state animation (`States`) sets AccentRed1 (0.45, 0.01, 0.03): a copy's colours set at creation were
+back to red a frame later, and the glow's opacity animates. Banner images are plain colour tints
+(no material, no palette tag). Palette (`UBitReactorColorBank`): AccentRed1/2, AccentYellow, Blue1-3,
+Grey1-3, OffWhite, Foreground, PositiveTeal, Player.*, Enemy.*.

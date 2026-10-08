@@ -714,6 +714,21 @@ function M.start(runtime, actions, logger, config)
         return params
     end
     local BANNER_IMAGES = { "Back", "PillBack", "PillBack_Highlight", "GlowBack", "EndCapBG", "Icon" }
+    -- Brightness of each banner part relative to the tier colour, as the game's red version has it
+    -- (AccentRed1 for the body, ~0.64x for the glow, a lighter highlight).
+    local BANNER_ROLES = { Back = 1.0, PillBack = 1.0, EndCapBG = 1.0, GlowBack = 0.64, PillBack_Highlight = 1.6 }
+
+    local function recolour_banner(parts, colour)
+        -- The banner's state animation re-applies injury red every frame; stop it, then recolour.
+        local _, stop_err = call(parts.__banner, "StopAllAnimations")
+        local done = 0
+        for part, scale in pairs(BANNER_ROLES) do
+            local c = { R = math.min(1, colour.R * scale), G = math.min(1, colour.G * scale),
+                        B = math.min(1, colour.B * scale), A = colour.A }
+            if valid(parts[part]) and select(2, call(parts[part], "SetColorAndOpacity", c)) == nil then done = done + 1 end
+        end
+        return done, stop_err
+    end
     -- The game sizes the banner's "Sizer" box at runtime (250x34 with "1 INJURY", whose text is 76 wide);
     -- a created copy keeps the design default of 380x36. Widen by however much longer our label is.
     local BANNER_SIZE, BANNER_TEXT_WIDTH = { 250, 34 }, 76
@@ -875,7 +890,7 @@ function M.start(runtime, actions, logger, config)
                             local tinted = 0
                             local wanted = {}
                             for _, image in ipairs(colour and BANNER_IMAGES or {}) do wanted[image] = true end
-                            local parts = {}
+                            local parts = { __banner = banner }
                             for _, node in ipairs(widget_tree(banner)) do
                                 parts[node.name] = node.widget
                                 if wanted[node.name] then
@@ -929,6 +944,16 @@ function M.start(runtime, actions, logger, config)
                             call(parts.Sizer, "SetWidthOverride", BANNER_SIZE[1])
                             call(parts.Sizer, "SetHeightOverride", BANNER_SIZE[2])
                             actions:schedule_after("banner_size", 100, function()
+                                if colour then
+                                    local done, stop_err = recolour_banner(parts, colour)
+                                    log("BANNER | %s | stopped animations%s, recoloured %d part(s)", name,
+                                        stop_err and (" (error " .. stop_err .. ")") or "", done)
+                                    actions:schedule_after("banner_check", 500, function()
+                                        log("BANNER | %s | Back colour after 0.5 s: %s (wanted %s)", name,
+                                            colour_string(select(2, pcall(function() return parts.Back.ColorAndOpacity end))),
+                                            colour_string(colour))
+                                    end, banner)
+                                end
                                 local ok, width = pcall(function() return parts.HeaderText:GetDesiredSize().X end)
                                 if ok and type(width) == "number" then
                                     call(parts.Sizer, "SetWidthOverride", BANNER_SIZE[1] + math.max(0, width - BANNER_TEXT_WIDTH))
