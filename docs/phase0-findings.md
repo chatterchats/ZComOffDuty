@@ -237,3 +237,19 @@ Cloaked, Away or Dismissed), so Off Duty needs its own class.
   **Probe run 4 verifies this**, plus save persistence, a mission round trip and uninstall.
 - Build notes: UAT needs `NuGetAudit=false` (new advisories for its bundled Magick.NET fail the
   script build), `UnrealPak` had to be built for Linux, and `UnrealPak -Extract` is broken on Linux.
+
+### Probe run 4, step 1 (2026-10-08): the "Content Mod" layout doesn't load
+
+With `SWZeroCompany/Mods/OffDuty/` (a Modkit "Content Mod", content mounted at `/OffDuty/`) the
+game reported `Off Duty fatigue class | NOT FOUND`. The shipping game writes no log, but the Modkit
+explains it: Content Mods in `Mods/` need a mod loader to mount and activate them, and the game's
+`UBitReactorModRuntimeSubsystem` is native-only (its config maps official DLC entitlements).
+
+**Switched to a Modkit "override" mod.** `unreal/OffDuty/Config/DefaultOffDuty.ini` sets
+`RemapPluginContentToGame=True`; UAT passes `-RemapPluginContentToGame` and IoStore renames every
+package `/OffDuty/<rest>` → `/Game/<rest>` through the container header's `PackageRedirects`
+(the directory index keeps plugin paths). The effect is authored at
+`/OffDuty/OffDuty/Effects/GE_OffDuty_Fatigue`, so in game it is
+**`/Game/OffDuty/Effects/GE_OffDuty_Fatigue`**, and the pak ships as
+`Content/Paks/~mods/OffDuty_P.{pak,ucas,utoc}`, mounted at startup like other `~mods` paks (and
+supported by Zero Mod Manager). Override mods need no `GameFeatureData`. Run 4 restarts from step 1.

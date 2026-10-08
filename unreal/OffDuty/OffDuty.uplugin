@@ -3,7 +3,7 @@
 	"Version": 1,
 	"VersionName": "0.1.0",
 	"FriendlyName": "Off Duty",
-	"Description": "Operator fatigue storage for Off Duty: GE_OffDuty_Fatigue, saved with each operator like an injury.",
+	"Description": "Off Duty's fatigue storage: GE_OffDuty_Fatigue (remapped to /Game/OffDuty), saved with each operator like an injury.",
 	"Category": "Mod",
 	"CreatedBy": "Chats",
 	"CreatedByURL": "https://github.com/chatterchats/ZComOffDuty",
@@ -14,12 +14,7 @@
 	"ExplicitlyLoaded": true,
 	"Sealed": true,
 	"NoCode": true,
-	"BuiltInInitialFeatureState": "Active",
 	"Plugins": [
-		{
-			"Name": "GameFeatures",
-			"Enabled": true
-		},
 		{
 			"Name": "BitReactorGame",
 			"Enabled": true

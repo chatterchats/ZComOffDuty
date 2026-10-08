@@ -12,7 +12,7 @@ Keys avoid F10 (ConsoleEnablerMod's console) and F11 (fullscreen toggle).
   and stack counts of `GE_Injured` and the next-mission penalty effects. It also
   retries the squad-select / roster-tile hooks.
 - **Ctrl+Shift+F / Ctrl+Shift+G** add / remove one `GE_OffDuty_Fatigue` stack on every
-  roster operator who has a live actor (needs the OffDuty plugin, `tools/build_plugin.sh --install`).
+  roster operator who has a live actor (needs `~mods/OffDuty_P.*`, `tools/build_plugin.sh --install`).
   Writes to your save once you save, so **use a throwaway save**.
 - **Ctrl+Shift+T** calls `AddNextMissionCharacterEffect` on one operator (see
   `Scripts/config.lua`). This is the probe's only write to the game. **Use a throwaway save.**
@@ -41,7 +41,7 @@ Send me `off_duty_probe.log` afterwards.
 
 ## Run 4: the fatigue effect (throwaway save; uninstall test last)
 
-Needs `SWZeroCompany/Mods/OffDuty/` (`tools/build_plugin.sh --install`). It's a **Linux** cook, so
+Needs `SWZeroCompany/Content/Paks/~mods/OffDuty_P.{pak,ucas,utoc}` (`tools/build_plugin.sh --install`). It's a **Linux** cook, so
 step 1 also tells us whether that works in the Windows game.
 
 1. Start the game, load a throwaway save at the hub, press **Ctrl+Shift+D**. Look for
@@ -50,6 +50,6 @@ step 1 also tells us whether that works in the Windows game.
 3. **Save**, quit to the main menu, load that save, **Ctrl+Shift+D**: `OD_Fatigue=2`? (survives a save)
 4. Deploy some of them on a mission (bench the rest). In the mission, **Ctrl+Shift+D**. Finish the
    mission, and back at the hub, **Ctrl+Shift+D**: deployed *and* benched operators still at 2?
-5. Uninstall test: quit, move `SWZeroCompany/Mods/OffDuty` out of the game folder (keep the
-   probe), start, load the step-3 save. Does it load? **Ctrl+Shift+D**. Then put the folder back,
+5. Uninstall test: quit, move the three `~mods/OffDuty_P.*` files out of the game folder (keep
+   the probe), start, load the step-3 save. Does it load? **Ctrl+Shift+D**. Then put them back,
    restart, load the same save, **Ctrl+Shift+D** again.

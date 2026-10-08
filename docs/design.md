@@ -28,7 +28,8 @@
 ## Implementation plan
 
 1. **Fatigue storage:** `GE_OffDuty_Fatigue`, a Blueprint `UBitReactorGameplayEffect` in the
-   `OffDuty` plugin (`unreal/OffDuty`, built with `tools/build_plugin.sh` in the SWZC Merged Kit).
+   `OffDuty` plugin (`unreal/OffDuty`, built with `tools/build_plugin.sh` in the SWZC Merged Kit),
+   shipped as `Content/Paks/~mods/OffDuty_P.*`; in game it is `/Game/OffDuty/Effects/GE_OffDuty_Fatigue`.
    It copies the save pattern of the game's `GE_Injured`: infinite, `AggregateByTarget`,
    `bIncludeInSaveData = true`, `bTerminateWithCombat = false`, no modifiers. Lua reads and changes
    its stack count on the strategy character.

@@ -3,9 +3,10 @@
 Run headless through the editor's Python commandlet (see tools/build_plugin.sh):
     UnrealEditor-Cmd SWZeroCompany.uproject -run=pythonscript -script=<this file>
 
-Assets (plugin OffDuty, mounted at /OffDuty/):
-- /OffDuty/GameFeatureData            UBitReactorModGameFeatureData, as the Modkit's mod wizard creates
-- /OffDuty/Effects/GE_OffDuty_Fatigue fatigue counter, one stack per fatigue point
+OffDuty is a Modkit "override" mod: packaging remaps the plugin's content onto /Game
+(Config/DefaultOffDuty.ini), so /OffDuty/OffDuty/Effects/GE_OffDuty_Fatigue in the editor is
+/Game/OffDuty/Effects/GE_OffDuty_Fatigue in game. The pak goes in Content/Paks/~mods and mounts at
+startup, before any save loads. (A "Content Mod" mounted at /OffDuty/ wasn't loadable in game.)
 
 GE_OffDuty_Fatigue copies the pattern of the game's GE_Injured, the effect that survives saves and
 missions: infinite, AggregateByTarget, bIncludeInSaveData=true, bTerminateWithCombat=false. It has no
@@ -16,9 +17,8 @@ import sys
 import unreal
 
 PLUGIN_ROOT = "/OffDuty"
-EFFECT_DIR = PLUGIN_ROOT + "/Effects"
+EFFECT_DIR = PLUGIN_ROOT + "/OffDuty/Effects"  # -> /Game/OffDuty/Effects after the remap
 EFFECT_NAME = "GE_OffDuty_Fatigue"
-FEATURE_DATA_NAME = "GameFeatureData"
 STACK_LIMIT = 10  # far above any designed fatigue level; Off Duty caps it lower in Lua
 
 EFFECT_DEFAULTS = {
@@ -59,20 +59,6 @@ def load_class(path):
     return cls
 
 
-def ensure_feature_data():
-    path = PLUGIN_ROOT + "/" + FEATURE_DATA_NAME
-    if existing(path) is not None:
-        log("feature data present: " + path)
-        return
-    factory = unreal.DataAssetFactory()
-    factory.set_editor_property("data_asset_class", load_class("/Script/BitReactorModRuntime.BitReactorModGameFeatureData"))
-    data = asset_tools.create_asset(FEATURE_DATA_NAME, PLUGIN_ROOT, None, factory)
-    if data is None:
-        fail("could not create " + path + " (is the OffDuty plugin mounted at /OffDuty/?)")
-    assets.save_loaded_asset(data, only_if_is_dirty=False)
-    log("created feature data: " + path)
-
-
 def ensure_effect():
     path = EFFECT_DIR + "/" + EFFECT_NAME
     parent = load_class("/Script/BitReactorGame.BitReactorGameplayEffect")
@@ -109,6 +95,5 @@ def ensure_effect():
     log("saved effect: %s | %s" % (path, ", ".join("%s=%s" % item for item in EFFECT_DEFAULTS.items())))
 
 
-ensure_feature_data()
 ensure_effect()
 unreal.log("OFFDUTY_RESULT ok")

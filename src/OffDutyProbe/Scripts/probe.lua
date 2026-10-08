@@ -11,10 +11,10 @@ local TRACKED_EFFECTS = {
     { label = "Injured", path = class_path(RESULT_EFFECTS, "GE_Injured") },
     { label = "NM_LoseAccuracy", path = class_path(NEXT_MISSION_EFFECTS, "GE_Lose_NextMission_RangedAccuracy") },
     { label = "NM_LoseMaxHealth", path = class_path(NEXT_MISSION_EFFECTS, "GE_Lose_NextMission_LoseMaxHealth") },
-    { label = "OD_Fatigue", path = "/OffDuty/Effects/GE_OffDuty_Fatigue.GE_OffDuty_Fatigue_C" },
+    { label = "OD_Fatigue", path = "/Game/OffDuty/Effects/GE_OffDuty_Fatigue.GE_OffDuty_Fatigue_C" },
 }
--- Off Duty's own effect, from the OffDuty plugin in SWZeroCompany/Mods (a Linux cook).
-local FATIGUE_EFFECT = "/OffDuty/Effects/GE_OffDuty_Fatigue.GE_OffDuty_Fatigue_C"
+-- Off Duty's own effect: Content/Paks/~mods/OffDuty_P.* (a Linux cook, remapped onto /Game).
+local FATIGUE_EFFECT = "/Game/OffDuty/Effects/GE_OffDuty_Fatigue.GE_OffDuty_Fatigue_C"
 local COMBAT_ATTRIBUTES = {
     "ActionPoints", "RefreshActionPoints", "MovementActionPoints", "RefreshMovementActionPoints",
     "MovementPerAP", "SpecialActionPoints", "ClassTacticPoints",
@@ -368,7 +368,13 @@ function M.start(runtime, actions, logger, config)
         local wco = world_context()
         log("World context | %s", wco and full_name(wco) or "none")
         local fatigue_class = load_class(FATIGUE_EFFECT)
-        log("Off Duty fatigue class | %s", fatigue_class and ("loaded: " .. full_name(fatigue_class)) or "NOT FOUND (OffDuty plugin not mounted or not loadable)")
+        if fatigue_class then
+            log("Off Duty fatigue class | loaded: %s", full_name(fatigue_class))
+        else
+            local package = FATIGUE_EFFECT:gsub("%.[^.]+$", "")
+            local ok, result = pcall(LoadAsset, package)
+            log("Off Duty fatigue class | NOT FOUND | LoadAsset(%s) ok=%s result=%s", package, tostring(ok), describe(result))
+        end
         local turn_manager = find_live("BrunoStrategyTurnManager")
         if turn_manager then
             log("Strategy turn | %s", tostring(select(1, call(turn_manager, "GetStrategyTurn"))))

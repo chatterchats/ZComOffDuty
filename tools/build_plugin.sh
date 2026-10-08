@@ -7,10 +7,9 @@
 # Steps:
 #   1. unreal/scripts/create_fatigue_effect.py creates/updates the assets (headless editor)
 #   2. DLC cook against the BaseGame release, then IoStore packaging (UAT BuildCookRun)
-#   3. assemble the layout the game loads (same as Mod Studio releases):
-#        SWZeroCompany/Mods/OffDuty/OffDuty.uplugin
-#        SWZeroCompany/Mods/OffDuty/AssetRegistry.bin
-#        SWZeroCompany/Mods/OffDuty/Content/Paks/OffDuty_P.{pak,ucas,utoc}
+#   3. assemble a ~mods pak mod (a Modkit "override" mod: content remapped onto /Game):
+#        SWZeroCompany/Content/Paks/~mods/OffDuty_P.{pak,ucas,utoc}
+#      and check the remap ran (in game the effect is /Game/OffDuty/Effects/GE_OffDuty_Fatigue)
 #
 # The Linux editor has no Windows target platform, so this cooks for Linux. GE_OffDuty_Fatigue
 # has no shaders, textures or other platform-specific data; whether a Linux cook loads in the
@@ -27,7 +26,7 @@ engine="$root/UnrealEngine/Engine"
 project="$kit/SWZeroCompany.uproject"
 platform=Linux
 logs="$repo/dist/plugin-logs"
-out="$repo/dist/plugin/SWZeroCompany/Mods/OffDuty"
+out="$repo/dist/plugin/SWZeroCompany/Content/Paks/~mods"
 install=false
 [ "${1:-}" = "--install" ] && install=true
 
@@ -60,20 +59,23 @@ NuGetAudit=false "$engine/Build/BatchFiles/RunUAT.sh" -ScriptsForProject="$proje
 
 echo "3/3 Assembling $out"
 paks="$kit/Packaged/$platform/SWZeroCompany/Mods/OffDuty/Content/Paks/$platform"
-rm -rf "$out" && mkdir -p "$out/Content/Paks"
+rm -rf "$repo/dist/plugin" && mkdir -p "$out"
 for ext in pak ucas utoc; do
-    cp "$paks/OffDutySWZeroCompany-$platform.$ext" "$out/Content/Paks/OffDuty_P.$ext"
+    cp "$paks/OffDutySWZeroCompany-$platform.$ext" "$out/OffDuty_P.$ext"
 done
-# Loose copies of what the .pak carries: the descriptor is packaged verbatim, the registry is the
-# cook's (UnrealPak -Extract can't be used: on Linux it joins the pak path with a backslash).
-cp "$repo/unreal/OffDuty/OffDuty.uplugin" "$out/"
-cp "$repo/unreal/OffDuty/Saved/Cooked/$platform/SWZeroCompany/Mods/OffDuty/AssetRegistry.bin" "$out/"
-( cd "$out" && find . -type f | sort | xargs sha256sum ) > "$repo/dist/plugin/SHA256SUMS"
+# The remap renames packages (/OffDuty/<rest> -> /Game/<rest>) through the container header's
+# PackageRedirects; file paths in the directory index stay under the plugin.
+grep -q "Remapping plugin content to game: 'True'" "$logs/cook.log" \
+    || { echo "IoStore did not remap the plugin onto /Game; check unreal/OffDuty/Config/DefaultOffDuty.ini" >&2; exit 1; }
+"$engine/Binaries/Linux/UnrealPak" "$out/OffDuty_P.utoc" -List > "$logs/list.log" 2>&1
+grep -q '/OffDuty/Effects/GE_OffDuty_Fatigue.uasset"' "$logs/list.log" \
+    || { echo "GE_OffDuty_Fatigue missing from the container; see $logs/list.log" >&2; exit 1; }
+( cd "$out" && sha256sum OffDuty_P.* ) > "$repo/dist/plugin/SHA256SUMS"
 cat "$repo/dist/plugin/SHA256SUMS"
 
 if $install; then
     game=${SWZC_GAME:-$(cat "$kit/GameInstallDirectory.txt")}
-    target="$game/SWZeroCompany/Mods/OffDuty"
-    rm -rf "$target" && mkdir -p "$(dirname "$target")" && cp -r "$out" "$target"
-    echo "Installed: $target"
+    target="$game/SWZeroCompany/Content/Paks/~mods"
+    mkdir -p "$target" && rm -f "$target"/OffDuty_P.* && cp "$out"/OffDuty_P.* "$target/"
+    echo "Installed: $target/OffDuty_P.{pak,ucas,utoc}"
 fi
