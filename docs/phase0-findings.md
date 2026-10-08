@@ -96,5 +96,18 @@ SpecialActionPoints, ClassTacticPoints, …`. `BitReactorHealthSet`: `MaxHealth`
 5. Mod-pak GE class reload safety and uninstall behavior.
 6. Droids: do astromechs share `BitReactorCombatSet` / the same roster flow?
 
-Note: the SDK README points to `ZComMods/AI+/tools/asset_audit.py` for GameAssetProbe
-runs, but no `AI+` directory exists in `ZComMods`.
+## Static Blueprint inspection (blocked)
+
+Tried 2026-10-08 with `AI+/tools/asset_audit.py package --disassemble` (GameAssetProbe,
+patched 5.6.1 Linux editor, scratch workspace). Both packages crash the editor
+(signal 11) during load, before inspection:
+
+| Package | Fatal dependency |
+|---|---|
+| `/Game/Game/UI/Strategy/SquadSelect/BPs/VM_SquadSelect` | `AkAudioEvent /Game/WwiseAudio/UI/Strategy/SquadSelect/UI_STR_SquadSelect_CharSlot_Appear` |
+| `/Game/Game/UI/Strategy/_Common/Widgets/WBP_RosterTile` | `AkAudioEvent /Game/WwiseAudio/UI/Strategy/SquadSelect/UI_STR_SquadSelect_Add` |
+
+This is the known missing-Wwise blocker (`AI+/BLOCKERS.md`): any UI package that
+references Wwise UI sounds can't be loaded in the SDK. Q3 stays with the in-game
+probe (`src/OffDutyProbe`). Data-only packages (GameplayEffects, recipes) without
+audio references should still probe fine.
