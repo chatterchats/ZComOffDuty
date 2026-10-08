@@ -20,8 +20,10 @@
 |---|---|
 | Ready | none |
 | Tired | −5% hit chance |
-| Exhausted | −10% hit chance, −10% max HP |
-| Spent | −15% hit chance, −20% max HP, −10% movement |
+| Exhausted | −10% hit chance, −5% max HP, 5% chance per turn to lose 1 AP |
+| Spent | −15% hit chance, −10% max HP, 10% chance per turn to lose 1 AP, −5% movement |
+
+A turn is 3 AP (moving, shooting, abilities); see penalty-theorycraft.md §8.
 
 - Push-through: any tier can deploy; story-required operators are never blocked.
 - Droids use the same system ("needs maintenance" wording).

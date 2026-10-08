@@ -7,7 +7,7 @@ everything ends up configurable.
 
 | Fact | Source |
 |---|---|
-| A turn is **1 action + 1 move** (plus 1 special, 1 class-tactic point) | probe run 1 |
+| A turn is **3 AP** for moving, shooting and abilities (hub values show 1) | probe run 2 in-mission dump |
 | `AccuracyReduction` +1 = **−5% hit chance** | runs 2–3, hit breakdown "Penalty from Operation" |
 | Injury: −15% hit chance per stack (max 2 stacks) | `GE_Injured`: `AccuracyReduction` +3 |
 | Disoriented: −20% hit chance | `GE_Disoriented`: +4 |
@@ -17,7 +17,7 @@ everything ends up configurable.
 | Movement: 500 per move (600–700 with upgrades); Shocked halves it | `MovementPerAP`, `GE_Shocked` ×0.5 |
 | Base hit chance 100%, minus range/cover (e.g. −25% range, −35% cover) | hit-breakdown screenshots |
 
-Losing an action point is off the table: with 1 action + 1 move, one AP is a whole action or the whole move.
+Losing 1 AP costs a third of a turn (see §7–8).
 
 ## 1. How fatigue builds (this sets the pressure)
 
@@ -171,11 +171,9 @@ recovery, thresholds and cap are all settings.
 In LW Rebalance (XCOM: EW), deploying fatigued gives a chance each turn to lose 1 AP (2 when exhausted)
 instead of a flat penalty; fatigue gain scales with mission length.
 
-**Zero Company version.** A turn is 1 action + 1 move, so "lose 1 AP" means one of two things:
-
-- **Lose the move:** the operator can still act but not reposition. Tactically interesting, rarely fatal.
-- **Lose the action:** like the game's own `GE_Lethargy` (`ActionPoints` −1). Advantage-spending
-  abilities cost no AP, so even then it isn't a dead turn.
+**Zero Company version.** A turn is 3 AP for moving, shooting and abilities, so losing 1 AP costs a
+third of a turn: the operator can still move and shoot but not also use an ability. The game's own
+`GE_Lethargy` (`ActionPoints` −1) is the precedent.
 
 Odds over a 6-turn mission:
 
@@ -202,13 +200,21 @@ A **streak breaker** (no two lost turns in a row) trims 20% → 1.03 and 25% →
 - **Recovery modifiers:** no Will in Zero Company; candidates are Medbay facilities/upgrades, bonds,
   and traits. Later.
 
-Candidate tier ladder with it:
+## 8. Working ladder (2026-10-08, user's proposal)
 
-| Tier | Penalty |
-|---|---|
-| Tired | −5% hit |
-| Exhausted | −10% hit; 15% chance per turn to lose the **move** |
-| Spent | −15% hit; 25% chance per turn to lose the **action** (Advantage abilities still usable) |
+| Tier | Penalty | Combat power (model) |
+|---|---|---|
+| Tired | −5% hit | 91% |
+| Exhausted | −10% hit, −5% max HP, 5% chance per turn to lose 1 AP | 77% |
+| Spent | −15% hit, −10% max HP, 10% chance per turn to lose 1 AP, −5% movement | 64% |
 
-This would replace the max-HP and movement parts (less hidden, no feeding of injuries), or sit on top
-of them as a Hard-only option.
+Model: a lost AP removes a third of that turn's output. Previous ladder (HP/move, no AP): 91 / 74 / 59%.
+Hard rules on 10 operators: average operator strength 76% (was 73%).
+
+- Accuracy still carries most of the cost; −5/−10% max HP is 3–10 HP and −5% movement is 500 → 475,
+  so those are flavor that touches every class.
+- AP loss is occasional: 5% per turn = 26% chance of any lost AP in a 6-turn mission (0.3 expected);
+  10% = 47% (0.6). For a felt Long War mechanic, 10%/20% would be the step up.
+- Effects to rebuild: Exhausted MaxHealth ×0.95; Spent MaxHealth ×0.9, MovementPerAP ×0.95. The AP roll
+  is Lua on `UBitReactorAbilitySystemComponent::OnTeamTurnStarted` (to verify with the probe) plus an
+  instant `ActionPoints` −1 effect applied after the turn-start refresh.

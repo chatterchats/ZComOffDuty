@@ -182,7 +182,7 @@ Operation"). Next mission: no penalty.
 
 1. *(Answered in run 3: −5% hit chance per point; one point per application.)* **AccuracyReduction units.** Injury = 3, reward = 1–2, `MaxAccuracy` CDO = 1.0. What
    does +1 do to displayed hit chance? Test by stacking `GE_Lose_NextMission_RangedAccuracy`.
-2. *(Answered in run 1: 1 action + 1 move.)* **Base AP budget** for operators (CDO is 0; set by an init effect or data). Codex
+2. *(Answered: **3 AP per turn** in missions, for moving, shooting and abilities; see the correction below.)* **Base AP budget** for operators (CDO is 0; set by an init effect or data). Codex
    assumed 3 and ChatGPT assumed 2. Read `ActionPoints` on a live unit.
 3. *(Answered in run 2: no.)* Is `CanAssignToMissionSquad` reached through ProcessEvent (hookable from Lua), or
    only native? Disassemble `WBP_RosterTile` / `VM_SquadSelect`.
@@ -345,3 +345,10 @@ deprecated `InheritableGameplayEffectTags`. The cooked package now names the com
 stacks of `GE_OffDuty_Fatigue`, the penalty uses the game's next-mission accuracy effect, mission start
 (`ApplyNextMissionEffectsToCharacter`) shows who deployed, `EndStrategyTurn` drives recovery, and
 removing the mod can't break a save.
+
+### Correction (2026-10-08): a turn is 3 AP
+
+Run 1 concluded "1 action + 1 move" from **hub** attribute values (`ActionPoints=1`). The tactical
+budget is different: run 2's in-mission dump shows `ActionPoints=3` on every deployed operator, and a
+Zero Company turn is 3 AP spent on moving, shooting and abilities. Losing 1 AP costs a third of a
+turn, so AP penalties are back on the table (see `penalty-theorycraft.md` §7–8).
