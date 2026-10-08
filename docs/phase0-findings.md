@@ -398,3 +398,7 @@ state animation (`States`) sets AccentRed1 (0.45, 0.01, 0.03): a copy's colours 
 back to red a frame later, and the glow's opacity animates. Banner images are plain colour tints
 (no material, no palette tag). Palette (`UBitReactorColorBank`): AccentRed1/2, AccentYellow, Blue1-3,
 Grey1-3, OffWhite, Foreground, PositiveTeal, Player.*, Enemy.*.
+**Result:** `StopAllAnimations` on the copy, then `SetColorAndOpacity` on Back/PillBack/EndCapBG/GlowBack/
+PillBack_Highlight (100 ms after creation), holds: the fatigue banner renders in AccentYellow next to
+the red injury banner. Tier label, pips (1 Tired, 2 Exhausted/Spent) and 250x34 + label sizing all
+match the game's look. Verified in game 2026-10-08.
