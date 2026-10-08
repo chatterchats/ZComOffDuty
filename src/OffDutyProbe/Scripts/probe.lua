@@ -673,11 +673,28 @@ function M.start(runtime, actions, logger, config)
     local fatigue_banners = {}
     -- Tier colours are a test: tints multiply the banner's red art, so results may differ.
     -- Tier colours come from the game's own palette (UBitReactorColorBank, tags in BitReactorUITags.ini).
+    -- AccentYellow renders orange in game, so it is Exhausted; Spent uses the injury red. The palette
+    -- has no true yellow, so Tired's is mixed in the same family. Penalties follow docs/design.md.
+    local FATIGUE_CAP = 7
     local TIER_LABELS = {
-        { 5, "SPENT", "ColorBank.UI.AccentYellow" },
-        { 3, "EXHAUSTED", "ColorBank.UI.AccentYellow" },
-        { 1, "TIRED", "ColorBank.UI.AccentYellow" },
+        { 5, "SPENT", "ColorBank.UI.AccentRed1", {
+            "<Bold>-15%</> Chance-To-Hit", "<Bold>-10%</> Max Health", "<Bold>-5%</> Movement",
+            "<Bold>10%</> chance each turn to lose <Bold>1 AP</>" } },
+        { 3, "EXHAUSTED", "ColorBank.UI.AccentYellow", {
+            "<Bold>-10%</> Chance-To-Hit", "<Bold>-5%</> Max Health",
+            "<Bold>5%</> chance each turn to lose <Bold>1 AP</>" } },
+        { 1, "TIRED", { R = 0.98, G = 0.75, B = 0.07, A = 1.0 }, {
+            "<Bold>-5%</> Chance-To-Hit" } },
     }
+
+    local function tier_body(tier, count)
+        local lines = { string.format("Fatigue <Bold>%d</> of %d. Each mission adds 2; each turn off duty removes 1.",
+                                      count, FATIGUE_CAP), "", "Next mission:" }
+        for _, penalty in ipairs(tier[4]) do lines[#lines + 1] = "  " .. penalty end
+        lines[#lines + 1] = ""
+        lines[#lines + 1] = string.format("Fully rested after <Bold>%d</> turn%s off duty.", count, count == 1 and "" or "s")
+        return table.concat(lines, "\n")
+    end
     local function colour_table(value)
         local ok, c = pcall(function() return { R = value.R, G = value.G, B = value.B, A = value.A } end)
         return ok and type(c.R) == "number" and c or nil
@@ -831,6 +848,42 @@ function M.start(runtime, actions, logger, config)
         end
     end
 
+    -- Portrait strip (and roster screens): WBP_RosterTile shows injuries with WBP_HeroInjuries.
+    -- Log-only: how a tile maps to its operator, and the injury marker's widget tree.
+    local function dump_roster_tiles()
+        local list_lib = cdo("/Script/UMG.Default__UserObjectListEntryLibrary")
+        local ok, tiles = pcall(FindAllOf, "WBP_RosterTile_C")
+        local count, shown_tree = 0, false
+        for _, tile in pairs(ok and tiles or {}) do
+            if live(tile) then
+                count = count + 1
+                local item, item_err = call(list_lib, "GetListItemObject", tile)
+                local who = item and plain(text((call(item, "GetFullName"))) or "?") or "?"
+                local id = item and guid_string((call(item, "GetCharacterID"))) or "?"
+                local injuries = select(2, pcall(function() return tile.WBP_HeroInjuries end))
+                local vis = valid(injuries) and tostring((call(injuries, "GetVisibility"))) or "none"
+                log("TILE | %d | %s | id %s | item %s%s | HeroInjuries vis %s | parent %s", count, who, tostring(id),
+                    item and (full_name(item):match("^(%S+)") or "?") or "none", item_err and (" err " .. item_err) or "",
+                    vis, valid(injuries) and (full_name((call(injuries, "GetParent"))):match("^(%S+)") or "?") or "?")
+                if not shown_tree and valid(injuries) and vis ~= "1" and vis ~= "2" then
+                    shown_tree = true
+                    for _, node in ipairs(widget_tree(injuries)) do
+                        log("TILE TREE | %s%s | %s", string.rep(" ", node.depth), node.name, describe_widget(node))
+                    end
+                    local row = select(2, pcall(function() return tile.NotificationsHorizontalBox end))
+                    local n = valid(row) and tonumber((call(row, "GetChildrenCount"))) or 0
+                    local names = {}
+                    for i = 0, n - 1 do
+                        local child = (call(row, "GetChildAt", i))
+                        names[#names + 1] = widget_name(child) .. "(" .. tostring((call(child, "GetVisibility"))) .. ")"
+                    end
+                    log("TILE TREE | NotificationsHorizontalBox children: %s", table.concat(names, " "))
+                end
+            end
+        end
+        log("TILE | %d live roster tile(s)%s", count, count == 0 and " (open the portrait strip first)" or "")
+    end
+
     local function build_fatigue_banners()
         for _, banner in ipairs(fatigue_banners) do
             pcall(function() if valid(banner) then banner:RemoveFromParent() end end)
@@ -864,12 +917,17 @@ function M.start(runtime, actions, logger, config)
                         colour_string(select(2, pcall(function() return entry.Back.ColorAndOpacity end))),
                         select(2, pcall(function() local d = entry:GetDesiredSize(); return string.format("%.0fx%.0f", d.X, d.Y) end)) or "?")
                     local count = stacks[name]
-                    local label, colour = nil, nil
+                    local label, colour, tier_info = nil, nil, nil
                     if count == nil then
                         label = "NO FATIGUE DATA"
                     else
                         for _, tier in ipairs(TIER_LABELS) do
-                            if count >= tier[1] then label, colour = string.format("%s (%d)", tier[2], count), (bank_colour(tier[3]) or { R = 1.0, G = 0.75, B = 0.15, A = 1.0 }); break end
+                            if count >= tier[1] then
+                                label, tier_info = tier[2], tier
+                                colour = type(tier[3]) == "table" and tier[3] or bank_colour(tier[3])
+                                    or { R = 0.98, G = 0.45, B = 0.07, A = 1.0 }
+                                break
+                            end
                         end
                     end
                     if label == nil then
@@ -943,6 +1001,36 @@ function M.start(runtime, actions, logger, config)
                             call(parts.Injury_2, "SetVisibility", count >= 3 and 4 or 2)
                             call(parts.Sizer, "SetWidthOverride", BANNER_SIZE[1])
                             call(parts.Sizer, "SetHeightOverride", BANNER_SIZE[2])
+                            -- Tooltip: the injury one comes from its payload (tags/objects); ours is a plain
+                            -- header + body entry. Log the original's setup once to see what it renders from.
+                            if not logged_art.tooltip then
+                                logged_art.tooltip = true
+                                local original_tip
+                                for _, node in ipairs(widget_tree(entry)) do
+                                    if node.name == "WarningTooltip" then original_tip = node.widget end
+                                end
+                                local ok, info = pcall(function()
+                                    local p = original_tip.TooltipWidgetParameters
+                                    local tags = {}
+                                    array_each(p.TooltipPayloadTags, function(_, t) tags[#tags + 1] = text(t.TagName) or "?" end)
+                                    local objects, entries = 0, 0
+                                    array_each(p.TooltipPayloadObjects, function() objects = objects + 1 end)
+                                    array_each(p.TooltipPayloadEntries, function() entries = entries + 1 end)
+                                    return string.format("class %s | tags [%s] | objects %d | entries %d | display %s",
+                                        full_name(p.TooltipWidgetClass), table.concat(tags, ", "), objects, entries,
+                                        tostring(p.bDisplayTooltip))
+                                end)
+                                log("BANNER TIP | original (%s) | %s", name, ok and info or ("unreadable: " .. tostring(info)))
+                            end
+                            if tier_info and valid(parts.WarningTooltip) then
+                                local tip = parts.WarningTooltip
+                                call(tip, "SetTooltipPayloadTags", {})
+                                call(tip, "SetTooltipPayloadObjects", {})
+                                local _, tip_err = call(tip, "SetTooltipPayloadEntries", {
+                                    { HeaderText = FText(tier_info[2]), BodyText = FText(tier_body(tier_info, count)) } })
+                                call(tip, "SetDisplayTooltop", true)
+                                if tip_err then log("BANNER TIP | %s | entries error %s", name, tip_err) end
+                            end
                             actions:schedule_after("banner_size", 100, function()
                                 if colour then
                                     local done, stop_err = recolour_banner(parts, colour)
@@ -979,6 +1067,7 @@ function M.start(runtime, actions, logger, config)
                 end
             end
         end
+        dump_roster_tiles()
         log("BANNER | %d banner(s) added (fatigue known for %d operator(s))", built,
             (function() local n = 0; for _ in pairs(stacks) do n = n + 1 end; return n end)())
     end
