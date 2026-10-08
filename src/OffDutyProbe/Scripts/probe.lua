@@ -189,12 +189,12 @@ function M.start(runtime, actions, logger, config)
 
     local function load_class(path)
         local ok, class = pcall(StaticFindObject, path)
-        if ok and valid(class) then return class end
+        if ok and valid(class) then return class, "already in memory" end
         local loaded, err = engine_load_class(path)
         if err then log("load_class(%s) | %s", path, err) end
         -- Re-find by path rather than trusting the returned wrapper.
         ok, class = pcall(StaticFindObject, path)
-        if ok and valid(class) then return class end
+        if ok and valid(class) then return class, "loaded now" end
         return nil
     end
 
@@ -398,13 +398,28 @@ function M.start(runtime, actions, logger, config)
         return members, notes
     end
 
+    local function effect_defaults(class_path_value)
+        local cdo_path = class_path_value:gsub("%.([^.]+)$", ".Default__%1")
+        local ok, defaults = pcall(StaticFindObject, cdo_path)
+        if not ok or not valid(defaults) then return cdo_path .. " | not in memory" end
+        local parts = { (cdo_path:match("Default__([^.]+)$")) }
+        for _, name in ipairs({ "bIncludeInSaveData", "bTerminateWithCombat", "DurationPolicy", "StackingType", "StackLimitCount" }) do
+            local read_ok, value = pcall(function() return defaults[name] end)
+            parts[#parts + 1] = name .. "=" .. (read_ok and tostring(value) or "unreadable")
+        end
+        return table.concat(parts, " ")
+    end
+
     local function dump(reason)
         log("==== DUMP (%s) ====", reason)
         local wco = world_context()
         log("World context | %s", wco and full_name(wco) or "none")
-        local fatigue_class = load_class(FATIGUE_EFFECT)
+        local fatigue_class, residency = load_class(FATIGUE_EFFECT)
         if fatigue_class then
-            log("Off Duty fatigue class | loaded: %s", full_name(fatigue_class))
+            log("Off Duty fatigue class | loaded: %s | %s", full_name(fatigue_class), residency)
+            for _, path in ipairs({ FATIGUE_EFFECT, class_path(RESULT_EFFECTS, "GE_Injured") }) do
+                log("    defaults %s", effect_defaults(path))
+            end
         else
             log("Off Duty fatigue class | NOT FOUND at %s", FATIGUE_EFFECT)
             diagnose_fatigue_load()
@@ -490,6 +505,28 @@ function M.start(runtime, actions, logger, config)
         log("FATIGUE | %s on %d operator(s) with a live actor (roster %d)", add and "added" or "removed", changed, #members)
     end
 
+    -- Ctrl+Shift+I: control for the save test; one GE_Injured stack on the first operator with an actor.
+    local function apply_control_injury()
+        local wco = world_context()
+        if not wco or not roster_statics() then log("CONTROL | no world context (load a campaign first)"); return end
+        local class = load_class(class_path(RESULT_EFFECTS, "GE_Injured"))
+        if not class then log("CONTROL | GE_Injured not loadable"); return end
+        for _, member in ipairs((roster_members(wco))) do
+            if member.actor then
+                local name = character_name(member.actor) or full_name(member.actor)
+                local asc = select(1, call(ability_library(), "GetAbilitySystemComponent", member.actor))
+                if valid(asc) then
+                    local context = select(1, call(asc, "MakeEffectContext"))
+                    local _, err = call(asc, "BP_ApplyGameplayEffectToSelf", class, 1.0, context)
+                    local stacks = select(1, call(asc, "GetGameplayEffectCount", class, nil, true))
+                    log("CONTROL | +1 GE_Injured | %s | stacks now %s%s", name, tostring(stacks), err and (" | error " .. err) or "")
+                    return
+                end
+            end
+        end
+        log("CONTROL | no operator with an ability system component")
+    end
+
     local function apply_test()
         local wco = world_context()
         local statics = roster_statics()
@@ -535,10 +572,13 @@ function M.start(runtime, actions, logger, config)
     runtime:register_keybind(Key.F, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
         actions:schedule_after("fatigue", 0, function() change_fatigue(true) end)
     end)
+    runtime:register_keybind(Key.I, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
+        actions:schedule_after("control", 0, apply_control_injury)
+    end)
     runtime:register_keybind(Key.G, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
         actions:schedule_after("fatigue", 0, function() change_fatigue(false) end)
     end)
-    log("Ready | Ctrl+Shift+D = dump | Ctrl+Shift+T = test next-mission effect | Ctrl+Shift+F/G = +1/-1 fatigue stack on every operator")
+    log("Ready | Ctrl+Shift+D = dump | Ctrl+Shift+T = test next-mission effect | Ctrl+Shift+F/G = +1/-1 fatigue stack on every operator | Ctrl+Shift+I = control injury on one operator")
 end
 
 return M

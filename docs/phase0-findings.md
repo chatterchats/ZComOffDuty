@@ -269,3 +269,18 @@ supported by Zero Mod Manager). Override mods need no `GameFeatureData`. Run 4 r
   `GetGameplayEffectCount` accepts the class (`OD_Fatigue=0` on all 8 operators with a hub actor).
   The `convert_struct_to_lua_table: Skipping field 'SubPathString'` line is UE4SS converting the
   soft path struct; harmless.
+
+### Run 4, step 3 (2026-10-08): fatigue stacks did not survive save → load
+
+Two stacks on every hub operator were back to 0 after saving and loading. What the headers show:
+
+- `FAbilitySystemComponentInfo` (`ActiveEffects`) is used only by `BrunoTacticalSaveGame`, so
+  **`bIncludeInSaveData` governs mid-mission (tactical) saves**, not the hub.
+- The strategy save (`UBrunoStrategySaveGame.CharacterInfos`) stores each hub character as opaque
+  native `ArchiveBytes`; which ability-system state goes in isn't visible from headers.
+- `UTrackedPreloadObjects` keeps per-class "derivative" class lists for strategy and tactical,
+  likely classes the save must preload to resolve references.
+
+Next diagnostic: the dump prints the live default-object flags of `GE_OffDuty_Fatigue` and
+`GE_Injured` and whether our class was already in memory; **Ctrl+Shift+I** applies one
+`GE_Injured` the same way the probe applies fatigue, as a control for the save test.
