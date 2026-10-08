@@ -14,14 +14,16 @@
 
 - **Fatigue points:** +2 per mission played, −1 per strategy turn off, cap 7. Operators on an
   operation are frozen (no gain, no recovery).
-- **Tiers (Hard preset):** Tired at 1, Exhausted at 3, Spent at 5. Standard preset: 2 / 4 / 6, cap 6.
+- **Tiers:**
+  - Hard preset Tired at 1, Exhausted at 3, Spent at 5. Cap of 7.
+  - Standard preset: 2 / 4 / 6, cap 6.
 
-| Tier | Next-mission penalty |
-|---|---|
-| Ready | none |
-| Tired | −5% hit chance |
-| Exhausted | −10% hit chance, −5% max HP, 5% chance per turn to lose 1 AP |
-| Spent | −15% hit chance, −10% max HP, 10% chance per turn to lose 1 AP, −5% movement |
+| Tier      | Next-mission penalty                               |
+| --------- | -------------------------------------------------- |
+| Ready     | none                                               |
+| Tired     | −5% hit chance (HC)                                |
+| Exhausted | −10% HC, −5% max HP, 5% chance/turn -1 AP          |
+| Spent     | −15% HC, −10% MHP, 10% chance/turn -1 AP, −5% Move |
 
 A turn is 3 AP (moving, shooting, abilities); see penalty-theorycraft.md §8.
 

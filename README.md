@@ -29,11 +29,11 @@ your best four.
   are shown before you commit.
 - **Separate from injuries.** The game's injury system is left alone.
 
-| Fatigue | State | Next mission |
-| --- | --- | --- |
-| 0 | Ready | No penalty |
-| 1 | Tired | Small accuracy penalty |
-| 2+ | Exhausted | Larger penalty; deploying adds extra recovery |
+| Fatigue | State     | Next mission                                  |
+| ------- | --------- | --------------------------------------------- |
+| 0       | Ready     | No penalty                                    |
+| 1       | Tired     | Small accuracy penalty                        |
+| 2+      | Exhausted | Larger penalty; deploying adds extra recovery |
 
 Numbers are playtest placeholders.
 
@@ -178,6 +178,7 @@ The manually run **Release to Nexus Mods** workflow publishes a release; use
 
    It updates `modinfo.json`, `zcom-mod.json`, `Scripts/main.lua` and the
    player README title, and turns `[Unreleased]` into the new version.
+
 3. Run `tools/run-tests.sh` and `python3 tools/package.py`, then check
    `dist/OffDuty-#.#.#.zip` with a mod manager and a clean manual install.
    A built version is immutable: the packager refuses to overwrite a ZIP with

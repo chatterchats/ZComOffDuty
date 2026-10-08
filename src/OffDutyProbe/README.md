@@ -49,7 +49,7 @@ step 1 also tells us whether that works in the Windows game.
 2. Press **Ctrl+Shift+F** twice: every operator at the hub should log `stacks now 2`.
 3. **Save**, quit to the main menu, load that save, **Ctrl+Shift+D**: `OD_Fatigue=2`? (survives a save)
 4. Deploy some of them on a mission (bench the rest). In the mission, **Ctrl+Shift+D**. Finish the
-   mission, and back at the hub, **Ctrl+Shift+D**: deployed *and* benched operators still at 2?
+   mission, and back at the hub, **Ctrl+Shift+D**: deployed _and_ benched operators still at 2?
 5. Uninstall test: quit, move the three `~mods/OffDuty_P.*` files out of the game folder (keep
    the probe), start, load the step-3 save. Does it load? **Ctrl+Shift+D**. Then put them back,
    restart, load the same save, **Ctrl+Shift+D** again.

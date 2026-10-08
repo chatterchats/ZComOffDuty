@@ -28,7 +28,7 @@ downed → injury → death pressure the game already has.
   survive save/load.
 - **Implication:** a custom infinite, stacking `GE_OffDuty_Fatigue` Blueprint on the
   strategy character should save the same way. The stack count can serve as the
-  fatigue counter, so no sidecar file is needed. *Must verify:* that a GE class living
+  fatigue counter, so no sidecar file is needed. _Must verify:_ that a GE class living
   in a mod pak reloads cleanly, and what happens to the save if the mod is removed.
 
 ## Existing "next mission only" effect pipeline (Tired penalty)
@@ -45,12 +45,12 @@ exposes `NextMissionEffectVMs`, so the briefing likely lists them natively.
 
 Existing classes in `/Game/Game/GameData/Progression/NextMissionGameplayEffects/`:
 
-| Effect | Modifier |
-|---|---|
-| `GE_Lose_NextMission_RangedAccuracy` | AccuracyReduction +1 /stack (limit 99) |
-| `GE_Lose_NextMission_LoseMaxHealth` | MaxHealth −2 /stack (limit 99) |
-| `GE_Reward_NextMission_FirstMoveSpeed` | MovementPerAP +25 |
-| `GE_Reward_NextMission_Dodge` | Strikes +2 |
+| Effect                                 | Modifier                               |
+| -------------------------------------- | -------------------------------------- |
+| `GE_Lose_NextMission_RangedAccuracy`   | AccuracyReduction +1 /stack (limit 99) |
+| `GE_Lose_NextMission_LoseMaxHealth`    | MaxHealth −2 /stack (limit 99)         |
+| `GE_Reward_NextMission_FirstMoveSpeed` | MovementPerAP +25                      |
+| `GE_Reward_NextMission_Dodge`          | Strikes +2                             |
 
 The penalty effects all carry `GEC_StrategyRewardText` + `BrunoGameEffectUIData`, so
 they come with native text.
@@ -62,7 +62,7 @@ Probed `GE_Lose_NextMission_RangedAccuracy` (GameAssetProbe, 2026-10-08):
   duration is re-evaluated when the strategy layer starts. **Likely answer to Q4:** these
   effects clear on returning to the hub, so they last one mission. To confirm in game.
 - `GEC_StrategyRewardText`: `Modifier Value Per Stack = 1.0`, `Reward Value Format =
-  Reward_FlatValue_Format`, name key `Progression_Lose_RangedAttackAccuracy_Name`
+Reward_FlatValue_Format`, name key `Progression_Lose_RangedAttackAccuracy_Name`
   (`Design_Progression_Strings`). The game describes it per stack, so
   **`PrimaryMagnitude` is probably the stack count**. The string table's text isn't
   reflected, so the exact wording needs the in-game check.
@@ -125,7 +125,7 @@ SpecialActionPoints, ClassTacticPoints, …`. `BitReactorHealthSet`: `MaxHealth`
 - **The roster fix works.** `GetRoster` returns a plain Lua table: 10 operators at the hub
   (two without a live hub actor, one of them Away), 4 in the mission (the squad only).
 - **Test apply works, and the game shows it natively.** `AddNextMissionCharacterEffect(Hawks,
-  GE_Lose_NextMission_RangedAccuracy, 5)` → in the mission Hawks had **1 stack** and
+GE_Lose_NextMission_RangedAccuracy, 5)` → in the mission Hawks had **1 stack** and
   `AccuracyReduction` 0 → 1. The hit breakdown listed **"PENALTY FROM OPERATION −5%"**, and
   shots that would have been 100% showed 95%.
   - So `PrimaryMagnitude` is **not** the stack count (5 gave 1 stack).
@@ -180,15 +180,15 @@ Operation"). Next mission: no penalty.
 
 ## Open questions (need game/probe testing)
 
-1. *(Answered in run 3: −5% hit chance per point; one point per application.)* **AccuracyReduction units.** Injury = 3, reward = 1–2, `MaxAccuracy` CDO = 1.0. What
+1. _(Answered in run 3: −5% hit chance per point; one point per application.)_ **AccuracyReduction units.** Injury = 3, reward = 1–2, `MaxAccuracy` CDO = 1.0. What
    does +1 do to displayed hit chance? Test by stacking `GE_Lose_NextMission_RangedAccuracy`.
-2. *(Answered: **3 AP per turn** in missions, for moving, shooting and abilities; see the correction below.)* **Base AP budget** for operators (CDO is 0; set by an init effect or data). Codex
+2. _(Answered: **3 AP per turn** in missions, for moving, shooting and abilities; see the correction below.)_ **Base AP budget** for operators (CDO is 0; set by an init effect or data). Codex
    assumed 3 and ChatGPT assumed 2. Read `ActionPoints` on a live unit.
-3. *(Answered in run 2: no.)* Is `CanAssignToMissionSquad` reached through ProcessEvent (hookable from Lua), or
+3. _(Answered in run 2: no.)_ Is `CanAssignToMissionSquad` reached through ProcessEvent (hookable from Lua), or
    only native? Disassemble `WBP_RosterTile` / `VM_SquadSelect`.
-4. *(Answered in run 2: after one mission.)* When are `NextMissionCharacterEffects` consumed/cleared? (After any mission, or only
+4. _(Answered in run 2: after one mission.)_ When are `NextMissionCharacterEffects` consumed/cleared? (After any mission, or only
    after that character deploys?) That decides whether Tired survives being benched.
-5. *(Next-mission penalties: answered by the save/uninstall test.)* Mod-pak GE class reload safety and uninstall behavior, still open for v1's custom effect.
+5. _(Next-mission penalties: answered by the save/uninstall test.)_ Mod-pak GE class reload safety and uninstall behavior, still open for v1's custom effect.
 6. Droids: do astromechs share `BitReactorCombatSet` / the same roster flow?
 
 ## Static Blueprint inspection (blocked)
@@ -197,10 +197,10 @@ Tried 2026-10-08 with `AI+/tools/asset_audit.py package --disassemble` (GameAsse
 patched 5.6.1 Linux editor, scratch workspace). Both packages crash the editor
 (signal 11) during load, before inspection:
 
-| Package | Fatal dependency |
-|---|---|
+| Package                                                 | Fatal dependency                                                                           |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | `/Game/Game/UI/Strategy/SquadSelect/BPs/VM_SquadSelect` | `AkAudioEvent /Game/WwiseAudio/UI/Strategy/SquadSelect/UI_STR_SquadSelect_CharSlot_Appear` |
-| `/Game/Game/UI/Strategy/_Common/Widgets/WBP_RosterTile` | `AkAudioEvent /Game/WwiseAudio/UI/Strategy/SquadSelect/UI_STR_SquadSelect_Add` |
+| `/Game/Game/UI/Strategy/_Common/Widgets/WBP_RosterTile` | `AkAudioEvent /Game/WwiseAudio/UI/Strategy/SquadSelect/UI_STR_SquadSelect_Add`             |
 
 This is the known missing-Wwise blocker (`AI+/BLOCKERS.md`): any UI package that
 references Wwise UI sounds can't be loaded in the SDK. Q3 stays with the in-game
@@ -215,11 +215,11 @@ audio references should still probe fine.
 Modkit's proxy lacked all 5 of the class's properties). Across 674 game effects, 148 set
 `bIncludeInSaveData`:
 
-| Effect | `bIncludeInSaveData` | `bTerminateWithCombat` | Lifetime |
-|---|---|---|---|
-| `GE_Injured` | true | false | saves and missions |
-| `GE_Lose_NextMission_*` | false | true | one mission (explains run 2) |
-| `GE_Shocked` | true | true | in-mission status |
+| Effect                  | `bIncludeInSaveData` | `bTerminateWithCombat` | Lifetime                     |
+| ----------------------- | -------------------- | ---------------------- | ---------------------------- |
+| `GE_Injured`            | true                 | false                  | saves and missions           |
+| `GE_Lose_NextMission_*` | false                | true                   | one mission (explains run 2) |
+| `GE_Shocked`            | true                 | true                   | in-mission status            |
 
 No shipped saved effect is inert and stackable (the 6 infinite, modifier-free ones grant tags such as
 Cloaked, Away or Dismissed), so Off Duty needs its own class.
@@ -264,7 +264,7 @@ supported by Zero Mod Manager). Override mods need no `GameFeatureData`. Run 4 r
 - The probe now loads classes the engine's way (`KismetSystemLibrary.MakeSoftClassPath` →
   `Conv_SoftClassPathToSoftClassRef` → `LoadClassAsset_Blocking`) and never touches unverified objects.
 - **Step 1 passed (2026-10-08, turn 28):** `Off Duty fatigue class | loaded: BlueprintGeneratedClass
-  /Game/OffDuty/Effects/GE_OffDuty_Fatigue.GE_OffDuty_Fatigue_C`. **A Linux cook of a shader-free
+/Game/OffDuty/Effects/GE_OffDuty_Fatigue.GE_OffDuty_Fatigue_C`. **A Linux cook of a shader-free
   Blueprint loads in the Windows game**, so no Windows cooking is needed for Off Duty's plugin.
   `GetGameplayEffectCount` accepts the class (`OD_Fatigue=0` on all 8 operators with a hub actor).
   The `convert_struct_to_lua_table: Skipping field 'SubPathString'` line is UE4SS converting the
@@ -288,7 +288,7 @@ Next diagnostic: the dump prints the live default-object flags of `GE_OffDuty_Fa
 ### Run 4, step 3 diagnostic result (2026-10-08)
 
 - Live default objects: `GE_OffDuty_Fatigue_C` and `GE_Injured_C` both `bIncludeInSaveData=true
-  bTerminateWithCombat=false DurationPolicy=1 (Infinite) StackingType=2 (AggregateByTarget)`. The
+bTerminateWithCombat=false DurationPolicy=1 (Infinite) StackingType=2 (AggregateByTarget)`. The
   cooked flags are right.
 - After save → load, Hawks's control `GE_Injured` (applied by the probe exactly like fatigue)
   **survived**; fatigue on all 8 operators **didn't**. The hub save does keep probe-applied effects.
@@ -304,7 +304,7 @@ Next diagnostic: the dump prints the live default-object flags of `GE_OffDuty_Fa
   load: the save system calls them natively, outside ProcessEvent. Fatigue reset again (`loaded now`).
 - Next: keep the class resident instead of loading it just in time. The probe can append it
   (**Ctrl+Shift+K**) to the game's own keep-loaded list, `UBrunoSaveGameSubsystem.TrackedPreloadObjects
-  .CachedObjects` (a transient `TArray<UObject*>` on a game-instance subsystem), and dumps report that
+.CachedObjects` (a transient `TArray<UObject*>` on a game-instance subsystem), and dumps report that
   list's size and whether our class is in it.
 - Keep-loaded retest: the append worked (259 → 260, class PRESENT), but after the load
   `CachedObjects` was **0**: it's a temporary preload cache, filled for a load and then emptied.
@@ -316,7 +316,7 @@ a **ZIP**: `SaveGame` (tagged-property data), `SaveGameTrackedClasses` (the prel
 `SaveGameSpawnedActors`, metadata, a screenshot and portraits.
 
 The test save made 6 s after applying fatigue (`HUB_Root_2026.10.08-13.53.37.sav`) contains **no
-trace of `GE_OffDuty_Fatigue`**: the effect was dropped while *saving*. Character effects are stored as
+trace of `GE_OffDuty_Fatigue`**: the effect was dropped while _saving_. Character effects are stored as
 tagged `FGameplayEffectSpec`s with `Def = "/Game/.../GE_X.Default__GE_X_C"`, so effect classes are
 loaded by path (they aren't on the preload lists, which cover rewards, customization, gear,
 abilities, recipes and characters).
@@ -330,6 +330,7 @@ cross-training) and simply weren't on anyone. `GE_OffDuty_Fatigue` had no compon
 `BitReactor.GameplayEffect.Persists` (the class isn't exposed to Python, so it's loaded by path and its
 `InheritableAssetTags` set by Unreal name; the tag text can't include `ParentTags`) and also sets the
 deprecated `InheritableGameplayEffectTags`. The cooked package now names the component and the tag.
+
 - **Verified in game (2026-10-08): with the `Persists` tag, fatigue survives a hub save → load.**
   One stack on all 8 operators with a hub actor, saved, loaded: `OD_Fatigue=1` on all 8, and the class
   was `already in memory` after the load (the save loads it by path). No preload or keep-loaded work is

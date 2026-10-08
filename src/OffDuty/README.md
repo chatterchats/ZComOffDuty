@@ -7,7 +7,6 @@ Tired of sending the same four operators on every mission? With Off Duty,
 operators **get tired from back-to-back deployments** and **recover while
 they're off duty**, so the rest of your company gets a chance to shine.
 
-
 ## What's planned
 
 - **Fatigue builds with every deployment.** Long missions and going down
@@ -21,12 +20,10 @@ they're off duty**, so the rest of your company gets a chance to shine.
 - **No surprises.** Squad select shows the exact penalty before you commit.
 - **Separate from injuries.** The game's injury system is left as it is.
 
-
 ## What you need
 
 - Star Wars: Zero Company
 - UE4SS for Star Wars Zero Company (from Nexus Mods)
-
 
 ## Installing
 
@@ -43,12 +40,10 @@ and make sure Off Duty is switched on.
    `SWZeroCompany/Binaries/Win64/ue4ss/Mods/`
 3. Start the game.
 
-
 ## Uninstalling
 
 Switch Off Duty off or remove it in your mod manager, or delete the
 **OffDuty** folder.
-
 
 ## Found a problem?
 

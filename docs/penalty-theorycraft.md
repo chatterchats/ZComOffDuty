@@ -5,17 +5,17 @@ everything ends up configurable.
 
 ## Ground truth from the game
 
-| Fact | Source |
-|---|---|
-| A turn is **3 AP** for moving, shooting and abilities (hub values show 1) | probe run 2 in-mission dump |
-| `AccuracyReduction` +1 = **−5% hit chance** | runs 2–3, hit breakdown "Penalty from Operation" |
-| Injury: −15% hit chance per stack (max 2 stacks) | `GE_Injured`: `AccuracyReduction` +3 |
-| Disoriented: −20% hit chance | `GE_Disoriented`: +4 |
-| Overwatch penalty: −5% per stack | `GE_OverwatchPenaltyStack`: +1 |
-| Shipped next-mission HP loss: −2 max HP per stack | `GE_Lose_NextMission_LoseMaxHealth` |
-| Operator max HP: 57–97 (base 28 + upgrades/class) | probe dumps, turn 28 |
-| Movement: 500 per move (600–700 with upgrades); Shocked halves it | `MovementPerAP`, `GE_Shocked` ×0.5 |
-| Base hit chance 100%, minus range/cover (e.g. −25% range, −35% cover) | hit-breakdown screenshots |
+| Fact                                                                      | Source                                           |
+| ------------------------------------------------------------------------- | ------------------------------------------------ |
+| A turn is **3 AP** for moving, shooting and abilities (hub values show 1) | probe run 2 in-mission dump                      |
+| `AccuracyReduction` +1 = **−5% hit chance**                               | runs 2–3, hit breakdown "Penalty from Operation" |
+| Injury: −15% hit chance per stack (max 2 stacks)                          | `GE_Injured`: `AccuracyReduction` +3             |
+| Disoriented: −20% hit chance                                              | `GE_Disoriented`: +4                             |
+| Overwatch penalty: −5% per stack                                          | `GE_OverwatchPenaltyStack`: +1                   |
+| Shipped next-mission HP loss: −2 max HP per stack                         | `GE_Lose_NextMission_LoseMaxHealth`              |
+| Operator max HP: 57–97 (base 28 + upgrades/class)                         | probe dumps, turn 28                             |
+| Movement: 500 per move (600–700 with upgrades); Shocked halves it         | `MovementPerAP`, `GE_Shocked` ×0.5               |
+| Base hit chance 100%, minus range/cover (e.g. −25% range, −35% cover)     | hit-breakdown screenshots                        |
 
 Losing 1 AP costs a third of a turn (see §7–8).
 
@@ -24,12 +24,12 @@ Losing 1 AP costs a third of a turn (see §7–8).
 Model: one mission per strategy turn, roster of 10, squad of 4, 24 missions, cap 3.
 "Avg at deploy" is the fatigue an operator carries into a mission.
 
-| Squad habit | R1: +1 per mission, −1 per turn off, +1 for deploying Exhausted | R3: +2 per mission, −1 per turn off |
-|---|---|---|
-| Same 4 every mission | 2.75 (88% of deployments at 3) | 2.83 |
-| Core 3 + rotating 4th | 2.06 (core always maxed) | 2.12 |
-| Two squads alternating | **0.00** (never penalized) | 1.75 (mostly 2) |
-| Freshest 4 each mission | **0.00** | 1.21 |
+| Squad habit             | R1: +1 per mission, −1 per turn off, +1 for deploying Exhausted | R3: +2 per mission, −1 per turn off |
+| ----------------------- | --------------------------------------------------------------- | ----------------------------------- |
+| Same 4 every mission    | 2.75 (88% of deployments at 3)                                  | 2.83                                |
+| Core 3 + rotating 4th   | 2.06 (core always maxed)                                        | 2.12                                |
+| Two squads alternating  | **0.00** (never penalized)                                      | 1.75 (mostly 2)                     |
+| Freshest 4 each mission | **0.00**                                                        | 1.21                                |
 
 - **R1 is a nudge:** "don't run the same people every mission." Two squads of 4 never feel it.
 - **R3 is real roster management:** even two alternating squads live at Exhausted; staying fresh
@@ -45,10 +45,10 @@ Model: one mission per strategy turn, roster of 10, squad of 4, 24 missions, cap
 
 Relative loss of expected hits, by base hit chance of the shot:
 
-| Penalty per level | Level | 85% shot | 65% shot | 40% shot |
-|---|---|---|---|---|
-| **−5% / level** | 1 / 2 / 3 | −6% / −12% / −18% | −8% / −15% / −23% | −13% / −25% / −38% |
-| **−10% / level** | 1 / 2 / 3 | −12% / −24% / −35% | −15% / −31% / −46% | −25% / −50% / −75% |
+| Penalty per level | Level | 85% shot       | 65% shot       | 40% shot       |
+| ----------------- | ----- | -------------- | -------------- | -------------- |
+| **−5% / level**   | 1/2/3 | −6%/−12%/−18%  | −8%/−15%/−23%  | −13%/−25%/−38% |
+| **−10% / level**  | 1/2/3 | −12%/−24%/−35% | −15%/−31%/−46% | −25%/−50%/-75% |
 
 - Hurts **risky shots** most, so it nudges tired operators toward good positioning. Thematic.
 - −10%/level reaches Disoriented (−20%) at level 2 and beats an injury at level 2. Too harsh for a
@@ -59,14 +59,14 @@ Relative loss of expected hits, by base hit chance of the shot:
 
 ### Max health
 
-| Penalty per level | On a 97 HP operator, levels 1 / 2 / 3 | On a 57 HP operator |
-|---|---|---|
-| Shipped effect, −2 per stack | −2 / −4 / −6 (≈2–6%) | −2 / −4 / −6 |
-| Custom effect, **−10% / level** | −10 / −19 / −29 | −6 / −11 / −17 |
+| Penalty per level            | 97 HP operator,      | 57 HP operator |
+| ---------------------------- | -------------------- | -------------- |
+| Shipped effect, −2 per stack | −2 / −4 / −6 (≈2–6%) | −2 / −4 / −6   |
+| Custom effect, −10% / level  | −10 / −19 / −29      | −6 / −11 / −17 |
 
 - **Class-neutral:** everyone needs HP. The fairest single axis.
 - Shrinks the safety margin rather than the toolkit (the Chaos Gate model): more downs, so more
-  injuries and more death risk. Fatigue then *feeds* the injury system without touching it.
+  injuries and more death risk. Fatigue then _feeds_ the injury system without touching it.
 - Less visible: a shorter health bar, unless the briefing lists it (the shipped effect has strategy
   text; a custom one needs our own, English-only, name).
 - The shipped −2 is too small to matter; a percentage version needs a custom effect (`MaxHealth`
@@ -75,8 +75,8 @@ Relative loss of expected hits, by base hit chance of the shot:
 ### Movement
 
 | Penalty per level | 500 base: levels 1 / 2 / 3 |
-|---|---|
-| **−10% / level** | 450 / 400 / 350 |
+| ----------------- | -------------------------- |
+| **−10% / level**  | 450 / 400 / 350            |
 
 - Never lethal by itself; it costs flanks, cover options and reach.
 - Skewed the other way: melee and flankers (Kabb, Tel-Rea) feel it most, snipers barely.
@@ -92,12 +92,12 @@ Relative loss of expected hits, by base hit chance of the shot:
 
 ## 3. Candidate packages
 
-| Package | Tired (1) | Exhausted (2) | Spent (3) | Strengths | Weaknesses |
-|---|---|---|---|---|---|
-| **A. Shaky aim** | −5% hit | −10% hit | −15% hit | Native, visible, simplest | Support/melee shrug it off |
-| **B. Worn down** | −10% max HP | −20% | −30% | Fair to every class | Hidden; drives injuries/deaths |
-| **C. Tiered mix** | −5% hit | −10% hit, −10% max HP | −15% hit, −20% max HP, −10% move | Gentle start, every class feels the top tiers | Most to explain; needs 2 custom effects |
-| **D. Class-aware** | axis per role: shooters aim, melee movement, support HP | | | Fairest | Needs reliable role detection; later |
+| Package            | Tired (1)                                               | Exhausted (2)         | Spent (3)                        | Strengths                                     | Weaknesses                              |
+| ------------------ | ------------------------------------------------------- | --------------------- | -------------------------------- | --------------------------------------------- | --------------------------------------- |
+| **A. Shaky aim**   | −5% hit                                                 | −10% hit              | −15% hit                         | Native, visible, simplest                     | Support/melee shrug it off              |
+| **B. Worn down**   | −10% max HP                                             | −20%                  | −30%                             | Fair to every class                           | Hidden; drives injuries/deaths          |
+| **C. Tiered mix**  | −5% hit                                                 | −10% hit, −10% max HP | −15% hit, −20% max HP, −10% move | Gentle start, every class feels the top tiers | Most to explain; needs 2 custom effects |
+| **D. Class-aware** | axis per role: shooters aim, melee movement, support HP |                       |                                  | Fairest                                       | Needs reliable role detection; later    |
 
 ## 4. Recommendation
 
@@ -128,12 +128,12 @@ missions-per-turn question above.
 Both recover one tier per two turns off; 2/4/6 drops the first tier on the first turn off, 1/3/5 on
 the second.
 
-| Squad habit (share at Ready / Tired / Exhausted / Spent) | 2/4/6 | 1/3/5 |
-|---|---|---|
-| Same 4 every mission | 0 / 0 / 0 / 100% | 0 / 0 / 0 / 100% |
-| Two squads alternating (10 operators) | 0 / 0 / 100% / 0 | 0 / 0 / 0 / 100% |
-| Freshest 4 each mission (10 operators) | 0 / 42% / 57% / 0 | 0 / 18% / 62% / 20% |
-| Three squads rotating (12 operators) | 100% / 0 / 0 / 0 | 100% / 0 / 0 / 0 |
+| Squad habit (Ready / Tired / Exhausted / Spent) | 2/4/6             | 1/3/5               |
+| ----------------------------------------------- | ----------------- | ------------------- |
+| Same 4 every mission                            | 0 / 0 / 0 / 100%  | 0 / 0 / 0 / 100%    |
+| Two squads alternating (10 operators)           | 0 / 0 / 100% / 0  | 0 / 0 / 0 / 100%    |
+| Freshest 4 each mission (10 operators)          | 0 / 42% / 57% / 0 | 0 / 18% / 62% / 20% |
+| Three squads rotating (12 operators)            | 100% / 0 / 0 / 0  | 100% / 0 / 0 / 0    |
 
 Recommendation: **2/4/6**. With +2 per mission, 1/3/5 makes Spent the steady state for two-squad
 play; 2/4/6 reserves Spent for a third consecutive mission. Optional stickiness: cap points at 7, so
@@ -141,13 +141,13 @@ four missions in a row keep an operator Spent through the first turn off.
 
 ### The chosen rules: 1/3/5, cap 7, +2 per mission, −1 per turn off
 
-| Squad habit (Ready / Tired / Exhausted / Spent at deployment) | Result |
-|---|---|
-| Same 4 every mission (10 operators) | 0 / 0 / 0 / 100% |
-| Two squads alternating (10) | 0 / 0 / 0 / 100% |
-| Freshest 4 each mission (10) | 0 / 18% / 50% / 32% |
-| Freshest 4 each mission (12) | 100% / 0 / 0 / 0 |
-| Three squads rotating (12) | 100% / 0 / 0 / 0 |
+| Squad habit (Ready / Tired / Exhausted / Spent) | Result              |
+| ----------------------------------------------- | ------------------- |
+| Same 4 every mission (10 operators)             | 0 / 0 / 0 / 100%    |
+| Two squads alternating (10)                     | 0 / 0 / 0 / 100%    |
+| Freshest 4 each mission (10)                    | 0 / 18% / 50% / 32% |
+| Freshest 4 each mission (12)                    | 100% / 0 / 0 / 0    |
+| Three squads rotating (12)                      | 100% / 0 / 0 / 0    |
 
 Recovery: 1 mission → 2 turns off to Ready; 2 in a row → 4; 3 → 6; 4 → 7.
 
@@ -178,12 +178,12 @@ third of a turn: the operator can still move and shoot but not also use an abili
 Odds over a 6-turn mission:
 
 | Chance per turn | ≥1 lost turn | ≥2 lost turns | Expected lost turns |
-|---|---|---|---|
-| 10% | 47% | 11% | 0.6 |
-| 15% | 62% | 22% | 0.9 |
-| 20% | 74% | 34% | 1.2 |
-| 25% | 82% | 47% | 1.5 |
-| 30% | 88% | 58% | 1.8 |
+| --------------- | ------------ | ------------- | ------------------- |
+| 10%             | 47%          | 11%           | 0.6                 |
+| 15%             | 62%          | 22%           | 0.9                 |
+| 20%             | 74%          | 34%           | 1.2                 |
+| 25%             | 82%          | 47%           | 1.5                 |
+| 30%             | 88%          | 58%           | 1.8                 |
 
 A **streak breaker** (no two lost turns in a row) trims 20% → 1.03 and 25% → 1.24 expected.
 
@@ -202,11 +202,11 @@ A **streak breaker** (no two lost turns in a row) trims 20% → 1.03 and 25% →
 
 ## 8. Working ladder (2026-10-08, user's proposal)
 
-| Tier | Penalty | Combat power (model) |
-|---|---|---|
-| Tired | −5% hit | 91% |
-| Exhausted | −10% hit, −5% max HP, 5% chance per turn to lose 1 AP | 77% |
-| Spent | −15% hit, −10% max HP, 10% chance per turn to lose 1 AP, −5% movement | 64% |
+| Tier      | Penalty                                                               | Combat power (model) |
+| --------- | --------------------------------------------------------------------- | -------------------- |
+| Tired     | −5% hit                                                               | 91%                  |
+| Exhausted | −10% hit, −5% max HP, 5% chance per turn to lose 1 AP                 | 77%                  |
+| Spent     | −15% hit, −10% max HP, 10% chance per turn to lose 1 AP, −5% movement | 64%                  |
 
 Model: a lost AP removes a third of that turn's output. Previous ladder (HP/move, no AP): 91 / 74 / 59%.
 Hard rules on 10 operators: average operator strength 76% (was 73%).
