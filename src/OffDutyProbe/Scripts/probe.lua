@@ -669,7 +669,26 @@ function M.start(runtime, actions, logger, config)
     -- under each slot's injury banner, driven from Lua (no view model), labelled with the slot
     -- operator's fatigue tier. Press again to rebuild; UI only, nothing is saved.
     local fatigue_banners = {}
-    local TIER_LABELS = { { 5, "SPENT" }, { 3, "EXHAUSTED" }, { 1, "TIRED" }, { 0, "RESTED" } }
+    -- Tier colours are a test: tints multiply the banner's red art, so results may differ.
+    local TIER_LABELS = {
+        { 5, "SPENT", { R = 0.75, G = 0.35, B = 1.0, A = 1.0 } },
+        { 3, "EXHAUSTED", { R = 1.0, G = 0.55, B = 0.1, A = 1.0 } },
+        { 1, "TIRED", { R = 1.0, G = 0.9, B = 0.35, A = 1.0 } },
+    }
+    local BANNER_IMAGES = { "Back", "PillBack", "PillBack_Highlight", "GlowBack", "EndCapBG", "Icon" }
+
+    local function plain(rich)
+        -- Slot names are rich text ("Tesh <Bold_Color>Hawks</>").
+        return (rich:gsub("<[^>]*>", ""):gsub("^%s+", ""):gsub("%s+$", ""))
+    end
+
+    local function colour_string(value)
+        local ok, s = pcall(function()
+            local c = value.SpecifiedColor or value
+            return string.format("%.2f,%.2f,%.2f,%.2f", c.R, c.G, c.B, c.A)
+        end)
+        return ok and s or "?"
+    end
 
     local function fatigue_by_name()
         local stacks = {}
@@ -688,7 +707,7 @@ function M.start(runtime, actions, logger, config)
 
     local function copy_slot_layout(from, to)
         for _, pair in ipairs({ { "Padding", "SetPadding" }, { "HorizontalAlignment", "SetHorizontalAlignment" },
-                                { "VerticalAlignment", "SetVerticalAlignment" } }) do
+                                { "VerticalAlignment", "SetVerticalAlignment" }, { "Size", "SetSize" } }) do
             pcall(function() to[pair[2]](to, from[pair[1]]) end)
         end
     end
@@ -704,7 +723,7 @@ function M.start(runtime, actions, logger, config)
         local built = 0
         for _, slot in pairs(ok and slots or {}) do
             if live(slot) then
-                local name = select(2, pcall(function() return text(slot.FullName:GetText()) end)) or "?"
+                local name = plain(select(2, pcall(function() return text(slot.FullName:GetText()) end)) or "?")
                 local entry = select(2, pcall(function() return slot.WBP_InjuryWarningEntry end))
                 local parent = valid(entry) and select(1, call(entry, "GetParent")) or nil
                 if not valid(parent) then
@@ -716,30 +735,51 @@ function M.start(runtime, actions, logger, config)
                         select(2, pcall(function() return text(entry.HeaderText:GetText()) end)) or "?",
                         full_name(parent):match("^(%S+)") or "?",
                         tostring(select(1, call(parent, "GetChildrenCount"))), tostring(index))
-                    local count = nil
-                    for known, value in pairs(stacks) do
-                        if name:upper() == known:upper() or name:upper():find(known:upper(), 1, true) then count = value end
-                    end
-                    local label = "NO FATIGUE DATA"
-                    if count then
+                    local transform = select(2, pcall(function() return entry.RenderTransform end))
+                    log("BANNER | slot %s | entry render scale %s | pivot %s | back colour %s | desired size %s",
+                        name,
+                        select(2, pcall(function() return string.format("%.2f,%.2f", transform.Scale.X, transform.Scale.Y) end)) or "?",
+                        select(2, pcall(function() return string.format("%.2f,%.2f", entry.RenderTransformPivot.X, entry.RenderTransformPivot.Y) end)) or "?",
+                        colour_string(select(2, pcall(function() return entry.Back.ColorAndOpacity end))),
+                        select(2, pcall(function() local d = entry:GetDesiredSize(); return string.format("%.0fx%.0f", d.X, d.Y) end)) or "?")
+                    local count = stacks[name]
+                    local label, colour = nil, nil
+                    if count == nil then
+                        label = "NO FATIGUE DATA"
+                    else
                         for _, tier in ipairs(TIER_LABELS) do
-                            if count >= tier[1] then label = string.format("%s (%d)", tier[2], count); break end
+                            if count >= tier[1] then label, colour = string.format("%s (%d)", tier[2], count), tier[3]; break end
                         end
                     end
-                    local banner, err = call(library, "Create", slot, entry:GetClass(), select(1, call(entry, "GetOwningPlayer")))
-                    if not valid(banner) then
-                        log("BANNER | slot %s | Create failed: %s", name, tostring(err))
+                    if label == nil then
+                        log("BANNER | slot %s | rested (%d), no banner", name, count)
                     else
-                        local new_slot, add_err = call(parent, "AddChild", banner)
-                        local entry_slot = select(2, pcall(function() return entry.Slot end))
-                        if valid(new_slot) and valid(entry_slot) then copy_slot_layout(entry_slot, new_slot) end
-                        local _, text_err = call(banner.HeaderText, "SetText", FText(label))
-                        call(banner, "SetVisibility", 4) -- SelfHitTestInvisible
-                        fatigue_banners[#fatigue_banners + 1] = banner
-                        built = built + 1
-                        log("BANNER | slot %s | added '%s' | slot %s%s%s", name, label,
-                            valid(new_slot) and (full_name(new_slot):match("^(%S+)") or "?") or "none",
-                            add_err and (" | add error " .. add_err) or "", text_err and (" | text error " .. text_err) or "")
+                        local banner, err = call(library, "Create", slot, entry:GetClass(), select(1, call(entry, "GetOwningPlayer")))
+                        if not valid(banner) then
+                            log("BANNER | slot %s | Create failed: %s", name, tostring(err))
+                        else
+                            local new_slot, add_err = call(parent, "AddChild", banner)
+                            local entry_slot = select(2, pcall(function() return entry.Slot end))
+                            if valid(new_slot) and valid(entry_slot) then copy_slot_layout(entry_slot, new_slot) end
+                            local _, text_err = call(banner.HeaderText, "SetText", FText(label))
+                            pcall(function()
+                                banner:SetRenderTransform(transform)
+                                banner:SetRenderTransformPivot(entry.RenderTransformPivot)
+                            end)
+                            local tinted = 0
+                            for _, image in ipairs(colour and BANNER_IMAGES or {}) do
+                                local widget = select(2, pcall(function() return banner[image] end))
+                                if valid(widget) and select(2, call(widget, "SetColorAndOpacity", colour)) == nil then
+                                    tinted = tinted + 1
+                                end
+                            end
+                            call(banner, "SetVisibility", 4) -- SelfHitTestInvisible
+                            fatigue_banners[#fatigue_banners + 1] = banner
+                            built = built + 1
+                            log("BANNER | slot %s | added '%s' | tinted %d image(s) | slot %s%s%s", name, label, tinted,
+                                valid(new_slot) and (full_name(new_slot):match("^(%S+)") or "?") or "none",
+                                add_err and (" | add error " .. add_err) or "", text_err and (" | text error " .. text_err) or "")
+                        end
                     end
                 end
             end
