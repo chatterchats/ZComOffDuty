@@ -13,8 +13,8 @@
 | Fatigue | State | In-mission effect |
 |---|---|---|
 | 0 | Ready | none |
-| 1 | Tired | small accuracy penalty |
-| 2+ | Exhausted | larger penalty; deploying adds +1 extra fatigue afterwards |
+| 1 | Tired | −5% hit chance (1 stack) |
+| 2+ | Exhausted | −10% (2 stacks), −15% at the cap; deploying adds +1 extra fatigue afterwards |
 
 - Gain: +1 per deployment; +1 for a long mission (`TotalTacticalRounds` threshold) or for going down.
 - Recover: −1 for each strategy turn the operator sits out.

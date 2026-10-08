@@ -154,9 +154,23 @@ Every piece of the core loop is now proven hookable or callable from Lua:
    (a per-campaign GUID). In v1 this becomes the custom `GE_OffDuty_Fatigue` stack on the
    strategy character.
 
+## In-game probe run 3 (2026-10-08, turn 29)
+
+- Same game session as run 2, so the probe still had `test_magnitude = 5` (config only
+  reloads on restart). Two `Ctrl+Shift+T` presses on Hawks → the hit breakdown showed
+  **"PENALTY FROM OPERATION −10%"**. `NextMissionCharacterEffects` stayed at 1 entry (one
+  per character).
+- **Q1 answered:** each `AddNextMissionCharacterEffect` call adds one stack, and each stack
+  (`AccuracyReduction` +1) is **−5 percentage points** of hit chance. `PrimaryMagnitude`
+  doesn't scale this effect (5 → one −5% stack in run 2). An injury stack (+3) is
+  therefore −15%.
+- Design consequence: penalty size = number of applications. Placeholder: Tired 1 stack
+  (−5%), Exhausted 2 stacks (−10%), deeper exhaustion 3 stacks (−15%), capped below an
+  injury's single-stack weight.
+
 ## Open questions (need game/probe testing)
 
-1. **AccuracyReduction units.** *(Run 2: probably −5% per point; run 3 confirms.)* Injury = 3, reward = 1–2, `MaxAccuracy` CDO = 1.0. What
+1. *(Answered in run 3: −5% hit chance per point; one point per application.)* **AccuracyReduction units.** Injury = 3, reward = 1–2, `MaxAccuracy` CDO = 1.0. What
    does +1 do to displayed hit chance? Test by stacking `GE_Lose_NextMission_RangedAccuracy`.
 2. *(Answered in run 1: 1 action + 1 move.)* **Base AP budget** for operators (CDO is 0; set by an init effect or data). Codex
    assumed 3 and ChatGPT assumed 2. Read `ActionPoints` on a live unit.
