@@ -165,3 +165,50 @@ recovery, thresholds and cap are all settings.
   would read as ×1.8).
 - Accuracy is the game's `GE_Lose_NextMission_RangedAccuracy`, queued 1/2/3 times.
 - The probe's **Ctrl+Shift+1/2/3** queue Tired/Exhausted/Spent on every roster operator not away.
+
+## 7. Idea: chance to lose an action point each turn (Long War Rebalance style)
+
+In LW Rebalance (XCOM: EW), deploying fatigued gives a chance each turn to lose 1 AP (2 when exhausted)
+instead of a flat penalty; fatigue gain scales with mission length.
+
+**Zero Company version.** A turn is 1 action + 1 move, so "lose 1 AP" means one of two things:
+
+- **Lose the move:** the operator can still act but not reposition. Tactically interesting, rarely fatal.
+- **Lose the action:** like the game's own `GE_Lethargy` (`ActionPoints` −1). Advantage-spending
+  abilities cost no AP, so even then it isn't a dead turn.
+
+Odds over a 6-turn mission:
+
+| Chance per turn | ≥1 lost turn | ≥2 lost turns | Expected lost turns |
+|---|---|---|---|
+| 10% | 47% | 11% | 0.6 |
+| 15% | 62% | 22% | 0.9 |
+| 20% | 74% | 34% | 1.2 |
+| 25% | 82% | 47% | 1.5 |
+| 30% | 88% | 58% | 1.8 |
+
+A **streak breaker** (no two lost turns in a row) trims 20% → 1.03 and 25% → 1.24 expected.
+
+- **Pros:** class-neutral (supports and melee feel it too, unlike accuracy); visible; LW-style drama.
+- **Cons:** variance; a lost action feels bad. Mitigate: announce it at turn start, streak breaker,
+  never on the first turn.
+- **Feasibility:** each unit's `UBitReactorAbilitySystemComponent::OnTeamTurnStarted(Team)` is bound
+  to `UTurnEventDispatcher`'s dynamic delegate (ProcessEvent, hookable from Lua); game effects already
+  remove points (`GE_Lethargy`, `GE_SetActionPoints`, `GE_SetMovementPoints`); 15 effects use
+  `TargetTeamTurnStart` triggers. No game effect uses a chance to apply, so the roll is Lua. To verify:
+  the hook fires, and our deduction lands after the turn-start refresh (`GE_ResetActionPoints`).
+- **Mission length:** in-mission, the chance could rise in long fights (e.g. +5% per round after
+  round 6); between missions, gain could add +1 for long missions (`UBRGameMissionToHubData.TotalTacticalRounds`).
+- **Recovery modifiers:** no Will in Zero Company; candidates are Medbay facilities/upgrades, bonds,
+  and traits. Later.
+
+Candidate tier ladder with it:
+
+| Tier | Penalty |
+|---|---|
+| Tired | −5% hit |
+| Exhausted | −10% hit; 15% chance per turn to lose the **move** |
+| Spent | −15% hit; 25% chance per turn to lose the **action** (Advantage abilities still usable) |
+
+This would replace the max-HP and movement parts (less hidden, no feeding of injuries), or sit on top
+of them as a Hard-only option.
