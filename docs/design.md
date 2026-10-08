@@ -10,20 +10,22 @@
 - **Fatigue is stored in the save** as stacks of a custom `GE_OffDuty_Fatigue` (2026-10-08). The
   sidecar-file plan is dropped: it couldn't follow save reloads.
 
-## Working model (numbers are playtest placeholders)
+## Working model (decided 2026-10-08; see penalty-theorycraft.md)
 
-| Fatigue | State | In-mission effect |
-|---|---|---|
-| 0 | Ready | none |
-| 1 | Tired | −5% hit chance (1 stack) |
-| 2+ | Exhausted | −10% (2 stacks), −15% at the cap; deploying adds +1 extra fatigue afterwards |
+- **Fatigue points:** +2 per mission played, −1 per strategy turn off, cap 7. Operators on an
+  operation are frozen (no gain, no recovery).
+- **Tiers (Hard preset):** Tired at 1, Exhausted at 3, Spent at 5. Standard preset: 2 / 4 / 6, cap 6.
 
-- Gain: +1 per deployment; +1 for a long mission (`TotalTacticalRounds` threshold) or for going down.
-- Recover: −1 for each strategy turn the operator sits out.
-- Story-required operators (`GetRequiredMissionCharacter`) can always deploy. Whether
-  they take the penalty is a setting.
+| Tier | Next-mission penalty |
+|---|---|
+| Ready | none |
+| Tired | −5% hit chance |
+| Exhausted | −10% hit chance, −10% max HP |
+| Spent | −15% hit chance, −20% max HP, −10% movement |
+
+- Push-through: any tier can deploy; story-required operators are never blocked.
 - Droids use the same system ("needs maintenance" wording).
-- The squad-select screen must show the exact penalty and what pushing will cost.
+- Squad select should show the tier and penalty before you commit.
 
 ## Implementation plan
 

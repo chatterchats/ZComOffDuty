@@ -117,8 +117,11 @@ missions-per-turn question above.
   (a strategy turn holds one played mission). No extra "push" penalty; +2 is already the hard version.
 - **Penalty: the tiered mix** (Tired −5% hit; Exhausted −10% hit, −10% max HP; Spent −15% hit,
   −20% max HP, −10% movement). Tired is meant to be an inconvenience; Spent is the deterrent.
-- Proposed, pending: **operations freeze fatigue** (operators Away neither gain nor recover; they also
-  have no hub actor, so their stacks can't be changed while away).
+- **Tiers on fatigue points: 1 / 3 / 5** (Tired / Exhausted / Spent), **cap 7**: the first turn off
+  doesn't drop a tier, and four missions in a row keep an operator Spent for two turns off.
+- **Operations are left alone:** operators on an operation neither gain nor recover fatigue. Operations
+  range from restful to strenuous, and classifying each by hand isn't worth it. (Away operators also
+  have no hub actor, so their stacks couldn't be changed anyway.)
 
 ### Tier thresholds on fatigue points: 2/4/6 vs 1/3/5
 
@@ -135,3 +138,20 @@ the second.
 Recommendation: **2/4/6**. With +2 per mission, 1/3/5 makes Spent the steady state for two-squad
 play; 2/4/6 reserves Spent for a third consecutive mission. Optional stickiness: cap points at 7, so
 four missions in a row keep an operator Spent through the first turn off.
+
+### The chosen rules: 1/3/5, cap 7, +2 per mission, −1 per turn off
+
+| Squad habit (Ready / Tired / Exhausted / Spent at deployment) | Result |
+|---|---|
+| Same 4 every mission (10 operators) | 0 / 0 / 0 / 100% |
+| Two squads alternating (10) | 0 / 0 / 0 / 100% |
+| Freshest 4 each mission (10) | 0 / 18% / 50% / 32% |
+| Freshest 4 each mission (12) | 100% / 0 / 0 / 0 |
+| Three squads rotating (12) | 100% / 0 / 0 / 0 |
+
+Recovery: 1 mission → 2 turns off to Ready; 2 in a row → 4; 3 → 6; 4 → 7.
+
+**12 operators is the line**: fully fresh at 12, about a third of deployments Spent at 10 even with
+perfect rotation. These rules become the **Hard** preset (meant for long campaigns and big rosters);
+a **Standard** preset (2/4/6, cap 6) keeps a 10-operator campaign mostly at Tired/Exhausted. Gain,
+recovery, thresholds and cap are all settings.
