@@ -785,6 +785,7 @@ function M.start(runtime, actions, logger, config)
         fatigue_banners = {}
         local library = cdo("/Script/UMG.Default__WidgetBlueprintLibrary")
         local compared = false
+        local logged_art = {}
         local stacks = fatigue_by_name()
         local ok, slots = pcall(FindAllOf, "WBP_CharacterSlot_C")
         local built = 0
@@ -839,8 +840,25 @@ function M.start(runtime, actions, logger, config)
                             local parts = {}
                             for _, node in ipairs(widget_tree(banner)) do
                                 parts[node.name] = node.widget
-                                if wanted[node.name] and select(2, call(node.widget, "SetColorAndOpacity", colour)) == nil then
-                                    tinted = tinted + 1
+                                if wanted[node.name] then
+                                    -- A multiply tint over red art only darkens it (seen in game), so log where the
+                                    -- red lives, then put the tier colour on the brush and leave the widget tint white.
+                                    if not logged_art[node.name] then
+                                        logged_art[node.name] = true
+                                        log("BANNER ART | %s | widget tint %s | brush tint %s | draws %s", node.name,
+                                            colour_string(select(2, pcall(function() return node.widget.ColorAndOpacity end))),
+                                            colour_string(select(2, pcall(function() return node.widget.Brush.TintColor end))),
+                                            full_name(select(2, pcall(function() return node.widget.Brush.ResourceObject end))))
+                                    end
+                                    local _, white_err = call(node.widget, "SetColorAndOpacity", { R = 1, G = 1, B = 1, A = 1 })
+                                    local _, brush_err = call(node.widget, "SetBrushTintColor",
+                                        { SpecifiedColor = colour, ColorUseRule = 0 })
+                                    if white_err == nil and brush_err == nil then
+                                        tinted = tinted + 1
+                                    elseif not logged_art[node.name .. "!"] then
+                                        logged_art[node.name .. "!"] = true
+                                        log("BANNER ART | %s | tint failed: %s %s", node.name, tostring(white_err), tostring(brush_err))
+                                    end
                                 end
                             end
                             -- Pips: the game shows Injury_1 for one injury and adds Injury_2 for two.
