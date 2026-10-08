@@ -334,3 +334,14 @@ deprecated `InheritableGameplayEffectTags`. The cooked package now names the com
   One stack on all 8 operators with a hub actor, saved, loaded: `OD_Fatigue=1` on all 8, and the class
   was `already in memory` after the load (the save loads it by path). No preload or keep-loaded work is
   needed. Remaining run 4 checks: mission round trip (deployed and benched) and uninstall.
+- **Mission round trip (2026-10-08): passes.** Fatigue stacks on deployed and benched operators survive
+  a mission and the return to the hub.
+- **Uninstall (2026-10-08): safe.** With `~mods/OffDuty_P.*` removed, the save made with fatigue loads
+  normally and the probe shows `OD_Fatigue=0` (the game skips the effect it can't resolve). Putting the
+  pak back and loading the same save restores the stacks: the save keeps the data until it's
+  overwritten. (Saving while the mod is removed would drop fatigue for good, which is fine.)
+
+**Phase 0 is complete.** Every piece of the design is verified in game: fatigue is stored as saved
+stacks of `GE_OffDuty_Fatigue`, the penalty uses the game's next-mission accuracy effect, mission start
+(`ApplyNextMissionEffectsToCharacter`) shows who deployed, `EndStrategyTurn` drives recovery, and
+removing the mod can't break a save.
