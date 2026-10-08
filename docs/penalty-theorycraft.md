@@ -155,3 +155,13 @@ Recovery: 1 mission → 2 turns off to Ready; 2 in a row → 4; 3 → 6; 4 → 7
 perfect rotation. These rules become the **Hard** preset (meant for long campaigns and big rosters);
 a **Standard** preset (2/4/6, cap 6) keeps a 10-operator campaign mostly at Tired/Exhausted. Gain,
 recovery, thresholds and cap are all settings.
+
+## 6. Feel test setup (2026-10-08)
+
+- `GE_OffDuty_Exhausted` (MaxHealth ×0.9) and `GE_OffDuty_Spent` (MaxHealth ×0.8, MovementPerAP ×0.9)
+  copy the game's next-mission penalty pattern: removed when combat ends, not saved, tags
+  `TemporaryPenalty` + `StatusEffect.Negative`, briefing text through `BrunoGameEffectUIData`.
+  They don't stack: `MultiplyAdditive` magnitudes are multiplied by the stack count (two ×0.9 stacks
+  would read as ×1.8).
+- Accuracy is the game's `GE_Lose_NextMission_RangedAccuracy`, queued 1/2/3 times.
+- The probe's **Ctrl+Shift+1/2/3** queue Tired/Exhausted/Spent on every roster operator not away.

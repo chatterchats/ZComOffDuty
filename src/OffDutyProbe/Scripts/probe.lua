@@ -12,6 +12,14 @@ local TRACKED_EFFECTS = {
     { label = "NM_LoseAccuracy", path = class_path(NEXT_MISSION_EFFECTS, "GE_Lose_NextMission_RangedAccuracy") },
     { label = "NM_LoseMaxHealth", path = class_path(NEXT_MISSION_EFFECTS, "GE_Lose_NextMission_LoseMaxHealth") },
     { label = "OD_Fatigue", path = "/Game/OffDuty/Effects/GE_OffDuty_Fatigue.GE_OffDuty_Fatigue_C" },
+    { label = "OD_Exhausted", path = "/Game/OffDuty/Effects/GE_OffDuty_Exhausted.GE_OffDuty_Exhausted_C" },
+    { label = "OD_Spent", path = "/Game/OffDuty/Effects/GE_OffDuty_Spent.GE_OffDuty_Spent_C" },
+}
+-- Ctrl+Shift+1/2/3: queue a tier's next-mission penalty (accuracy = stacks of the game's -5% effect).
+local TIERS = {
+    { name = "Tired", accuracy_stacks = 1 },
+    { name = "Exhausted", accuracy_stacks = 2, effect = "GE_OffDuty_Exhausted" },
+    { name = "Spent", accuracy_stacks = 3, effect = "GE_OffDuty_Spent" },
 }
 -- Off Duty's own effect: Content/Paks/~mods/OffDuty_P.* (a Linux cook, remapped onto /Game).
 local FATIGUE_EFFECT = "/Game/OffDuty/Effects/GE_OffDuty_Fatigue.GE_OffDuty_Fatigue_C"
@@ -588,6 +596,32 @@ function M.start(runtime, actions, logger, config)
         log("CONTROL | no operator with an ability system component")
     end
 
+    local function queue_tier(level)
+        local tier = TIERS[level]
+        local wco = world_context()
+        if not wco or not roster_statics() then log("TIER | no world context (load a campaign first)"); return end
+        local accuracy = load_class(class_path(NEXT_MISSION_EFFECTS, "GE_Lose_NextMission_RangedAccuracy"))
+        local extra = tier.effect and load_class("/Game/OffDuty/Effects/" .. tier.effect .. "." .. tier.effect .. "_C") or nil
+        if not accuracy or (tier.effect and not extra) then log("TIER | effect classes not loadable"); return end
+        local queued = 0
+        for _, member in ipairs((roster_members(wco))) do
+            if not member.away then
+                local name = member.actor and (character_name(member.actor) or full_name(member.actor)) or ("id " .. tostring(member.id))
+                local err
+                for _ = 1, tier.accuracy_stacks do
+                    _, err = call(bruno_statics(), "AddNextMissionCharacterEffect", wco, member.guid, accuracy, 1)
+                end
+                if extra and not err then
+                    _, err = call(bruno_statics(), "AddNextMissionCharacterEffect", wco, member.guid, extra, 1)
+                end
+                log("TIER | %s queued for %s%s", tier.name, name, err and (" | error " .. err) or "")
+                queued = queued + 1
+            end
+        end
+        log("TIER | %s queued on %d operator(s) for their next mission | next-mission entries %s | press once: reload the save to undo",
+            tier.name, queued, next_mission_map_count())
+    end
+
     local function apply_test()
         local wco = world_context()
         local statics = roster_statics()
@@ -633,6 +667,11 @@ function M.start(runtime, actions, logger, config)
     runtime:register_keybind(Key.F, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
         actions:schedule_after("fatigue", 0, function() change_fatigue(true) end)
     end)
+    for level, key in ipairs({ Key.ONE, Key.TWO, Key.THREE }) do
+        runtime:register_keybind(key, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
+            actions:schedule_after("tier", 0, function() queue_tier(level) end)
+        end)
+    end
     runtime:register_keybind(Key.K, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
         actions:schedule_after("keep", 0, keep_fatigue_loaded)
     end)
@@ -642,7 +681,7 @@ function M.start(runtime, actions, logger, config)
     runtime:register_keybind(Key.G, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
         actions:schedule_after("fatigue", 0, function() change_fatigue(false) end)
     end)
-    log("Ready | Ctrl+Shift+D = dump | Ctrl+Shift+T = test next-mission effect | Ctrl+Shift+F/G = +1/-1 fatigue stack on every operator | Ctrl+Shift+I = control injury on one operator | Ctrl+Shift+K = keep fatigue class loaded")
+    log("Ready | Ctrl+Shift+D = dump | Ctrl+Shift+T = test next-mission effect | Ctrl+Shift+F/G = +1/-1 fatigue stack on every operator | Ctrl+Shift+I = control injury on one operator | Ctrl+Shift+K = keep fatigue class loaded | Ctrl+Shift+1/2/3 = queue Tired/Exhausted/Spent penalty")
 end
 
 return M

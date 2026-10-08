@@ -129,7 +129,7 @@ already lists. Story requirements come from
 │   └── OffDutyProbe/                     # developer probe; never packaged
 ├── unreal/
 │   ├── OffDuty/                          # Unreal plugin: GE_OffDuty_Fatigue (fatigue storage)
-│   └── scripts/create_fatigue_effect.py  # authors the plugin's assets (editor Python)
+│   └── scripts/create_effects.py  # authors the plugin's assets (editor Python)
 ├── tests/                                # LuaJIT tests with UE4SS fakes
 └── tools/
     ├── build_plugin.sh                   # cook + package the Unreal plugin (SWZC Merged Kit)

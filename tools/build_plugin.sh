@@ -5,7 +5,7 @@
 #   tools/build_plugin.sh --install  also copy it into the game's SWZeroCompany/Mods/
 #
 # Steps:
-#   1. unreal/scripts/create_fatigue_effect.py creates/updates the assets (headless editor)
+#   1. unreal/scripts/create_effects.py creates/updates the assets (headless editor)
 #   2. DLC cook against the BaseGame release, then IoStore packaging (UAT BuildCookRun)
 #   3. assemble a ~mods pak mod (a Modkit "override" mod: content remapped onto /Game):
 #        SWZeroCompany/Content/Paks/~mods/OffDuty_P.{pak,ucas,utoc}
@@ -41,7 +41,7 @@ cp "$kit/Releases/BaseGame/Windows/AssetRegistry.bin" "$kit/Releases/BaseGame/$p
 
 echo "1/3 Authoring assets"
 "$engine/Binaries/Linux/UnrealEditor-Cmd" "$project" -run=pythonscript \
-    -script="$repo/unreal/scripts/create_fatigue_effect.py" \
+    -script="$repo/unreal/scripts/create_effects.py" \
     -unattended -nop4 -nosplash -NullRHI -stdout -FullStdOutLogOutput -NoCrashDialog \
     > "$logs/author.log" 2>&1 || true
 grep -q "OFFDUTY_RESULT ok" "$logs/author.log" || { grep OFFDUTY "$logs/author.log" >&2; echo "Authoring failed; see $logs/author.log" >&2; exit 1; }

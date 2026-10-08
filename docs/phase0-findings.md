@@ -228,7 +228,7 @@ Cloaked, Away or Dismissed), so Off Duty needs its own class.
 
 - **SWZC Merged Kit** (`ZComMods/SWZCMergedKit/merge.py`): the SDK's complete classes plus the
   Modkit's mod pipeline. Builds on Linux; `GameAssetProbe` reads game effects identically to the SDK.
-- `unreal/scripts/create_fatigue_effect.py` authors the plugin's assets headlessly;
+- `unreal/scripts/create_effects.py` authors the plugin's assets headlessly;
   `tools/build_plugin.sh` cooks, packages and assembles `SWZeroCompany/Mods/OffDuty/` like Mod
   Studio releases (`OffDuty.uplugin`, `AssetRegistry.bin`, `Content/Paks/OffDuty_P.*`).
 - **The Linux editor can't cook for Windows** (target platform list: Linux, Android only; the same
