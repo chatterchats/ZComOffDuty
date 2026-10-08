@@ -110,3 +110,28 @@ Relative loss of expected hits, by base hit chance of the shot:
 
 Decisions needed: pressure level (R1 nudge vs R3 roster management), package, and the
 missions-per-turn question above.
+
+## 5. Decisions so far (2026-10-08)
+
+- **Accumulation: the hard rule.** +2 fatigue per mission played, −1 per strategy turn off
+  (a strategy turn holds one played mission). No extra "push" penalty; +2 is already the hard version.
+- **Penalty: the tiered mix** (Tired −5% hit; Exhausted −10% hit, −10% max HP; Spent −15% hit,
+  −20% max HP, −10% movement). Tired is meant to be an inconvenience; Spent is the deterrent.
+- Proposed, pending: **operations freeze fatigue** (operators Away neither gain nor recover; they also
+  have no hub actor, so their stacks can't be changed while away).
+
+### Tier thresholds on fatigue points: 2/4/6 vs 1/3/5
+
+Both recover one tier per two turns off; 2/4/6 drops the first tier on the first turn off, 1/3/5 on
+the second.
+
+| Squad habit (share at Ready / Tired / Exhausted / Spent) | 2/4/6 | 1/3/5 |
+|---|---|---|
+| Same 4 every mission | 0 / 0 / 0 / 100% | 0 / 0 / 0 / 100% |
+| Two squads alternating (10 operators) | 0 / 0 / 100% / 0 | 0 / 0 / 0 / 100% |
+| Freshest 4 each mission (10 operators) | 0 / 42% / 57% / 0 | 0 / 18% / 62% / 20% |
+| Three squads rotating (12 operators) | 100% / 0 / 0 / 0 | 100% / 0 / 0 / 0 |
+
+Recommendation: **2/4/6**. With +2 per mission, 1/3/5 makes Spent the steady state for two-squad
+play; 2/4/6 reserves Spent for a third consecutive mission. Optional stickiness: cap points at 7, so
+four missions in a row keep an operator Spent through the first turn off.
