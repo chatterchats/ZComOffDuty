@@ -14,6 +14,9 @@ Keys avoid F10 (ConsoleEnablerMod's console) and F11 (fullscreen toggle).
 - **Ctrl+Shift+F / Ctrl+Shift+G** add / remove one `GE_OffDuty_Fatigue` stack on every
   roster operator who has a live actor (needs `~mods/OffDuty_P.*`, `tools/build_plugin.sh --install`).
   Writes to your save once you save, so **use a throwaway save**.
+- **Ctrl+Shift+U** (in squad select): dumps the injury banner's effect lists: the
+  `EffectQuery` that picks which effects count, the effects each list holds, and the
+  tags on `GE_Injured` and `GE_OffDuty_Fatigue` for comparison. Read-only.
 - **Ctrl+Shift+T** calls `AddNextMissionCharacterEffect` on one operator (see
   `Scripts/config.lua`). This is the probe's only write to the game. **Use a throwaway save.**
 

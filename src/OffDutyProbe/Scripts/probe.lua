@@ -574,6 +574,97 @@ function M.start(runtime, actions, logger, config)
         log("FATIGUE | %s on %d operator(s) with a live actor (roster %d)", add and "added" or "removed", changed, #members)
     end
 
+    -- Ctrl+Shift+U (squad select): what the injury banner lists. Each WBP_InjuryWarningEntry binds a
+    -- BrunoGameplayEffectListViewModel and shows its effects' stack count; its EffectQuery decides
+    -- which effects count. Also prints GE_Injured's and our fatigue effect's tags for comparison.
+    local function tag_names(container)
+        local names = {}
+        pcall(function()
+            array_each(unwrap(container).GameplayTags, function(_, tag)
+                names[#names + 1] = text(tag.TagName) or "?"
+            end)
+        end)
+        return #names > 0 and table.concat(names, ", ") or "-"
+    end
+
+    local function tag_query(query)
+        local tags, tokens = {}, {}
+        pcall(function()
+            array_each(query.TagDictionary, function(_, tag) tags[#tags + 1] = text(tag.TagName) or "?" end)
+        end)
+        pcall(function()
+            array_each(query.QueryTokenStream, function(_, byte) tokens[#tokens + 1] = tostring(byte) end)
+        end)
+        if #tags == 0 and #tokens == 0 then return "empty" end
+        return string.format("tags [%s] tokens [%s]", table.concat(tags, ", "), table.concat(tokens, " "))
+    end
+
+    local function effect_tags(label, default_object_path)
+        local defaults = cdo(default_object_path)
+        if not defaults then log("UI | %s | not loaded (%s)", label, default_object_path); return end
+        local parts = {}
+        pcall(function()
+            array_each(defaults.GEComponents, function(_, component)
+                local name = full_name(component):match("^(%S+)") or "?"
+                local detail = ""
+                for _, field in ipairs({ "InheritableAssetTags", "InheritableGrantedTagsContainer",
+                                         "InheritableBlockedAbilityTagsContainer" }) do
+                    local ok, value = pcall(function() return component[field] end)
+                    if ok and value ~= nil then
+                        local tags = tag_names(value.CombinedTags)
+                        if tags ~= "-" then detail = detail .. string.format(" %s=[%s]", field, tags) end
+                    end
+                end
+                parts[#parts + 1] = name .. detail
+            end)
+        end)
+        log("UI | %s | components: %s", label, #parts > 0 and table.concat(parts, " | ") or "none")
+    end
+
+    local function dump_injury_ui()
+        log("UI | ---- injury banner dump ----")
+        local ok, lists = pcall(FindAllOf, "BrunoGameplayEffectListViewModel")
+        local count = 0
+        for _, list in pairs(ok and lists or {}) do
+            if live(list) then
+                count = count + 1
+                local q_ok, query = pcall(function() return list.EffectQuery end)
+                if q_ok and query ~= nil then
+                    local fields = {}
+                    for _, field in ipairs({ "OwningTagQuery", "EffectTagQuery", "SourceAggregateTagQuery",
+                                             "SourceTagQuery" }) do
+                        local f_ok, value = pcall(function() return query[field] end)
+                        if f_ok and value ~= nil then fields[#fields + 1] = field .. "=" .. tag_query(value) end
+                    end
+                    local def_ok, definition = pcall(function() return query.EffectDefinition end)
+                    fields[#fields + 1] = "EffectDefinition=" .. (def_ok and valid(definition) and full_name(definition) or "none")
+                    local attr_ok, attribute = pcall(function() return text(query.ModifyingAttribute.AttributeName) end)
+                    fields[#fields + 1] = "ModifyingAttribute=" .. (attr_ok and attribute or "?")
+                    log("UI | list %d %s | query: %s", count, full_name(list), table.concat(fields, " | "))
+                else
+                    log("UI | list %d %s | EffectQuery unreadable: %s", count, full_name(list), tostring(query))
+                end
+                local effects = to_list(select(1, call(list, "GetEffectViewModels")))
+                log("UI | list %d | %d effect view model(s)", count, #effects)
+                for _, vm in ipairs(effects) do
+                    local function field(name)
+                        local f_ok, value = pcall(function() return vm[name] end)
+                        return f_ok and text(value) or "?"
+                    end
+                    log("UI |   effect %s | stacks %s/%s | notification %s | asset tags [%s] | granted [%s]",
+                        field("DisplayableEffectName"), field("CurrentStackCount"), field("StackLimit"),
+                        select(2, pcall(function() return text(vm.NotificationTag.TagName) end)) or "?",
+                        tag_names(select(2, pcall(function() return vm.AssetTags end))),
+                        tag_names(select(2, pcall(function() return vm.GrantedTags end))))
+                end
+            end
+        end
+        log("UI | %d live effect list view model(s)%s", count,
+            count == 0 and " (open squad select with an injured operator first)" or "")
+        effect_tags("GE_Injured", "/Game/Game/GameData/Abilities/ResultEffects/GE_Injured.Default__GE_Injured_C")
+        effect_tags("GE_OffDuty_Fatigue", "/Game/OffDuty/Effects/GE_OffDuty_Fatigue.Default__GE_OffDuty_Fatigue_C")
+    end
+
     -- Ctrl+Shift+I: control for the save test; one GE_Injured stack on the first operator with an actor.
     local function apply_control_injury()
         local wco = world_context()
@@ -740,10 +831,13 @@ function M.start(runtime, actions, logger, config)
     runtime:register_keybind(Key.I, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
         actions:schedule_after("control", 0, apply_control_injury)
     end)
+    runtime:register_keybind(Key.U, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
+        actions:schedule_after("ui", 0, dump_injury_ui)
+    end)
     runtime:register_keybind(Key.G, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
         actions:schedule_after("fatigue", 0, function() change_fatigue(false) end)
     end)
-    log("Ready | Ctrl+Shift+D = dump | Ctrl+Shift+T = test next-mission effect | Ctrl+Shift+F/G = +1/-1 fatigue stack on every operator | Ctrl+Shift+I = control injury on one operator | Ctrl+Shift+K = keep fatigue class loaded | Ctrl+Shift+1/2/3 = queue Tired/Exhausted/Spent penalty")
+    log("Ready | Ctrl+Shift+D = dump | Ctrl+Shift+T = test next-mission effect | Ctrl+Shift+F/G = +1/-1 fatigue stack on every operator | Ctrl+Shift+I = control injury on one operator | Ctrl+Shift+K = keep fatigue class loaded | Ctrl+Shift+1/2/3 = queue Tired/Exhausted/Spent penalty | Ctrl+Shift+U = injury banner dump (squad select)")
 end
 
 return M
