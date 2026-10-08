@@ -8,3 +8,8 @@
 
 *.png binary
 *.zip binary
+*.uasset binary
+*.uexp binary
+*.pak binary
+*.ucas binary
+*.utoc binary

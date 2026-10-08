@@ -206,3 +206,34 @@ This is the known missing-Wwise blocker (`AI+/BLOCKERS.md`): any UI package that
 references Wwise UI sounds can't be loaded in the SDK. Q3 stays with the in-game
 probe (`src/OffDutyProbe`). Data-only packages (GameplayEffects, recipes) without
 audio references should still probe fine.
+
+## Fatigue storage: a custom saved effect (2026-10-08)
+
+### Which effects the game saves
+
+`UBitReactorGameplayEffect` has `bIncludeInSaveData` and `bTerminateWithCombat` (UHT header; the
+Modkit's proxy lacked all 5 of the class's properties). Across 674 game effects, 148 set
+`bIncludeInSaveData`:
+
+| Effect | `bIncludeInSaveData` | `bTerminateWithCombat` | Lifetime |
+|---|---|---|---|
+| `GE_Injured` | true | false | saves and missions |
+| `GE_Lose_NextMission_*` | false | true | one mission (explains run 2) |
+| `GE_Shocked` | true | true | in-mission status |
+
+No shipped saved effect is inert and stackable (the 6 infinite, modifier-free ones grant tags such as
+Cloaked, Away or Dismissed), so Off Duty needs its own class.
+
+### Tooling
+
+- **SWZC Merged Kit** (`ZComMods/SWZCMergedKit/merge.py`): the SDK's complete classes plus the
+  Modkit's mod pipeline. Builds on Linux; `GameAssetProbe` reads game effects identically to the SDK.
+- `unreal/scripts/create_fatigue_effect.py` authors the plugin's assets headlessly;
+  `tools/build_plugin.sh` cooks, packages and assembles `SWZeroCompany/Mods/OffDuty/` like Mod
+  Studio releases (`OffDuty.uplugin`, `AssetRegistry.bin`, `Content/Paks/OffDuty_P.*`).
+- **The Linux editor can't cook for Windows** (target platform list: Linux, Android only; the same
+  limit is recorded in AI+ backlog #10). The plugin is cooked for Linux. `GE_OffDuty_Fatigue` has
+  no shaders, textures or platform-specific data, so the Linux cook should load in the Windows game.
+  **Probe run 4 verifies this**, plus save persistence, a mission round trip and uninstall.
+- Build notes: UAT needs `NuGetAudit=false` (new advisories for its bundled Magick.NET fail the
+  script build), `UnrealPak` had to be built for Linux, and `UnrealPak -Extract` is broken on Linux.

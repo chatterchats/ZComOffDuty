@@ -11,7 +11,10 @@ local TRACKED_EFFECTS = {
     { label = "Injured", path = class_path(RESULT_EFFECTS, "GE_Injured") },
     { label = "NM_LoseAccuracy", path = class_path(NEXT_MISSION_EFFECTS, "GE_Lose_NextMission_RangedAccuracy") },
     { label = "NM_LoseMaxHealth", path = class_path(NEXT_MISSION_EFFECTS, "GE_Lose_NextMission_LoseMaxHealth") },
+    { label = "OD_Fatigue", path = "/OffDuty/Effects/GE_OffDuty_Fatigue.GE_OffDuty_Fatigue_C" },
 }
+-- Off Duty's own effect, from the OffDuty plugin in SWZeroCompany/Mods (a Linux cook).
+local FATIGUE_EFFECT = "/OffDuty/Effects/GE_OffDuty_Fatigue.GE_OffDuty_Fatigue_C"
 local COMBAT_ATTRIBUTES = {
     "ActionPoints", "RefreshActionPoints", "MovementActionPoints", "RefreshMovementActionPoints",
     "MovementPerAP", "SpecialActionPoints", "ClassTacticPoints",
@@ -364,6 +367,8 @@ function M.start(runtime, actions, logger, config)
         log("==== DUMP (%s) ====", reason)
         local wco = world_context()
         log("World context | %s", wco and full_name(wco) or "none")
+        local fatigue_class = load_class(FATIGUE_EFFECT)
+        log("Off Duty fatigue class | %s", fatigue_class and ("loaded: " .. full_name(fatigue_class)) or "NOT FOUND (OffDuty plugin not mounted or not loadable)")
         local turn_manager = find_live("BrunoStrategyTurnManager")
         if turn_manager then
             log("Strategy turn | %s", tostring(select(1, call(turn_manager, "GetStrategyTurn"))))
@@ -413,6 +418,38 @@ function M.start(runtime, actions, logger, config)
         install_blueprint_hooks("dump")
     end
 
+    -- Ctrl+Shift+F / Ctrl+Shift+G: one fatigue stack on/off every roster operator with a live actor.
+    local function change_fatigue(add)
+        local wco = world_context()
+        if not wco or not roster_statics() then log("FATIGUE | no world context (load a campaign first)"); return end
+        local class = load_class(FATIGUE_EFFECT)
+        if not class then log("FATIGUE | GE_OffDuty_Fatigue not loadable; is SWZeroCompany/Mods/OffDuty installed?"); return end
+        local remover = cdo("/Script/BitReactorGame.Default__BitReactorAbilityScriptingFunctions")
+        local members = roster_members(wco)
+        local changed = 0
+        for _, member in ipairs(members) do
+            if member.actor then
+                local name = character_name(member.actor) or full_name(member.actor)
+                local asc = select(1, call(ability_library(), "GetAbilitySystemComponent", member.actor))
+                if valid(asc) then
+                    local err
+                    if add then
+                        local context = select(1, call(asc, "MakeEffectContext"))
+                        _, err = call(asc, "BP_ApplyGameplayEffectToSelf", class, 1.0, context)
+                    else
+                        _, err = call(remover, "RemoveEffectByClass", asc, class, 1)
+                    end
+                    local stacks = select(1, call(asc, "GetGameplayEffectCount", class, nil, true))
+                    log("FATIGUE | %s | %s | stacks now %s%s", add and "+1" or "-1", name, tostring(stacks), err and (" | error " .. err) or "")
+                    changed = changed + 1
+                else
+                    log("FATIGUE | %s | no ability system component", name)
+                end
+            end
+        end
+        log("FATIGUE | %s on %d operator(s) with a live actor (roster %d)", add and "added" or "removed", changed, #members)
+    end
+
     local function apply_test()
         local wco = world_context()
         local statics = roster_statics()
@@ -455,7 +492,13 @@ function M.start(runtime, actions, logger, config)
     runtime:register_keybind(Key.T, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
         actions:schedule_after("test", 0, apply_test)
     end)
-    log("Ready | Ctrl+Shift+D = dump roster/units + install screen hooks | Ctrl+Shift+T = apply test next-mission effect")
+    runtime:register_keybind(Key.F, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
+        actions:schedule_after("fatigue", 0, function() change_fatigue(true) end)
+    end)
+    runtime:register_keybind(Key.G, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
+        actions:schedule_after("fatigue", 0, function() change_fatigue(false) end)
+    end)
+    log("Ready | Ctrl+Shift+D = dump | Ctrl+Shift+T = test next-mission effect | Ctrl+Shift+F/G = +1/-1 fatigue stack on every operator")
 end
 
 return M

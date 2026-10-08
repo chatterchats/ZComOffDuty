@@ -1,0 +1,79 @@
+#!/bin/sh
+# Build Off Duty's Unreal plugin (GE_OffDuty_Fatigue) with the SWZC Merged Kit.
+#
+#   tools/build_plugin.sh            author, cook, package and assemble dist/plugin/
+#   tools/build_plugin.sh --install  also copy it into the game's SWZeroCompany/Mods/
+#
+# Steps:
+#   1. unreal/scripts/create_fatigue_effect.py creates/updates the assets (headless editor)
+#   2. DLC cook against the BaseGame release, then IoStore packaging (UAT BuildCookRun)
+#   3. assemble the layout the game loads (same as Mod Studio releases):
+#        SWZeroCompany/Mods/OffDuty/OffDuty.uplugin
+#        SWZeroCompany/Mods/OffDuty/AssetRegistry.bin
+#        SWZeroCompany/Mods/OffDuty/Content/Paks/OffDuty_P.{pak,ucas,utoc}
+#
+# The Linux editor has no Windows target platform, so this cooks for Linux. GE_OffDuty_Fatigue
+# has no shaders, textures or other platform-specific data; whether a Linux cook loads in the
+# Windows game is being verified in game (docs/phase0-findings.md).
+#
+# Environment: SWZC_ROOT (default /run/media/chats/0c7bd812-03b4-405c-9602-31282b68fd64),
+#              SWZC_KIT (default "$SWZC_ROOT/SWZC Merged Kit"), SWZC_GAME (game install root).
+set -eu
+cd "$(dirname "$0")/.."
+repo=$(pwd)
+root=${SWZC_ROOT:-/run/media/chats/0c7bd812-03b4-405c-9602-31282b68fd64}
+kit=${SWZC_KIT:-"$root/SWZC Merged Kit"}
+engine="$root/UnrealEngine/Engine"
+project="$kit/SWZeroCompany.uproject"
+platform=Linux
+logs="$repo/dist/plugin-logs"
+out="$repo/dist/plugin/SWZeroCompany/Mods/OffDuty"
+install=false
+[ "${1:-}" = "--install" ] && install=true
+
+mkdir -p "$logs"
+[ -f "$project" ] || { echo "SWZC Merged Kit not found: $project" >&2; exit 1; }
+if [ ! -e "$kit/Mods/OffDuty" ]; then
+    ln -s "$repo/unreal/OffDuty" "$kit/Mods/OffDuty"
+fi
+# The DLC cook reads the base release for the cook platform; the shipped registry is a package list.
+mkdir -p "$kit/Releases/BaseGame/$platform"
+cp "$kit/Releases/BaseGame/Windows/AssetRegistry.bin" "$kit/Releases/BaseGame/$platform/"
+
+echo "1/3 Authoring assets"
+"$engine/Binaries/Linux/UnrealEditor-Cmd" "$project" -run=pythonscript \
+    -script="$repo/unreal/scripts/create_fatigue_effect.py" \
+    -unattended -nop4 -nosplash -NullRHI -stdout -FullStdOutLogOutput -NoCrashDialog \
+    > "$logs/author.log" 2>&1 || true
+grep -q "OFFDUTY_RESULT ok" "$logs/author.log" || { grep OFFDUTY "$logs/author.log" >&2; echo "Authoring failed; see $logs/author.log" >&2; exit 1; }
+
+echo "2/3 Cooking and packaging ($platform)"
+rm -rf "$kit/Packaged/$platform/SWZeroCompany/Mods/OffDuty"
+# NuGetAudit=false: new advisories for UAT's bundled Magick.NET otherwise fail the script build.
+NuGetAudit=false "$engine/Build/BatchFiles/RunUAT.sh" -ScriptsForProject="$project" BuildCookRun \
+    -project="$project" -nop4 -utf8output -unattended -nocompileeditor -skipbuildeditor \
+    -platform=$platform -clientconfig=Shipping -cook -stage -pak -iostore \
+    -dlcname=OffDuty -DLCPakPluginFile -basedonreleaseversion=BaseGame \
+    -AdditionalCookerOptions="-AllowUncookedAssetReferences" \
+    -archive -archivedirectory="$kit/Packaged" > "$logs/cook.log" 2>&1 \
+    || { tail -20 "$logs/cook.log" >&2; echo "Cook failed; see $logs/cook.log" >&2; exit 1; }
+
+echo "3/3 Assembling $out"
+paks="$kit/Packaged/$platform/SWZeroCompany/Mods/OffDuty/Content/Paks/$platform"
+rm -rf "$out" && mkdir -p "$out/Content/Paks"
+for ext in pak ucas utoc; do
+    cp "$paks/OffDutySWZeroCompany-$platform.$ext" "$out/Content/Paks/OffDuty_P.$ext"
+done
+# Loose copies of what the .pak carries: the descriptor is packaged verbatim, the registry is the
+# cook's (UnrealPak -Extract can't be used: on Linux it joins the pak path with a backslash).
+cp "$repo/unreal/OffDuty/OffDuty.uplugin" "$out/"
+cp "$repo/unreal/OffDuty/Saved/Cooked/$platform/SWZeroCompany/Mods/OffDuty/AssetRegistry.bin" "$out/"
+( cd "$out" && find . -type f | sort | xargs sha256sum ) > "$repo/dist/plugin/SHA256SUMS"
+cat "$repo/dist/plugin/SHA256SUMS"
+
+if $install; then
+    game=${SWZC_GAME:-$(cat "$kit/GameInstallDirectory.txt")}
+    target="$game/SWZeroCompany/Mods/OffDuty"
+    rm -rf "$target" && mkdir -p "$(dirname "$target")" && cp -r "$out" "$target"
+    echo "Installed: $target"
+fi

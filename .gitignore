@@ -8,3 +8,8 @@ __pycache__/
 Thumbs.db
 *.swp
 *.tmp
+
+# Unreal plugin build products (the plugin is symlinked into the SWZC Merged Kit)
+/unreal/OffDuty/Saved/
+/unreal/OffDuty/Intermediate/
+/unreal/OffDuty/Binaries/

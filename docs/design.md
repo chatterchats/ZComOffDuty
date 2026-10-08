@@ -7,6 +7,8 @@
   penalty plus extra recovery afterwards. Hard locks are out of scope (no save can get stuck).
 - **Logic Blueprints are allowed** (Modkit). No art or level assets.
 - **Built to work alongside Aranthar's Long War campaign mod** and standalone on vanilla.
+- **Fatigue is stored in the save** as stacks of a custom `GE_OffDuty_Fatigue` (2026-10-08). The
+  sidecar-file plan is dropped: it couldn't follow save reloads.
 
 ## Working model (numbers are playtest placeholders)
 
@@ -25,12 +27,15 @@
 
 ## Implementation plan
 
-1. **v0 (no assets):** fatigue counter in a Lua-managed store; penalty applied through
-   `UBrunoGameStatics::AddNextMissionCharacterEffect` with the shipped
-   `GE_Lose_NextMission_*` effects. Proves the loop end to end.
-2. **v1:** custom `GE_OffDuty_Fatigue` Blueprint (infinite, stacking, own tag and UI data)
-   on the strategy character as the saved counter, plus a custom next-mission
-   penalty GE. Roster-tile badge and squad-select warning.
-3. Settings through MXM (if present), with sensible defaults when it isn't.
+1. **Fatigue storage:** `GE_OffDuty_Fatigue`, a Blueprint `UBitReactorGameplayEffect` in the
+   `OffDuty` plugin (`unreal/OffDuty`, built with `tools/build_plugin.sh` in the SWZC Merged Kit).
+   It copies the save pattern of the game's `GE_Injured`: infinite, `AggregateByTarget`,
+   `bIncludeInSaveData = true`, `bTerminateWithCombat = false`, no modifiers. Lua reads and changes
+   its stack count on the strategy character.
+2. **Penalty:** `UBrunoGameStatics::AddNextMissionCharacterEffect` with the shipped
+   `GE_Lose_NextMission_RangedAccuracy` (−5% per stack, shown natively, cleared after the mission).
+3. **Loop:** mission start (`ApplyNextMissionEffectsToCharacter`) records who deployed; turn end
+   (`EndStrategyTurn`) adds/removes fatigue and queues next cycle's penalties.
+4. Roster badge and squad-select warning; settings through MXM when present.
 
 Open questions and evidence: `phase0-findings.md`. Probe: `../src/OffDutyProbe/`.
