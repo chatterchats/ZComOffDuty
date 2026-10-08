@@ -665,6 +665,89 @@ function M.start(runtime, actions, logger, config)
         effect_tags("GE_OffDuty_Fatigue", "/Game/OffDuty/Effects/GE_OffDuty_Fatigue.Default__GE_OffDuty_Fatigue_C")
     end
 
+    -- Ctrl+Shift+B (squad select): fatigue banner prototype. Adds a second WBP_InjuryWarningEntry
+    -- under each slot's injury banner, driven from Lua (no view model), labelled with the slot
+    -- operator's fatigue tier. Press again to rebuild; UI only, nothing is saved.
+    local fatigue_banners = {}
+    local TIER_LABELS = { { 5, "SPENT" }, { 3, "EXHAUSTED" }, { 1, "TIRED" }, { 0, "RESTED" } }
+
+    local function fatigue_by_name()
+        local stacks = {}
+        local wco = world_context()
+        local class = load_class(FATIGUE_EFFECT)
+        if not wco or not class then return stacks end
+        for _, member in ipairs(roster_members(wco)) do
+            local name = member.actor and character_name(member.actor)
+            local asc = name and select(1, call(ability_library(), "GetAbilitySystemComponent", member.actor))
+            if valid(asc) then
+                stacks[name] = tonumber(select(1, call(asc, "GetGameplayEffectCount", class, nil, true))) or 0
+            end
+        end
+        return stacks
+    end
+
+    local function copy_slot_layout(from, to)
+        for _, pair in ipairs({ { "Padding", "SetPadding" }, { "HorizontalAlignment", "SetHorizontalAlignment" },
+                                { "VerticalAlignment", "SetVerticalAlignment" } }) do
+            pcall(function() to[pair[2]](to, from[pair[1]]) end)
+        end
+    end
+
+    local function build_fatigue_banners()
+        for _, banner in ipairs(fatigue_banners) do
+            pcall(function() if valid(banner) then banner:RemoveFromParent() end end)
+        end
+        fatigue_banners = {}
+        local library = cdo("/Script/UMG.Default__WidgetBlueprintLibrary")
+        local stacks = fatigue_by_name()
+        local ok, slots = pcall(FindAllOf, "WBP_CharacterSlot_C")
+        local built = 0
+        for _, slot in pairs(ok and slots or {}) do
+            if live(slot) then
+                local name = select(2, pcall(function() return text(slot.FullName:GetText()) end)) or "?"
+                local entry = select(2, pcall(function() return slot.WBP_InjuryWarningEntry end))
+                local parent = valid(entry) and select(1, call(entry, "GetParent")) or nil
+                if not valid(parent) then
+                    log("BANNER | slot %s | no injury entry parent", name)
+                else
+                    local index = select(1, call(parent, "GetChildIndex", entry))
+                    log("BANNER | slot %s | entry visibility %s | header '%s' | parent %s (%s children, entry at %s)",
+                        name, tostring(select(1, call(entry, "GetVisibility"))),
+                        select(2, pcall(function() return text(entry.HeaderText:GetText()) end)) or "?",
+                        full_name(parent):match("^(%S+)") or "?",
+                        tostring(select(1, call(parent, "GetChildrenCount"))), tostring(index))
+                    local count = nil
+                    for known, value in pairs(stacks) do
+                        if name:upper() == known:upper() or name:upper():find(known:upper(), 1, true) then count = value end
+                    end
+                    local label = "NO FATIGUE DATA"
+                    if count then
+                        for _, tier in ipairs(TIER_LABELS) do
+                            if count >= tier[1] then label = string.format("%s (%d)", tier[2], count); break end
+                        end
+                    end
+                    local banner, err = call(library, "Create", slot, entry:GetClass(), select(1, call(entry, "GetOwningPlayer")))
+                    if not valid(banner) then
+                        log("BANNER | slot %s | Create failed: %s", name, tostring(err))
+                    else
+                        local new_slot, add_err = call(parent, "AddChild", banner)
+                        local entry_slot = select(2, pcall(function() return entry.Slot end))
+                        if valid(new_slot) and valid(entry_slot) then copy_slot_layout(entry_slot, new_slot) end
+                        local _, text_err = call(banner.HeaderText, "SetText", FText(label))
+                        call(banner, "SetVisibility", 4) -- SelfHitTestInvisible
+                        fatigue_banners[#fatigue_banners + 1] = banner
+                        built = built + 1
+                        log("BANNER | slot %s | added '%s' | slot %s%s%s", name, label,
+                            valid(new_slot) and (full_name(new_slot):match("^(%S+)") or "?") or "none",
+                            add_err and (" | add error " .. add_err) or "", text_err and (" | text error " .. text_err) or "")
+                    end
+                end
+            end
+        end
+        log("BANNER | %d banner(s) added (fatigue known for %d operator(s))", built,
+            (function() local n = 0; for _ in pairs(stacks) do n = n + 1 end; return n end)())
+    end
+
     -- Ctrl+Shift+I: control for the save test; one GE_Injured stack on the first operator with an actor.
     local function apply_control_injury()
         local wco = world_context()
@@ -834,10 +917,13 @@ function M.start(runtime, actions, logger, config)
     runtime:register_keybind(Key.U, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
         actions:schedule_after("ui", 0, dump_injury_ui)
     end)
+    runtime:register_keybind(Key.B, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
+        actions:schedule_after("banner", 0, build_fatigue_banners)
+    end)
     runtime:register_keybind(Key.G, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
         actions:schedule_after("fatigue", 0, function() change_fatigue(false) end)
     end)
-    log("Ready | Ctrl+Shift+D = dump | Ctrl+Shift+T = test next-mission effect | Ctrl+Shift+F/G = +1/-1 fatigue stack on every operator | Ctrl+Shift+I = control injury on one operator | Ctrl+Shift+K = keep fatigue class loaded | Ctrl+Shift+1/2/3 = queue Tired/Exhausted/Spent penalty | Ctrl+Shift+U = injury banner dump (squad select)")
+    log("Ready | Ctrl+Shift+D = dump | Ctrl+Shift+T = test next-mission effect | Ctrl+Shift+F/G = +1/-1 fatigue stack on every operator | Ctrl+Shift+I = control injury on one operator | Ctrl+Shift+K = keep fatigue class loaded | Ctrl+Shift+1/2/3 = queue Tired/Exhausted/Spent penalty | Ctrl+Shift+U = injury banner dump | Ctrl+Shift+B = fatigue banner prototype (squad select)")
 end
 
 return M

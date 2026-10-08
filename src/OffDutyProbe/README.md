@@ -17,6 +17,9 @@ Keys avoid F10 (ConsoleEnablerMod's console) and F11 (fullscreen toggle).
 - **Ctrl+Shift+U** (in squad select): dumps the injury banner's effect lists: the
   `EffectQuery` that picks which effects count, the effects each list holds, and the
   tags on `GE_Injured` and `GE_OffDuty_Fatigue` for comparison. Read-only.
+- **Ctrl+Shift+B** (in squad select): fatigue banner prototype. Adds a copy of the game's
+  injury banner under each slot's own, labelled with that operator's fatigue tier and
+  stacks. Press again to rebuild after changing the squad. UI only; nothing is saved.
 - **Ctrl+Shift+T** calls `AddNextMissionCharacterEffect` on one operator (see
   `Scripts/config.lua`). This is the probe's only write to the game. **Use a throwaway save.**
 

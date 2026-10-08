@@ -372,3 +372,15 @@ Spent was queued on 9 roster operators (Ctrl+Shift+3) before a mission, with `te
 - **Nothing shows in the briefing or squad select.** Next-mission effects aren't surfaced there,
   even the game's own `GE_Lose_NextMission_*`; the only native display is the "Penalty from
   Operation" line in the hit breakdown. Off Duty needs its own UI (roster badge, squad-select warning).
+
+### Squad-select injury banner (2026-10-08, Ctrl+Shift+U)
+
+Each squad slot (`WBP_CharacterSlot_C`) has a `WBP_InjuryWarningEntry` ("1 INJURY"). It binds a
+`BrunoGameplayEffectListViewModel` whose `EffectQuery` is only `EffectTagQuery` = any of
+`UI.Notification.Injury` (tokens `0 1 1 1 0`); the banner shows the matched effects' stack count.
+`GE_Injured` carries that asset tag plus `Persists`, `StatusEffect.Negative`, `Strike.Injured`,
+`Status.Character.Injured` and `br.UI.Effect.CoreCondition`, grants `Status.Character.Injured`,
+and has `BRG_StatusEffectUIData` and `BRG_InjuryNotificationComponent`.
+
+So fatigue can't borrow the banner by tag (it would read "N INJURY" and count as an injury).
+Plan: a second copy of the same widget per slot, driven from Lua (Ctrl+Shift+B prototype).
