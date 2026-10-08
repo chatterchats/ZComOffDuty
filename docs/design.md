@@ -31,8 +31,9 @@
    `OffDuty` plugin (`unreal/OffDuty`, built with `tools/build_plugin.sh` in the SWZC Merged Kit),
    shipped as `Content/Paks/~mods/OffDuty_P.*`; in game it is `/Game/OffDuty/Effects/GE_OffDuty_Fatigue`.
    It copies the save pattern of the game's `GE_Injured`: infinite, `AggregateByTarget`,
-   `bIncludeInSaveData = true`, `bTerminateWithCombat = false`, no modifiers. Lua reads and changes
-   its stack count on the strategy character.
+   `bIncludeInSaveData = true`, `bTerminateWithCombat = false`, asset tag
+   `BitReactor.GameplayEffect.Persists` (what the hub save keeps), no modifiers. Lua reads and changes
+   its stack count on the strategy character. Survives a hub save → load (verified 2026-10-08).
 2. **Penalty:** `UBrunoGameStatics::AddNextMissionCharacterEffect` with the shipped
    `GE_Lose_NextMission_RangedAccuracy` (−5% per stack, shown natively, cleared after the mission).
 3. **Loop:** mission start (`ApplyNextMissionEffectsToCharacter`) records who deployed; turn end

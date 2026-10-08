@@ -330,3 +330,7 @@ cross-training) and simply weren't on anyone. `GE_OffDuty_Fatigue` had no compon
 `BitReactor.GameplayEffect.Persists` (the class isn't exposed to Python, so it's loaded by path and its
 `InheritableAssetTags` set by Unreal name; the tag text can't include `ParentTags`) and also sets the
 deprecated `InheritableGameplayEffectTags`. The cooked package now names the component and the tag.
+- **Verified in game (2026-10-08): with the `Persists` tag, fatigue survives a hub save → load.**
+  One stack on all 8 operators with a hub actor, saved, loaded: `OD_Fatigue=1` on all 8, and the class
+  was `already in memory` after the load (the save loads it by path). No preload or keep-loaded work is
+  needed. Remaining run 4 checks: mission round trip (deployed and benched) and uninstall.
