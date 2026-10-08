@@ -263,3 +263,9 @@ supported by Zero Mod Manager). Override mods need no `GameFeatureData`. Run 4 r
   UE4SS: the engine resolves the effect class itself.
 - The probe now loads classes the engine's way (`KismetSystemLibrary.MakeSoftClassPath` →
   `Conv_SoftClassPathToSoftClassRef` → `LoadClassAsset_Blocking`) and never touches unverified objects.
+- **Step 1 passed (2026-10-08, turn 28):** `Off Duty fatigue class | loaded: BlueprintGeneratedClass
+  /Game/OffDuty/Effects/GE_OffDuty_Fatigue.GE_OffDuty_Fatigue_C`. **A Linux cook of a shader-free
+  Blueprint loads in the Windows game**, so no Windows cooking is needed for Off Duty's plugin.
+  `GetGameplayEffectCount` accepts the class (`OD_Fatigue=0` on all 8 operators with a hub actor).
+  The `convert_struct_to_lua_table: Skipping field 'SubPathString'` line is UE4SS converting the
+  soft path struct; harmless.
