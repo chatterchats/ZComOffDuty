@@ -1,0 +1,74 @@
+Tired of sending the same four operators on every mission? With [b]Off Duty[/b], operators [b]get tired from back-to-back deployments[/b] and [b]recover while they're off duty[/b], so the rest of your company gets a chance to shine.
+[b]Off Duty is in development.[/b] This page describes the planned first release; details and numbers will change with playtesting.
+
+[heading]Features[/heading]
+[list]
+[*][b]Fatigue from deployment, not damage[/b]: every mission an operator goes on wears them down. Long missions and going down add more. Even a flawless squad needs a rest eventually.[/*]
+[*][b]Rest brings them back[/b]: each cycle an operator sits out, they recover.[/*]
+[*][b]Your call, always[/b]: a Tired operator takes a small penalty next mission. An Exhausted one takes a bigger penalty, and pushing them anyway means a longer recovery afterwards. You're never locked out of deploying anyone.[/*]
+[*][b]Story-safe[/b]: operators the story needs can always deploy, so no campaign can get stuck.[/*]
+[*][b]No surprises[/b]: squad select shows the exact penalty, and what pushing will cost, before you commit.[/*]
+[*][b]Separate from injuries[/b]: the game's own injuries work exactly as before.[/*]
+[/list]
+
+[heading]Requirements[/heading]
+[list]
+[*][b]Star Wars Zero Company[/b][/*]
+[*][url=https://www.nexusmods.com/starwarszerocompany/mods/9]UE4SS for Star Wars Zero Company[/url][/*]
+[/list]
+
+[heading]Installation[/heading]
+[b]Mod manager[/b]
+Off Duty includes metadata for the community mod managers:
+[list]
+[*][url=https://www.nexusmods.com/starwarszerocompany/mods/29]ZCOM Mod Manager[/url][/*]
+[*][url=https://www.nexusmods.com/starwarszerocompany/mods/121]Zero Company Mod Command[/url][/*]
+[/list]
+Install the downloaded ZIP through either one and make sure Off Duty is enabled.
+
+[b]Manual installation[/b]
+Make sure UE4SS is installed and working, close the game, then extract the [b]OffDuty[/b] folder into:
+[code]SWZeroCompany/Binaries/Win64/ue4ss/Mods/[/code]
+The finished installation should contain:
+[code]ue4ss/Mods/OffDuty/Scripts/main.lua[/code]
+The package includes [b]enabled.txt[/b]. If your UE4SS setup doesn't pick it up, add this line to [b]ue4ss/Mods/mods.txt[/b]:
+[code]OffDuty : 1[/code]
+[b]Updating:[/b] close the game first, then install the new ZIP the same way (by hand, copy the new [b]OffDuty[/b] folder over the old one).
+
+[b]Uninstalling[/b]
+Switch Off Duty off or remove it in your mod manager, or delete the [b]OffDuty[/b] folder.
+
+[heading]Known Issues[/heading]
+[list]
+[*]Restart the game after installing or updating Off Duty. Don't use UE4SS's "Reload All Mods"; it can crash or freeze the game.[/*]
+[/list]
+
+[heading]Troubleshooting[/heading]
+Off Duty writes diagnostic information to [b]off_duty.log[/b] in its [b]OffDuty[/b] folder. [b]UE4SS.log[/b] remains the primary startup and crash log.
+When reporting a problem, please include:
+[list]
+[*]Your game build[/*]
+[*]Your UE4SS version[/*]
+[*]Your other installed mods[/*]
+[*]What you were doing and what happened[/*]
+[*][code]UE4SS.log[/code] and [code]off_duty.log[/code][/*]
+[/list]
+The logs only contain technical details about what the mod did: no screenshots, saves or personal files. They may mention folder paths on your PC, so feel free to look them over before sending.
+
+[heading]Source Code and Issue Reports[/heading]
+Source, technical documentation and issue tracking are available on [url=https://github.com/chatterchats/ZComOffDuty]GitHub[/url]. You can also post in the Bugs tab here on Nexus.
+
+[heading]Check Out My Other Mods[/heading]
+[list]
+[*][url=https://www.nexusmods.com/starwarszerocompany/mods/154]Fast Resonance[/url] — Speeds up the long Resonance presentations (Resonance Transfer, Shared Suffering and Unnatural Resilience) with a per-ability on/off switch and speed setting.[/*]
+[*][url=https://www.nexusmods.com/starwarszerocompany/mods/176]Character Share[/url] — Share and import custom characters and Astromechs right from the Character Databank using compact copy-and-paste codes.[/*]
+[*][url=https://www.nexusmods.com/starwarszerocompany/mods/209]Enhanced Databank[/url] — Folders for your custom characters and Astromechs: create, rename and delete them, and move characters between them, all through the game's own hidden pool system.[/*]
+[*][url=https://www.nexusmods.com/starwarszerocompany/mods/314]Colors+[/url] — Pick any color you want, not just the preset swatches, with a live preview in the character creator, the barracks and the armory.[/*]
+[/list]
+
+[heading]Shout-outs[/heading]
+[list]
+[*][url=https://forums.nexusmods.com/profile/1661783-gugarion/]Gugarion[/url] and the [url=https://discord.gg/qpBkjjKSRp][b]ZCom Modding Discord[/b][/url] — for the shared knowledge, testing, discussion and help that make increasingly strange Zero Company modding ideas possible.[/*]
+[*]The [url=https://github.com/UE4SS-RE/RE-UE4SS][b]UE4SS-RE team[/b][/url] — for UE4SS itself and the runtime scripting, object inspection, hooking and UI tooling that make mods like this possible.[/*]
+[*][url=https://www.nexusmods.com/profile/Vercadi]Vercadi[/url] — for creating and maintaining the [url=https://www.nexusmods.com/starwarszerocompany/mods/9]UE4SS build for Star Wars Zero Company[/url] that Off Duty runs on.[/*]
+[/list]

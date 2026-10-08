@@ -1,0 +1,1 @@
+Operators get tired from back-to-back deployments and recover while they're off duty. Tired operators can still deploy, at a cost, so the whole company matters, not just your best four.

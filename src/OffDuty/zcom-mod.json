@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "community.off-duty",
+  "name": "Off Duty — Operator Fatigue and Recovery",
+  "version": "0.1.0",
+  "author": "Chats",
+  "description": "Operators tire from back-to-back deployments and recover while off duty, so the whole company matters, not just your best four.",
+  "game": {
+    "appId": 2075800,
+    "testedBuilds": []
+  },
+  "type": [
+    "ue4ss"
+  ],
+  "requires": {
+    "ue4ss": true
+  }
+}

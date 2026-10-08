@@ -1,0 +1,9 @@
+{
+  "title": "Off Duty — Operator Fatigue and Recovery",
+  "version": "0.1.0",
+  "author": "Chats",
+  "description": "Operators tire from back-to-back deployments and recover while off duty, so the whole company matters, not just your best four.",
+  "launchers": [
+    "steam"
+  ]
+}

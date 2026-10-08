@@ -1,0 +1,100 @@
+# Off Duty: Phase 0 findings
+
+Desk research against `ZeroCompany_RE_Reference_v2` (UHT headers, JMAP CDO values,
+asset index). Nothing here has been tested in game yet. See "Open questions".
+
+## How injuries work today
+
+`/Game/Game/GameData/Abilities/ResultEffects/GE_Injured`
+
+- Infinite duration, `AggregateByTarget` stacking, **stack limit 2**.
+- One modifier: `BitReactorCombatSet.AccuracyReduction` AddBase **+3** per stack.
+- Grants tag `BitReactor.Status.Character.Injured`.
+- Components: asset tags, target tags, `BRG_StatusEffectUIData` (native status UI),
+  `BRG_InjuryNotificationComponent`.
+- Applied by `GE_DownedAppliesInjury` (instant, conditional) when a unit goes down;
+  removed by `GE_RemoveInjured` (Medbay recipes `Medbay_Bed*_InjuryRecover`,
+  `Medbay_BactaTank_InjuryRecover`).
+- Queries: `UBitReactorGameStatics_Unit::IsUnitInjured / GetUnitInjuryCount`.
+
+Exhaustion should stay separate from this. Reusing injuries stacks with the
+downed → injury → death pressure the game already has.
+
+## Persistence: strategy characters' effects are saved
+
+- `FAbilityActorInfo.ASCInfo` → `FAbilitySystemComponentInfo` saves
+  `AttributeSetsAndValues`, `ActiveEffects` (`FActiveGameplayEffectInfo`: full
+  `FGameplayEffectSpec` + context bytes) and `GameplayTags`. That's how injuries
+  survive save/load.
+- **Implication:** a custom infinite, stacking `GE_OffDuty_Fatigue` Blueprint on the
+  strategy character should save the same way. The stack count can serve as the
+  fatigue counter, so no sidecar file is needed. *Must verify:* that a GE class living
+  in a mod pak reloads cleanly, and what happens to the save if the mod is removed.
+
+## Existing "next mission only" effect pipeline (Tired penalty)
+
+`UBrunoGameStatics` (all BlueprintCallable, Lua-callable):
+
+- `AddNextMissionCharacterEffect(WCO, CharacterID, EffectClass, PrimaryMagnitude)`
+- `ApplyNextMissionEffectsToCharacter(Character)`, `ClearNextMissionEffects(WCO)`
+- also `AddRosterEffect`, `AddNextMissionEffect` (whole roster)
+
+Stored in `FBrunoStrategyData.NextMissionCharacterEffects : TMap<FGuid, FBrunoRosterEffects>`
+(soft class + magnitude), which is part of the strategy save. `UBrunoMissionViewModel`
+exposes `NextMissionEffectVMs`, so the briefing likely lists them natively.
+
+Existing classes in `/Game/Game/GameData/Progression/NextMissionGameplayEffects/`:
+
+| Effect | Modifier |
+|---|---|
+| `GE_Lose_NextMission_RangedAccuracy` | AccuracyReduction +1 /stack (limit 99) |
+| `GE_Lose_NextMission_LoseMaxHealth` | MaxHealth −2 /stack (limit 99) |
+| `GE_Reward_NextMission_FirstMoveSpeed` | MovementPerAP +25 |
+| `GE_Reward_NextMission_Dodge` | Strikes +2 |
+
+The penalty effects all carry `GEC_StrategyRewardText` + `BrunoGameEffectUIData`, so
+they come with native text.
+
+This means a v0 prototype needs **zero new assets**: apply `GE_Lose_NextMission_*`
+stacks to tired characters. A custom Blueprint GE comes later, for custom text
+and icons and a dedicated tag.
+
+## Attributes available for penalties (`BitReactorCombatSet`)
+
+`ActionPoints, RefreshActionPoints, MovementActionPoints, RefreshMovementActionPoints,
+MovementPerAP, Aim, Accuracy, MaxAccuracy (CDO 1.0), AccuracyReduction, CriticalHitCount,
+SpecialActionPoints, ClassTacticPoints, …`. `BitReactorHealthSet`: `MaxHealth`, `IncomingDamageMultiplier`, ….
+`GE_ModifyMovementDistance` modifies `MovementPerAP` by SetByCaller (reusable).
+
+## Deployment gating / story safety
+
+- `ABrunoMissionCentral::CanAssignToMissionSquad(MissionID, CharacterID)` (native)
+- `ABrunoMissionCentral::GetRequiredMissionCharacter(CharacterID, MissionID, out FRequiredMissionCharacter)`
+  → `{CharacterID, SpawnerTags, bBlockingRequirement}`. **Story exemption check.**
+- `GetCharacterIDsOnMission(MissionID)`, `GetCurrentMissionID()`. Use these to find who deployed.
+- `UBrunoMissionSquadSlotViewModel_Settings.RequiredCharacterID`
+- UI: `WBP_RosterTile_C:IsRosterTileSelectable` (BP), `UVM_SquadSelect_C` (`LastSquad` memory).
+- Mission results: `UBRGameMissionToHubData` (`MissionStatus`, `KilledPlayerCharacterIDs`,
+  `EndingInjuredPlayerCharacterIDs`, `TotalTacticalRounds`).
+
+## Recovery clock
+
+- `ABrunoStrategyTurnManager.OnStrategyTurnBegin(int32 Turn)` / `GetStrategyTurn()`.
+- Roster "Away" state (`ABrunoRosterManager.AwayCharacters`, `OnRosterCharacterSentAway/Returned`)
+  is an existing unavailability state, for future multi-cycle field tasks.
+
+## Open questions (need game/probe testing)
+
+1. **AccuracyReduction units.** Injury = 3, reward = 1–2, `MaxAccuracy` CDO = 1.0. What
+   does +1 do to displayed hit chance? Test by stacking `GE_Lose_NextMission_RangedAccuracy`.
+2. **Base AP budget** for operators (CDO is 0; set by an init effect or data). Codex
+   assumed 3 and ChatGPT assumed 2. Read `ActionPoints` on a live unit.
+3. Is `CanAssignToMissionSquad` reached through ProcessEvent (hookable from Lua), or
+   only native? Disassemble `WBP_RosterTile` / `VM_SquadSelect`.
+4. When are `NextMissionCharacterEffects` consumed/cleared? (After any mission, or only
+   after that character deploys?) That decides whether Tired survives being benched.
+5. Mod-pak GE class reload safety and uninstall behavior.
+6. Droids: do astromechs share `BitReactorCombatSet` / the same roster flow?
+
+Note: the SDK README points to `ZComMods/AI+/tools/asset_audit.py` for GameAssetProbe
+runs, but no `AI+` directory exists in `ZComMods`.
