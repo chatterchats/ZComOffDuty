@@ -55,6 +55,20 @@ Existing classes in `/Game/Game/GameData/Progression/NextMissionGameplayEffects/
 The penalty effects all carry `GEC_StrategyRewardText` + `BrunoGameEffectUIData`, so
 they come with native text.
 
+Probed `GE_Lose_NextMission_RangedAccuracy` (GameAssetProbe, 2026-10-08):
+
+- Infinite, `AggregateByTarget`, limit 99, `NeverRefresh`, `ClearEntireStack`.
+- `DurationChangeEventTriggerTags = BitReactor.AbilityTrigger.StrategyStart`: its
+  duration is re-evaluated when the strategy layer starts. **Likely answer to Q4:** these
+  effects clear on returning to the hub, so they last one mission. To confirm in game.
+- `GEC_StrategyRewardText`: `Modifier Value Per Stack = 1.0`, `Reward Value Format =
+  Reward_FlatValue_Format`, name key `Progression_Lose_RangedAttackAccuracy_Name`
+  (`Design_Progression_Strings`). The game describes it per stack, so
+  **`PrimaryMagnitude` is probably the stack count**. The string table's text isn't
+  reflected, so the exact wording needs the in-game check.
+- `BrunoGameEffectUIData`: `NotificationTag = UI.Notification.StatusEffect.Negative`,
+  tactical description key `Progression_Lose_RangedAttackAccuracy_Tactical`.
+
 This means a v0 prototype needs **zero new assets**: apply `GE_Lose_NextMission_*`
 stacks to tired characters. A custom Blueprint GE comes later, for custom text
 and icons and a dedicated tag.
