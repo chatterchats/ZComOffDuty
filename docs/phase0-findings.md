@@ -120,15 +120,49 @@ SpecialActionPoints, ClassTacticPoints, …`. `BitReactorHealthSet`: `MaxHealth`
   found nobody. Fixed by accepting plain Lua tables from UFunction returns and falling
   back to `ABrunoRosterManager.Roster`. Needs run 2.
 
+## In-game probe run 2 (2026-10-08, turn 28 → 29, same skirmish)
+
+- **The roster fix works.** `GetRoster` returns a plain Lua table: 10 operators at the hub
+  (two without a live hub actor, one of them Away), 4 in the mission (the squad only).
+- **Test apply works, and the game shows it natively.** `AddNextMissionCharacterEffect(Hawks,
+  GE_Lose_NextMission_RangedAccuracy, 5)` → in the mission Hawks had **1 stack** and
+  `AccuracyReduction` 0 → 1. The hit breakdown listed **"PENALTY FROM OPERATION −5%"**, and
+  shots that would have been 100% showed 95%.
+  - So `PrimaryMagnitude` is **not** the stack count (5 gave 1 stack).
+  - Most likely **1 `AccuracyReduction` = −5 percentage points of hit chance**. That would make
+    an injury stack (+3) −15%. Run 3 (magnitude 1, applied twice) confirms both.
+- **Q4 answered: next-mission effects last exactly one mission.** After the mission and
+  `EndStrategyTurn` (turn 29), Hawks had 0 stacks and `NextMissionCharacterEffects` was
+  empty. `ClearNextMissionEffects` / `CompleteMission` never logged, so the clearing is native.
+- `EndStrategyTurn` fires through ProcessEvent (hookable); `BeginStrategyTurn` didn't log.
+- **Q3 answered (negatively): squad select can't be hooked this way.** Adding/removing
+  operators produced no calls to `IsRosterTileSelectable`, the `VM_SquadSelect` click
+  functions or `CanAssignToMissionSquad`, though the hooks were installed. The push-through
+  model doesn't need to block deployment, so this only affects a later squad-select UI.
+
+### What this means for v0
+
+Every piece of the core loop is now proven hookable or callable from Lua:
+
+1. **Who deployed:** post-hook `ApplyNextMissionEffectsToCharacter` (one call per squad
+   member at mission load) → `GetActorCharacterID`.
+2. **Recovery clock:** post-hook `EndStrategyTurn`.
+3. **Penalty:** `AddNextMissionCharacterEffect` with the shipped accuracy effect. It shows
+   natively in the hit breakdown and clears itself after one mission. Re-add it each cycle
+   for operators who are still tired.
+4. **Fatigue storage (v0):** a sidecar file keyed by `FBrunoStrategyData.CampaignTelemetryID`
+   (a per-campaign GUID). In v1 this becomes the custom `GE_OffDuty_Fatigue` stack on the
+   strategy character.
+
 ## Open questions (need game/probe testing)
 
-1. **AccuracyReduction units.** Injury = 3, reward = 1–2, `MaxAccuracy` CDO = 1.0. What
+1. **AccuracyReduction units.** *(Run 2: probably −5% per point; run 3 confirms.)* Injury = 3, reward = 1–2, `MaxAccuracy` CDO = 1.0. What
    does +1 do to displayed hit chance? Test by stacking `GE_Lose_NextMission_RangedAccuracy`.
-2. **Base AP budget** for operators (CDO is 0; set by an init effect or data). Codex
+2. *(Answered in run 1: 1 action + 1 move.)* **Base AP budget** for operators (CDO is 0; set by an init effect or data). Codex
    assumed 3 and ChatGPT assumed 2. Read `ActionPoints` on a live unit.
-3. Is `CanAssignToMissionSquad` reached through ProcessEvent (hookable from Lua), or
+3. *(Answered in run 2: no.)* Is `CanAssignToMissionSquad` reached through ProcessEvent (hookable from Lua), or
    only native? Disassemble `WBP_RosterTile` / `VM_SquadSelect`.
-4. When are `NextMissionCharacterEffects` consumed/cleared? (After any mission, or only
+4. *(Answered in run 2: after one mission.)* When are `NextMissionCharacterEffects` consumed/cleared? (After any mission, or only
    after that character deploys?) That decides whether Tired survives being benched.
 5. Mod-pak GE class reload safety and uninstall behavior.
 6. Droids: do astromechs share `BitReactorCombatSet` / the same roster flow?

@@ -9,9 +9,10 @@ return {
     --   GE_Lose_NextMission_LoseMaxHealth   (MaxHealth -2 per stack)
     test_effect = "GE_Lose_NextMission_RangedAccuracy",
 
-    -- Passed as PrimaryMagnitude. Whether this scales the modifier or the stack
-    -- count is one of the things the probe is meant to find out.
-    test_magnitude = 5,
+    -- Passed as PrimaryMagnitude. Run 2: 5 gave one stack and a -5% hit chance,
+    -- so it isn't the stack count. Run 3: press Ctrl+Shift+T twice with 1 here;
+    -- -10% means each application adds a stack worth -5%.
+    test_magnitude = 1,
 
     -- High-frequency hooks (roster tiles) log their first N calls, then every Nth.
     log_first_calls = 5,
