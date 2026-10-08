@@ -53,3 +53,17 @@ step 1 also tells us whether that works in the Windows game.
 5. Uninstall test: quit, move the three `~mods/OffDuty_P.*` files out of the game folder (keep
    the probe), start, load the step-3 save. Does it load? **Ctrl+Shift+D**. Then put them back,
    restart, load the same save, **Ctrl+Shift+D** again.
+
+## Run 5: penalty feel test (throwaway save)
+
+Needs the current `~mods/OffDuty_P.*` (`tools/build_plugin.sh --install`). Ladder: Tired −5% hit;
+Exhausted −10% hit, −5% max HP, 5% AP-loss chance; Spent −15% hit, −10% max HP, 10% AP-loss chance,
+−5% movement. **`Scripts/config.lua` sets `test_ap_loss_chance = 0.5`**, so a loss is visible within a
+mission; set it to `nil` for the real odds.
+
+1. At the hub, press **Ctrl+Shift+3** once (Spent on everyone not away). Check the briefing/squad select.
+2. In the mission, press **Ctrl+Shift+D** on turn 1: `AccuracyReduction` 3, max HP ×0.9, `MovementPerAP`
+   ×0.95 (475 from 500), `OD_Spent=1`. Do operators start at full health?
+3. Each player turn, the log shows `AP ROLL … safe` or `AP LOSS … AP at hook X, before Y, after Z`.
+   After a loss, does that operator really have 2 AP that turn?
+4. Play a few turns and note how it feels. Optional: another mission with **Ctrl+Shift+2** (Exhausted).

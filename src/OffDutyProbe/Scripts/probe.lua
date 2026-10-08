@@ -622,6 +622,61 @@ function M.start(runtime, actions, logger, config)
             tier.name, queued, next_mission_map_count())
     end
 
+    -- AP-loss experiment: roll at each player operator's team turn start (Exhausted/Spent only).
+    local TURN_HOOK = "/Script/BitReactorGame.BitReactorAbilitySystemComponent:OnTeamTurnStarted"
+    local LOSE_AP = "/Game/OffDuty/Effects/GE_OffDuty_LoseAP.GE_OffDuty_LoseAP_C"
+    local seen_teams = {}
+    pcall(function() math.randomseed(os.time()) end)
+
+    local function action_points(actor)
+        local entry = attribute_sets("BitReactorCombatSet")[select(2, pcall(function() return actor:GetAddress() end))]
+        if not entry then return "?" end
+        local ok, value = pcall(function() return entry.set.ActionPoints.CurrentValue end)
+        return ok and tostring(value) or "?"
+    end
+
+    local function fatigue_tier(asc)
+        for _, tier in ipairs({ "Spent", "Exhausted" }) do
+            local class = load_class("/Game/OffDuty/Effects/GE_OffDuty_" .. tier .. ".GE_OffDuty_" .. tier .. "_C")
+            local count = class and select(1, call(asc, "GetGameplayEffectCount", class, nil, true)) or 0
+            if (tonumber(count) or 0) > 0 then return tier end
+        end
+        return nil
+    end
+
+    local function on_team_turn_started(context, team)
+        local asc = unwrap(context)
+        local team_class = unwrap(team)
+        local team_name = team_class and full_name(team_class) or "?"
+        if not seen_teams[team_name] then
+            seen_teams[team_name] = true
+            log("TURN | team turn started: %s", team_name)
+        end
+        if not team_name:lower():find("player", 1, true) then return end
+        if not valid(asc) then return end
+        local owner = select(1, call(asc, "GetOwner"))
+        if not valid(owner) or select(1, call(unit_statics(), "IsPlayerTeamMember", owner)) ~= true then return end
+        local tier = fatigue_tier(asc)
+        if not tier then return end
+        local chance = config.test_ap_loss_chance or config.ap_loss_chance[tier] or 0
+        local name = character_name(owner) or full_name(owner)
+        local ap_at_hook = action_points(owner)
+        if math.random() >= chance then
+            log("AP ROLL | %s | %s | %.0f%% | safe | AP %s", name, tier, chance * 100, ap_at_hook)
+            return
+        end
+        actions:schedule_after("ap_loss", config.ap_loss_delay_ms, function()
+            if not valid(asc) or not valid(owner) then return end
+            local class = load_class(LOSE_AP)
+            if not class then log("AP LOSS | GE_OffDuty_LoseAP not loadable"); return end
+            local before = action_points(owner)
+            local context_handle = select(1, call(asc, "MakeEffectContext"))
+            local _, err = call(asc, "BP_ApplyGameplayEffectToSelf", class, 1.0, context_handle)
+            log("AP LOSS | %s | %s | %.0f%% | AP at hook %s, before %s, after %s%s",
+                name, tier, chance * 100, ap_at_hook, before, action_points(owner), err and (" | error " .. err) or "")
+        end, asc, owner)
+    end
+
     local function apply_test()
         local wco = world_context()
         local statics = roster_statics()
@@ -657,6 +712,10 @@ function M.start(runtime, actions, logger, config)
         if not ok then log("Native hook failed | %s | %s", path, tostring(err)) end
     end
     install_blueprint_hooks("startup")
+    do
+        local ok, err = pcall(function() runtime:register_hook(TURN_HOOK, function() end, on_team_turn_started) end)
+        log("AP-loss hook %s | %s%s", ok and "installed" or "FAILED", TURN_HOOK, ok and "" or (" | " .. tostring(err)))
+    end
 
     runtime:register_keybind(Key.D, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
         actions:schedule_after("dump", 0, function() dump("Ctrl+Shift+D") end)

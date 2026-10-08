@@ -11,6 +11,8 @@ Effects (all UBitReactorGameplayEffect Blueprints):
 - GE_OffDuty_Fatigue: the fatigue counter, one stack per point. Infinite, survives saves and missions.
   The hub save only keeps character effects tagged BitReactor.GameplayEffect.Persists, so it has that
   asset tag. No modifiers: it does nothing on its own.
+- GE_OffDuty_LoseAP: instant ActionPoints -1, applied by Off Duty when a fatigued operator's
+  turn-start roll hits (a turn is 3 AP; the game refills them at the next turn start).
 - GE_OffDuty_Exhausted / GE_OffDuty_Spent: next-mission penalties, queued with
   UBrunoGameStatics::AddNextMissionCharacterEffect like the game's GE_Lose_NextMission_* effects and
   copying their pattern (bTerminateWithCombat, not saved, TemporaryPenalty + StatusEffect.Negative tags,
@@ -30,6 +32,7 @@ PERSISTS = "BitReactor.GameplayEffect.Persists"
 PENALTY_TAGS = ["BitReactor.AbilityEffect.Strike.TemporaryPenalty", "BitReactor.GameplayEffect.StatusEffect.Negative"]
 HEALTH = ("BitReactorHealthSet", "MaxHealth")
 MOVEMENT = ("BitReactorCombatSet", "MovementPerAP")
+ACTION_POINTS = ("BitReactorCombatSet", "ActionPoints")
 MAX_HEALTH = '<Keyword id="UI.Keyword.Health">Max Health</>'
 
 COMMON = {
@@ -52,15 +55,24 @@ EFFECTS = [
         "name": "GE_OffDuty_Exhausted",
         "defaults": NEXT_MISSION_PENALTY,
         "asset_tags": PENALTY_TAGS,
-        "modifiers": [(HEALTH, "MultiplyAdditive", 0.9)],
-        "ui": ("Exhausted", "Reduces %s by <Bold>10%%</>." % MAX_HEALTH),
+        "modifiers": [(HEALTH, "MultiplyAdditive", 0.95)],
+        "ui": ("Exhausted", "Reduces %s by <Bold>5%%</>. <Bold>5%%</> chance each turn to lose <Bold>1 AP</>." % MAX_HEALTH),
     },
     {
         "name": "GE_OffDuty_Spent",
         "defaults": NEXT_MISSION_PENALTY,
         "asset_tags": PENALTY_TAGS,
-        "modifiers": [(HEALTH, "MultiplyAdditive", 0.8), (MOVEMENT, "MultiplyAdditive", 0.9)],
-        "ui": ("Spent", "Reduces %s by <Bold>20%%</> and <Bold>Movement</> by <Bold>10%%</>." % MAX_HEALTH),
+        "modifiers": [(HEALTH, "MultiplyAdditive", 0.9), (MOVEMENT, "MultiplyAdditive", 0.95)],
+        "ui": ("Spent", "Reduces %s by <Bold>10%%</> and <Bold>Movement</> by <Bold>5%%</>. <Bold>10%%</> chance "
+                        "each turn to lose <Bold>1 AP</>." % MAX_HEALTH),
+    },
+    {
+        "name": "GE_OffDuty_LoseAP",
+        "defaults": {"duration_policy": unreal.GameplayEffectDurationType.INSTANT,
+                     "stacking_type": unreal.GameplayEffectStackingType.NONE,
+                     "include_in_save_data": False, "terminate_with_combat": True},
+        "asset_tags": ["BitReactor.GameplayEffect.StatusEffect.Negative"],
+        "modifiers": [(ACTION_POINTS, "AddBase", -1.0)],
     },
 ]
 
