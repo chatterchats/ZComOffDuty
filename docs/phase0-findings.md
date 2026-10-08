@@ -168,6 +168,16 @@ Every piece of the core loop is now proven hookable or callable from Lua:
   (−5%), Exhausted 2 stacks (−10%), deeper exhaustion 3 stacks (−15%), capped below an
   injury's single-stack weight.
 
+## Save/uninstall test (user, 2026-10-08, fresh save)
+
+Applied 4 stacks at the hub → saved → reloaded that save → mission: **−20%** ("Penalty from
+Operation"). Next mission: no penalty.
+
+- Queued next-mission effects are **stored in the save** (`FBrunoStrategyData.NextMissionCharacterEffects`).
+- The game has **no stack cap of its own** (4 × −5% = −20%). Any cap is Off Duty's choice.
+- **Uninstall safety:** with the mod removed, a leftover penalty lasts at most one mission,
+  then the game clears it.
+
 ## Open questions (need game/probe testing)
 
 1. *(Answered in run 3: −5% hit chance per point; one point per application.)* **AccuracyReduction units.** Injury = 3, reward = 1–2, `MaxAccuracy` CDO = 1.0. What
@@ -178,7 +188,7 @@ Every piece of the core loop is now proven hookable or callable from Lua:
    only native? Disassemble `WBP_RosterTile` / `VM_SquadSelect`.
 4. *(Answered in run 2: after one mission.)* When are `NextMissionCharacterEffects` consumed/cleared? (After any mission, or only
    after that character deploys?) That decides whether Tired survives being benched.
-5. Mod-pak GE class reload safety and uninstall behavior.
+5. *(Next-mission penalties: answered by the save/uninstall test.)* Mod-pak GE class reload safety and uninstall behavior, still open for v1's custom effect.
 6. Droids: do astromechs share `BitReactorCombatSet` / the same roster flow?
 
 ## Static Blueprint inspection (blocked)
