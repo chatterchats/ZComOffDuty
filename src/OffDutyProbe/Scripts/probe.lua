@@ -676,6 +676,9 @@ function M.start(runtime, actions, logger, config)
         { 1, "TIRED", { R = 1.0, G = 0.9, B = 0.35, A = 1.0 } },
     }
     local BANNER_IMAGES = { "Back", "PillBack", "PillBack_Highlight", "GlowBack", "EndCapBG", "Icon" }
+    -- The game sizes the banner's "Sizer" box at runtime (250x34 with "1 INJURY", whose text is 76 wide);
+    -- a created copy keeps the design default of 380x36. Widen by however much longer our label is.
+    local BANNER_SIZE, BANNER_TEXT_WIDTH = { 250, 34 }, 76
 
     local function plain(rich)
         -- Slot names are rich text ("Tesh <Bold_Color>Hawks</>").
@@ -702,11 +705,15 @@ function M.start(runtime, actions, logger, config)
     end
 
     local function colour_string(value)
-        local ok, s = pcall(function()
-            local c = value.SpecifiedColor or value
-            return string.format("%.2f,%.2f,%.2f,%.2f", c.R, c.G, c.B, c.A)
-        end)
-        return ok and s or "?"
+        -- FLinearColor directly, or an FSlateColor wrapping one; a missing field throws, so try both.
+        for _, get in ipairs({ function() return value end, function() return value.SpecifiedColor end }) do
+            local ok, s = pcall(function()
+                local c = get()
+                return string.format("%.2f,%.2f,%.2f,%.2f", c.R, c.G, c.B, c.A)
+            end)
+            if ok then return s end
+        end
+        return "?"
     end
 
     local function fatigue_by_name()
@@ -829,11 +836,27 @@ function M.start(runtime, actions, logger, config)
                             local tinted = 0
                             local wanted = {}
                             for _, image in ipairs(colour and BANNER_IMAGES or {}) do wanted[image] = true end
+                            local parts = {}
                             for _, node in ipairs(widget_tree(banner)) do
+                                parts[node.name] = node.widget
                                 if wanted[node.name] and select(2, call(node.widget, "SetColorAndOpacity", colour)) == nil then
                                     tinted = tinted + 1
                                 end
                             end
+                            -- Pips: the game shows Injury_1 for one injury and adds Injury_2 for two.
+                            -- Here: one pip for Tired, two for Exhausted and Spent.
+                            call(parts.Injury_1, "SetVisibility", 4)
+                            call(parts.Injury_2, "SetVisibility", count >= 3 and 4 or 2)
+                            call(parts.Sizer, "SetWidthOverride", BANNER_SIZE[1])
+                            call(parts.Sizer, "SetHeightOverride", BANNER_SIZE[2])
+                            actions:schedule_after("banner_size", 100, function()
+                                local ok, width = pcall(function() return parts.HeaderText:GetDesiredSize().X end)
+                                if ok and type(width) == "number" then
+                                    call(parts.Sizer, "SetWidthOverride", BANNER_SIZE[1] + math.max(0, width - BANNER_TEXT_WIDTH))
+                                    log("BANNER | %s | label %.0f wide, banner %.0f", name, width,
+                                        BANNER_SIZE[1] + math.max(0, width - BANNER_TEXT_WIDTH))
+                                end
+                            end, banner)
                             call(banner, "SetVisibility", 4) -- SelfHitTestInvisible
                             if not compared and select(1, call(entry, "GetVisibility")) ~= 1 then
                                 compared = true
