@@ -429,6 +429,47 @@ function M.start(runtime, actions, logger, config)
         return table.concat(parts, " ")
     end
 
+    -- The game's own "keep these loaded" list: UBrunoSaveGameSubsystem.TrackedPreloadObjects.CachedObjects
+    -- (a transient TArray<UObject*> on a game-instance subsystem, so it survives map-change GC).
+    local function preload_list()
+        local subsystem = find_live("BrunoSaveGameSubsystem")
+        if not subsystem then return nil, "BrunoSaveGameSubsystem not found" end
+        local ok, tracked = pcall(function() return unwrap(subsystem.TrackedPreloadObjects) end)
+        if not ok or not valid(tracked) then return nil, "TrackedPreloadObjects unavailable" end
+        local cached_ok, cached = pcall(function() return tracked.CachedObjects end)
+        if not cached_ok or cached == nil then return nil, "CachedObjects unreadable" end
+        return tracked, cached
+    end
+
+    local function preload_summary(class)
+        local tracked, cached = preload_list()
+        if not tracked then return cached end
+        local count = select(2, pcall(function() return cached:GetArrayNum() end))
+        local present = false
+        if class then
+            local target = select(2, pcall(function() return class:GetAddress() end))
+            array_each(cached, function(_, object)
+                local address = select(2, pcall(function() return object:GetAddress() end))
+                if address == target then present = true end
+            end)
+        end
+        local strategy = select(2, pcall(function() return #tracked.StrategyDerivatives end))
+        local tactical = select(2, pcall(function() return #tracked.TacticalDerivatives end))
+        return string.format("CachedObjects=%s (fatigue class %s) | StrategyDerivatives=%s | TacticalDerivatives=%s",
+            tostring(count), present and "PRESENT" or "absent", tostring(strategy), tostring(tactical))
+    end
+
+    -- Ctrl+Shift+K: append GE_OffDuty_Fatigue to CachedObjects so map-change GC can't unload it.
+    local function keep_fatigue_loaded()
+        local class = load_class(FATIGUE_EFFECT)
+        if not class then log("KEEP | fatigue class not loadable"); return end
+        local tracked, cached = preload_list()
+        if not tracked then log("KEEP | %s", tostring(cached)); return end
+        local before = select(2, pcall(function() return cached:GetArrayNum() end))
+        local ok, err = pcall(function() cached[before + 1] = class end)
+        log("KEEP | append ok=%s%s | %s", tostring(ok), ok and "" or (" error " .. tostring(err)), preload_summary(class))
+    end
+
     local function dump(reason)
         log("==== DUMP (%s) ====", reason)
         local wco = world_context()
@@ -439,6 +480,7 @@ function M.start(runtime, actions, logger, config)
             for _, path in ipairs({ FATIGUE_EFFECT, class_path(RESULT_EFFECTS, "GE_Injured") }) do
                 log("    defaults %s", effect_defaults(path))
             end
+            log("    preload list | %s", preload_summary(fatigue_class))
         else
             log("Off Duty fatigue class | NOT FOUND at %s", FATIGUE_EFFECT)
             diagnose_fatigue_load()
@@ -591,13 +633,16 @@ function M.start(runtime, actions, logger, config)
     runtime:register_keybind(Key.F, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
         actions:schedule_after("fatigue", 0, function() change_fatigue(true) end)
     end)
+    runtime:register_keybind(Key.K, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
+        actions:schedule_after("keep", 0, keep_fatigue_loaded)
+    end)
     runtime:register_keybind(Key.I, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
         actions:schedule_after("control", 0, apply_control_injury)
     end)
     runtime:register_keybind(Key.G, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
         actions:schedule_after("fatigue", 0, function() change_fatigue(false) end)
     end)
-    log("Ready | Ctrl+Shift+D = dump | Ctrl+Shift+T = test next-mission effect | Ctrl+Shift+F/G = +1/-1 fatigue stack on every operator | Ctrl+Shift+I = control injury on one operator")
+    log("Ready | Ctrl+Shift+D = dump | Ctrl+Shift+T = test next-mission effect | Ctrl+Shift+F/G = +1/-1 fatigue stack on every operator | Ctrl+Shift+I = control injury on one operator | Ctrl+Shift+K = keep fatigue class loaded")
 end
 
 return M

@@ -299,3 +299,10 @@ Next diagnostic: the dump prints the live default-object flags of `GE_OffDuty_Fa
 - UE4SS has no `AddToRoot`. Next: pre-hooks on the save subsystem's delegate-bound
   `OnPostLoadMap` / `OnWorldMatchStarting` and `UBrunoStrategySaveGame::ApplySaveInfo` load the
   class just before the save is applied, and log the load order.
+- Retest with the save-flow pre-hooks: all six installed (`OnPreLoadMap`, `OnPostLoadMap`,
+  `OnWorldMatchStarting`, `SaveGame`, `GatherSaveInfo`, `ApplySaveInfo`) but **none fired** on save or
+  load: the save system calls them natively, outside ProcessEvent. Fatigue reset again (`loaded now`).
+- Next: keep the class resident instead of loading it just in time. The probe can append it
+  (**Ctrl+Shift+K**) to the game's own keep-loaded list, `UBrunoSaveGameSubsystem.TrackedPreloadObjects
+  .CachedObjects` (a transient `TArray<UObject*>` on a game-instance subsystem), and dumps report that
+  list's size and whether our class is in it.
