@@ -978,6 +978,50 @@ function M.start(runtime, actions, logger, config)
         log("CONTROL | no operator with an ability system component")
     end
 
+    -- Ctrl+Shift+F: set the config.test_squad fatigue and injury counts exactly (repeatable).
+    local function set_effect_count(asc, class, target)
+        local current = tonumber((call(asc, "GetGameplayEffectCount", class, nil, true))) or 0
+        local err
+        if current < target then
+            for _ = current + 1, target do
+                local context = select(1, call(asc, "MakeEffectContext"))
+                _, err = call(asc, "BP_ApplyGameplayEffectToSelf", class, 1.0, context)
+            end
+        elseif current > target then
+            local remover = cdo("/Script/BitReactorGame.Default__BitReactorAbilityScriptingFunctions")
+            _, err = call(remover, "RemoveEffectByClass", asc, class, current - target)
+        end
+        return tonumber((call(asc, "GetGameplayEffectCount", class, nil, true))) or 0, err
+    end
+
+    local function apply_test_squad()
+        local wco = world_context()
+        if not wco or not roster_statics() then log("SQUAD | no world context (load a campaign first)"); return end
+        local fatigue = load_class(FATIGUE_EFFECT)
+        local injured = load_class(class_path(RESULT_EFFECTS, "GE_Injured"))
+        if not fatigue or not injured then log("SQUAD | effect classes not loadable"); return end
+        local done = {}
+        for _, member in ipairs((roster_members(wco))) do
+            local name = member.actor and character_name(member.actor)
+            for _, entry in ipairs(config.test_squad or {}) do
+                if name and not done[entry.name] and name:lower():find(entry.name:lower(), 1, true) then
+                    local asc = select(1, call(ability_library(), "GetAbilitySystemComponent", member.actor))
+                    if valid(asc) then
+                        done[entry.name] = true
+                        local f, f_err = set_effect_count(asc, fatigue, entry.fatigue or 0)
+                        local i, i_err = set_effect_count(asc, injured, entry.injuries or 0)
+                        log("SQUAD | %s | fatigue %d (wanted %d) | injuries %d (wanted %d)%s%s", name,
+                            f, entry.fatigue or 0, i, entry.injuries or 0,
+                            f_err and (" | fatigue error " .. f_err) or "", i_err and (" | injury error " .. i_err) or "")
+                    end
+                end
+            end
+        end
+        for _, entry in ipairs(config.test_squad or {}) do
+            if not done[entry.name] then log("SQUAD | %s | not found among roster operators with a live actor", entry.name) end
+        end
+    end
+
     local function queue_tier(level)
         local tier = TIERS[level]
         local wco = world_context()
@@ -1109,7 +1153,7 @@ function M.start(runtime, actions, logger, config)
         actions:schedule_after("test", 0, apply_test)
     end)
     runtime:register_keybind(Key.F, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
-        actions:schedule_after("fatigue", 0, function() change_fatigue(true) end)
+        actions:schedule_after("fatigue", 0, apply_test_squad)
     end)
     for level, key in ipairs({ Key.ONE, Key.TWO, Key.THREE }) do
         runtime:register_keybind(key, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
@@ -1131,7 +1175,7 @@ function M.start(runtime, actions, logger, config)
     runtime:register_keybind(Key.G, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
         actions:schedule_after("fatigue", 0, function() change_fatigue(false) end)
     end)
-    log("Ready | Ctrl+Shift+D = dump | Ctrl+Shift+T = test next-mission effect | Ctrl+Shift+F/G = +1/-1 fatigue stack on every operator | Ctrl+Shift+I = control injury on one operator | Ctrl+Shift+K = keep fatigue class loaded | Ctrl+Shift+1/2/3 = queue Tired/Exhausted/Spent penalty | Ctrl+Shift+U = injury banner dump | Ctrl+Shift+B = fatigue banner prototype (squad select)")
+    log("Ready | Ctrl+Shift+D = dump | Ctrl+Shift+T = test next-mission effect | Ctrl+Shift+F = set test squad fatigue/injuries (config.test_squad) | Ctrl+Shift+G = -1 fatigue stack on every operator | Ctrl+Shift+I = control injury on one operator | Ctrl+Shift+K = keep fatigue class loaded | Ctrl+Shift+1/2/3 = queue Tired/Exhausted/Spent penalty | Ctrl+Shift+U = injury banner dump | Ctrl+Shift+B = fatigue banner prototype (squad select)")
 end
 
 return M

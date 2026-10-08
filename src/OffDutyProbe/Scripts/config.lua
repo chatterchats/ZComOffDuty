@@ -20,6 +20,16 @@ return {
     -- Applied after this delay so the game's own turn-start AP refill happens first.
     ap_loss_delay_ms = 250,
 
+    -- Ctrl+Shift+F sets these exact counts (case-insensitive name substring); press again to reset
+    -- to them. Defaults cover each tier (1 Tired, 3 Exhausted, 5/7 Spent) and 0/1/2 injuries.
+    -- GE_Injured stacks to 2 at most.
+    test_squad = {
+        { name = "Tesh", fatigue = 1, injuries = 1 },
+        { name = "Kabb", fatigue = 3, injuries = 2 },
+        { name = "BR-1", fatigue = 5, injuries = 0 },
+        { name = "Kara", fatigue = 7, injuries = 0 },
+    },
+
     -- High-frequency hooks (roster tiles) log their first N calls, then every Nth.
     log_first_calls = 5,
     log_every_nth_call = 50,

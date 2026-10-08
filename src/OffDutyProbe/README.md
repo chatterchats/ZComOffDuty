@@ -11,7 +11,10 @@ Keys avoid F10 (ConsoleEnablerMod's console) and F11 (fullscreen toggle).
   AP, movement, accuracy and health attributes, injury count, availability,
   and stack counts of `GE_Injured` and the next-mission penalty effects. It also
   retries the squad-select / roster-tile hooks.
-- **Ctrl+Shift+F / Ctrl+Shift+G** add / remove one `GE_OffDuty_Fatigue` stack on every
+- **Ctrl+Shift+F** sets exact fatigue and injury counts on the operators in
+  `config.test_squad` (default: Tesh 1/1, Kabb 3/2, BR-1 5/0, Kara 7/0, as fatigue/injuries).
+  Pressing it again resets them to those counts.
+- **Ctrl+Shift+G** removes one `GE_OffDuty_Fatigue` stack from every
   roster operator who has a live actor (needs `~mods/OffDuty_P.*`, `tools/build_plugin.sh --install`).
   Writes to your save once you save, so **use a throwaway save**.
 - **Ctrl+Shift+U** (in squad select): dumps the injury banner's effect lists: the
