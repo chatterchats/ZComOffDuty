@@ -38,6 +38,20 @@ local NATIVE_HOOKS = {
     "/Script/Bruno.BrunoGameStatics:AddNextMissionEffect",
     "/Script/Bruno.BrunoGameStatics:ApplyNextMissionEffectsToCharacter",
     "/Script/Bruno.BrunoGameStatics:ClearNextMissionEffects",
+    -- Save/load flow (delegate-bound UFUNCTIONs run through ProcessEvent).
+    "/Script/Bruno.BrunoSaveGameSubsystem:OnPreLoadMap",
+    "/Script/Bruno.BrunoSaveGameSubsystem:OnPostLoadMap",
+    "/Script/Bruno.BrunoSaveGameSubsystem:OnWorldMatchStarting",
+    "/Script/Bruno.BrunoSaveGameSubsystem:SaveGame",
+    "/Script/Bruno.BrunoStrategySaveGame:GatherSaveInfo",
+    "/Script/Bruno.BrunoStrategySaveGame:ApplySaveInfo",
+}
+-- Pre-hooks that make sure GE_OffDuty_Fatigue is loaded before a save is applied: a map change's
+-- garbage collection unloads it (nothing in the game references it), and the hub save then drops it.
+local PRELOAD_BEFORE = {
+    ["/Script/Bruno.BrunoSaveGameSubsystem:OnPostLoadMap"] = true,
+    ["/Script/Bruno.BrunoSaveGameSubsystem:OnWorldMatchStarting"] = true,
+    ["/Script/Bruno.BrunoStrategySaveGame:ApplySaveInfo"] = true,
 }
 -- Blueprint classes load with their screens, so these install lazily.
 local BLUEPRINT_HOOKS = {
@@ -237,7 +251,12 @@ function M.start(runtime, actions, logger, config)
 
     local function hook_logger(path, phase)
         local turn_begin = phase == "post" and path:find(":BeginStrategyTurn$") ~= nil
+        local preload = phase == "pre" and PRELOAD_BEFORE[path]
         return function(context, ...)
+            if preload then
+                local class, residency = load_class(FATIGUE_EFFECT)
+                log("PRELOAD | %s | fatigue class %s", path:match(":(.+)$"), class and residency or "NOT FOUND")
+            end
             if turn_begin then
                 actions:schedule_after("blueprint_hooks", 0, function() install_blueprint_hooks("turn begin") end)
             end

@@ -284,3 +284,18 @@ Two stacks on every hub operator were back to 0 after saving and loading. What t
 Next diagnostic: the dump prints the live default-object flags of `GE_OffDuty_Fatigue` and
 `GE_Injured` and whether our class was already in memory; **Ctrl+Shift+I** applies one
 `GE_Injured` the same way the probe applies fatigue, as a control for the save test.
+
+### Run 4, step 3 diagnostic result (2026-10-08)
+
+- Live default objects: `GE_OffDuty_Fatigue_C` and `GE_Injured_C` both `bIncludeInSaveData=true
+  bTerminateWithCombat=false DurationPolicy=1 (Infinite) StackingType=2 (AggregateByTarget)`. The
+  cooked flags are right.
+- After save → load, Hawks's control `GE_Injured` (applied by the probe exactly like fatigue)
+  **survived**; fatigue on all 8 operators **didn't**. The hub save does keep probe-applied effects.
+- Our class reported `loaded now` after the load: **it had been unloaded**. Nothing in the game
+  references it, so a map change's garbage collection purges it, and the save (which seems to resolve
+  effect classes only among loaded classes; cf. `UBrunoSaveGameSubsystem.TrackedPreloadObjects`)
+  drops the effect. `GE_Injured` is always resident.
+- UE4SS has no `AddToRoot`. Next: pre-hooks on the save subsystem's delegate-bound
+  `OnPostLoadMap` / `OnWorldMatchStarting` and `UBrunoStrategySaveGame::ApplySaveInfo` load the
+  class just before the save is applied, and log the load order.
