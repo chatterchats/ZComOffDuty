@@ -32,12 +32,10 @@ function M.new(runtime, options)
     local resolved = source_log_path()
     if resolved then candidates[#candidates + 1] = resolved end
     local fallbacks = {
-        "ue4ss\\Mods\\Off Duty\\off_duty.log",
-        "ue4ss/Mods/Off Duty/off_duty.log",
         "ue4ss\\Mods\\OffDuty\\off_duty.log",
         "ue4ss/Mods/OffDuty/off_duty.log",
-        "Mods\\Off Duty\\off_duty.log",
-        "Mods/Off Duty/off_duty.log",
+        "Mods\\OffDuty\\off_duty.log",
+        "Mods/OffDuty/off_duty.log",
         "off_duty.log",
     }
     for _, path in ipairs(fallbacks) do candidates[#candidates + 1] = path end

@@ -97,6 +97,29 @@ SpecialActionPoints, ClassTacticPoints, …`. `BitReactorHealthSet`: `MaxHealth`
 - Roster "Away" state (`ABrunoRosterManager.AwayCharacters`, `OnRosterCharacterSentAway/Returned`)
   is an existing unavailability state, for future multi-cycle field tasks.
 
+## In-game probe run 1 (2026-10-08, strategy turn 28, skirmish SK_Brentaal_030)
+
+- **Q2 answered: the turn budget is 1 action + 1 move.** Every deployed operator (Hawks,
+  Kabb Uppercut, Kara Nova, BR-1) had `RefreshActionPoints=1`,
+  `RefreshMovementActionPoints=1`, `SpecialActionPoints=1`, `ClassTacticPoints=1`.
+  Losing one AP would cost a whole action or the whole move, so **AP penalties are out**.
+- Base `Accuracy=8` with `MaxAccuracy=1` and `AccuracyReduction=0` on all four. What a
+  point of `AccuracyReduction` does to displayed hit chance is still open (Q1).
+- `MaxHealth` base 28 for everyone; current 62–97 after upgrades/class effects.
+- **Mission start is hookable from Lua.** The game calls
+  `UBrunoGameStatics::ApplyNextMissionEffectsToCharacter` once per deployed operator
+  (tactical actors, e.g. `Char_Hero_HAWKS_Control_C`) through ProcessEvent, so a
+  post-hook sees every squad member as the mission loads.
+- Droids share the flow: BR-1 has `BitReactorCombatSet`/`HealthSet` and receives
+  `ApplyNextMissionEffectsToCharacter` like humanoids (Q6, mostly).
+- `GameInstance.StrategyData.NextMissionCharacterEffects` was 0 at the hub and in the mission.
+- Squad-select Blueprint hooks (`IsRosterTileSelectable`, `VM_SquadSelect` clicks)
+  installed once their classes were loaded at the hub, but no calls were logged.
+  `CanAssignToMissionSquad` was never seen either.
+- Probe bug: `GetRoster` came back empty, so the roster dump and the test apply
+  found nobody. Fixed by accepting plain Lua tables from UFunction returns and falling
+  back to `ABrunoRosterManager.Roster`. Needs run 2.
+
 ## Open questions (need game/probe testing)
 
 1. **AccuracyReduction units.** Injury = 3, reward = 1–2, `MaxAccuracy` CDO = 1.0. What

@@ -305,6 +305,61 @@ function M.start(runtime, actions, logger, config)
         return ok and tostring(count) or ("unreadable: " .. tostring(count))
     end
 
+    local function to_list(value)
+        -- UFunction returns may arrive as a TArray wrapper or a plain Lua table.
+        value = unwrap(value)
+        local items = {}
+        if type(value) == "table" then
+            for _, element in ipairs(value) do items[#items + 1] = unwrap(element) end
+        else
+            array_each(value, function(_, element) items[#items + 1] = element end)
+        end
+        return items
+    end
+
+    local function roster_guids(wco)
+        local guids, notes = {}, {}
+        local result, err = call(roster_statics(), "GetRoster", wco)
+        for _, guid in ipairs(to_list(result)) do guids[#guids + 1] = guid_copy(guid) end
+        notes[#notes + 1] = string.format("GetRoster type=%s count=%d%s",
+            type(result), #guids, err and (" err=" .. err) or "")
+        if #guids == 0 then
+            local manager = find_live("BrunoRosterManager")
+            if manager then
+                local ok, roster = pcall(function() return manager.Roster end)
+                for _, guid in ipairs(to_list(ok and roster or nil)) do guids[#guids + 1] = guid_copy(guid) end
+                notes[#notes + 1] = string.format("RosterManager.Roster ok=%s type=%s count=%d",
+                    tostring(ok), type(roster), #guids)
+            else
+                notes[#notes + 1] = "RosterManager not found"
+            end
+        end
+        return guids, table.concat(notes, " | ")
+    end
+
+    -- Every roster operator: {guid, id, actor (or nil), away, source}.
+    local function roster_members(wco)
+        local guids, notes = roster_guids(wco)
+        local by_id = {}
+        for _, entry in pairs(attribute_sets("BitReactorCombatSet")) do
+            local id = guid_string(select(1, call(game_statics(), "GetActorCharacterID", entry.actor)))
+            if id then by_id[id] = entry.actor end
+        end
+        local members = {}
+        for _, guid in ipairs(guids) do
+            local id = guid_string(guid)
+            local actor = select(1, call(roster_statics(), "GetRosterCharacterByCharacterID", wco, guid))
+            local source = "GetRosterCharacterByCharacterID"
+            if not valid(actor) then actor, source = by_id[id], "attribute-set scan" end
+            local away = select(1, call(roster_statics(), "IsCharacterAwayByCharacterID", wco, guid))
+            members[#members + 1] = {
+                guid = guid, id = id, away = away == true,
+                actor = valid(actor) and actor or nil, source = valid(actor) and source or "none",
+            }
+        end
+        return members, notes
+    end
+
     local function dump(reason)
         log("==== DUMP (%s) ====", reason)
         local wco = world_context()
@@ -333,18 +388,16 @@ function M.start(runtime, actions, logger, config)
             log("    effects: %s", effect_summary(actor))
         end
 
-        local statics = roster_statics()
-        if wco and statics then
-            local ids = select(1, call(statics, "GetRoster", wco))
-            local guids = {}
-            array_each(ids, function(_, guid) guids[#guids + 1] = guid_copy(guid) end)
-            log("Roster size | %d", #guids)
-            for _, guid in ipairs(guids) do
-                local actor = select(1, call(statics, "GetRosterCharacterByCharacterID", wco, guid))
-                if valid(actor) then
-                    local away = select(1, call(statics, "IsCharacterAway", actor))
-                    local address = select(2, pcall(function() return actor:GetAddress() end))
-                    report(actor, address, "ROSTER" .. (away == true and " (Away)" or ""))
+        if wco and roster_statics() then
+            local members, notes = roster_members(wco)
+            log("Roster size | %d | %s", #members, notes)
+            for _, member in ipairs(members) do
+                local header = "ROSTER" .. (member.away and " (Away)" or "")
+                if member.actor then
+                    local address = select(2, pcall(function() return member.actor:GetAddress() end))
+                    report(member.actor, address, header .. " via " .. member.source)
+                else
+                    log("%s | id=%s | no live actor", header, tostring(member.id))
                 end
             end
         end
@@ -365,23 +418,20 @@ function M.start(runtime, actions, logger, config)
         local statics = roster_statics()
         if not wco or not statics then log("TEST | no world context / roster statics (load a campaign first)"); return end
         local wanted = tostring(config.test_character_name or ""):lower()
-        local ids = select(1, call(statics, "GetRoster", wco))
-        local guids = {}
-        array_each(ids, function(_, guid) guids[#guids + 1] = guid_copy(guid) end)
-        local target, target_guid, target_name
-        for _, guid in ipairs(guids) do
-            local actor = select(1, call(statics, "GetRosterCharacterByCharacterID", wco, guid))
-            if valid(actor) then
-                local name = character_name(actor) or full_name(actor)
-                local away = select(1, call(statics, "IsCharacterAway", actor)) == true
-                local match = wanted ~= "" and name:lower():find(wanted, 1, true) ~= nil
-                if match or (wanted == "" and not away) then
-                    target, target_guid, target_name = actor, guid, name
-                    break
-                end
+        local members, notes = roster_members(wco)
+        local target_guid, target_name
+        for _, member in ipairs(members) do
+            local name = member.actor and (character_name(member.actor) or full_name(member.actor)) or nil
+            local match = wanted ~= "" and name ~= nil and name:lower():find(wanted, 1, true) ~= nil
+            if match or (wanted == "" and not member.away) then
+                target_guid, target_name = member.guid, name or ("id " .. tostring(member.id))
+                break
             end
         end
-        if not target then log("TEST | no roster operator matched '%s'", wanted); return end
+        if not target_guid then
+            log("TEST | no roster operator matched '%s' | roster=%d | %s", wanted, #members, notes)
+            return
+        end
         local effect_path = class_path(NEXT_MISSION_EFFECTS, config.test_effect)
         local class = load_class(effect_path)
         if not class then log("TEST | effect class unavailable | %s", effect_path); return end
