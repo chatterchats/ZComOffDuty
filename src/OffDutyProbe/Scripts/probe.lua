@@ -1,5 +1,5 @@
 -- Off Duty Probe: diagnostics for the Phase 0 open questions.
--- Read-only apart from Shift+F11, which adds one native next-mission effect.
+-- Read-only apart from Ctrl+Shift+T, which adds one native next-mission effect.
 -- Never iterates reflected TMaps (known access-violation risk in this build).
 local M = {}
 
@@ -389,7 +389,7 @@ function M.start(runtime, actions, logger, config)
             wco, target_guid, class, config.test_magnitude)
         log("TEST | AddNextMissionCharacterEffect | %s | %s | magnitude=%s | %s",
             target_name, config.test_effect, tostring(config.test_magnitude), err or "ok")
-        log("TEST | Deploy this operator, then press Shift+F10 in the mission to read AccuracyReduction/MaxHealth and hit chances.")
+        log("TEST | Deploy this operator, then press Ctrl+Shift+D in the mission to read AccuracyReduction/MaxHealth and hit chances.")
         log("TEST | GameInstance next-mission entries now | %s", next_mission_map_count())
     end
 
@@ -399,13 +399,13 @@ function M.start(runtime, actions, logger, config)
     end
     install_blueprint_hooks("startup")
 
-    runtime:register_keybind(Key.F10, { ModifierKey.SHIFT }, function()
-        actions:schedule_after("dump", 0, function() dump("Shift+F10") end)
+    runtime:register_keybind(Key.D, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
+        actions:schedule_after("dump", 0, function() dump("Ctrl+Shift+D") end)
     end)
-    runtime:register_keybind(Key.F11, { ModifierKey.SHIFT }, function()
+    runtime:register_keybind(Key.T, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
         actions:schedule_after("test", 0, apply_test)
     end)
-    log("Ready | Shift+F10 = dump roster/units + install screen hooks | Shift+F11 = apply test next-mission effect")
+    log("Ready | Ctrl+Shift+D = dump roster/units + install screen hooks | Ctrl+Shift+T = apply test next-mission effect")
 end
 
 return M

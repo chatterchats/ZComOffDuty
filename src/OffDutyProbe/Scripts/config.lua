@@ -1,10 +1,10 @@
 -- Off Duty Probe settings. Edit, then reload the mod (or restart the game).
 return {
-    -- Shift+F11 test target: case-insensitive substring of the operator's full
+    -- Ctrl+Shift+T test target: case-insensitive substring of the operator's full
     -- name. Empty picks the first roster operator who is not Away.
     test_character_name = "",
 
-    -- Next-mission effect applied by Shift+F11. The game ships:
+    -- Next-mission effect applied by Ctrl+Shift+T. The game ships:
     --   GE_Lose_NextMission_RangedAccuracy  (AccuracyReduction +1 per stack)
     --   GE_Lose_NextMission_LoseMaxHealth   (MaxHealth -2 per stack)
     test_effect = "GE_Lose_NextMission_RangedAccuracy",
