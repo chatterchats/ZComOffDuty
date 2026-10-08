@@ -682,6 +682,25 @@ function M.start(runtime, actions, logger, config)
         return (rich:gsub("<[^>]*>", ""):gsub("^%s+", ""):gsub("%s+$", ""))
     end
 
+    local function widget_name(widget)
+        local ok, name = pcall(function() return widget:GetFName():ToString() end)
+        return ok and tostring(name) or "?"
+    end
+
+    local function widget_tree(user_widget)
+        -- Designer widgets that aren't "Is Variable" have no property; walk the tree instead.
+        local nodes = {}
+        local root = select(2, pcall(function() return user_widget.WidgetTree.RootWidget end))
+        local function walk(widget, depth)
+            if not valid(widget) or depth > 12 then return end
+            nodes[#nodes + 1] = { widget = widget, depth = depth, name = widget_name(widget) }
+            local count = tonumber(select(1, call(widget, "GetChildrenCount"))) or 0
+            for i = 0, count - 1 do walk(select(1, call(widget, "GetChildAt", i)), depth + 1) end
+        end
+        walk(unwrap(root), 0)
+        return nodes
+    end
+
     local function colour_string(value)
         local ok, s = pcall(function()
             local c = value.SpecifiedColor or value
@@ -712,12 +731,53 @@ function M.start(runtime, actions, logger, config)
         end
     end
 
+    local function describe_widget(node)
+        local w = node.widget
+        local function get(f) local ok, v = pcall(f); return ok and v or nil end
+        local parts = {
+            "vis " .. tostring(select(1, call(w, "GetVisibility"))),
+            "op " .. tostring(get(function() return string.format("%.2f", w.RenderOpacity) end)),
+            "scale " .. tostring(get(function() return string.format("%.2f,%.2f", w.RenderTransform.Scale.X, w.RenderTransform.Scale.Y) end)),
+            "move " .. tostring(get(function() return string.format("%.0f,%.0f", w.RenderTransform.Translation.X, w.RenderTransform.Translation.Y) end)),
+            "size " .. tostring(get(function() local d = w:GetDesiredSize(); return string.format("%.0fx%.0f", d.X, d.Y) end)),
+        }
+        local colour = get(function() return w.ColorAndOpacity end)
+        if colour ~= nil then parts[#parts + 1] = "colour " .. colour_string(colour) end
+        local brush = get(function() return string.format("%.0fx%.0f", w.Brush.ImageSize.X, w.Brush.ImageSize.Y) end)
+        if brush then parts[#parts + 1] = "brush " .. brush end
+        local override = get(function() return string.format("%.0fx%.0f", w.WidthOverride, w.HeightOverride) end)
+        if override then parts[#parts + 1] = "sizebox " .. override end
+        return table.concat(parts, " ")
+    end
+
+    local function log_tree_diff(name, original, copy, original_slot, copy_slot)
+        local function slot_text(s)
+            local ok, v = pcall(function()
+                local p = s.Padding
+                return string.format("pad %.0f,%.0f,%.0f,%.0f h %s v %s", p.Left, p.Top, p.Right, p.Bottom,
+                    tostring(s.HorizontalAlignment), tostring(s.VerticalAlignment))
+            end)
+            return ok and v or "?"
+        end
+        log("BANNER TREE | %s | slot original: %s | copy: %s", name, slot_text(original_slot), slot_text(copy_slot))
+        local copy_nodes = {}
+        for _, node in ipairs(widget_tree(copy)) do copy_nodes[node.name] = node end
+        for _, node in ipairs(widget_tree(original)) do
+            local a = describe_widget(node)
+            local other = copy_nodes[node.name]
+            local b = other and describe_widget(other) or "missing"
+            log("BANNER TREE | %s%s | %s%s", string.rep(" ", node.depth), node.name, a,
+                a == b and "" or (" || COPY " .. b))
+        end
+    end
+
     local function build_fatigue_banners()
         for _, banner in ipairs(fatigue_banners) do
             pcall(function() if valid(banner) then banner:RemoveFromParent() end end)
         end
         fatigue_banners = {}
         local library = cdo("/Script/UMG.Default__WidgetBlueprintLibrary")
+        local compared = false
         local stacks = fatigue_by_name()
         local ok, slots = pcall(FindAllOf, "WBP_CharacterSlot_C")
         local built = 0
@@ -767,13 +827,21 @@ function M.start(runtime, actions, logger, config)
                                 banner:SetRenderTransformPivot(entry.RenderTransformPivot)
                             end)
                             local tinted = 0
-                            for _, image in ipairs(colour and BANNER_IMAGES or {}) do
-                                local widget = select(2, pcall(function() return banner[image] end))
-                                if valid(widget) and select(2, call(widget, "SetColorAndOpacity", colour)) == nil then
+                            local wanted = {}
+                            for _, image in ipairs(colour and BANNER_IMAGES or {}) do wanted[image] = true end
+                            for _, node in ipairs(widget_tree(banner)) do
+                                if wanted[node.name] and select(2, call(node.widget, "SetColorAndOpacity", colour)) == nil then
                                     tinted = tinted + 1
                                 end
                             end
                             call(banner, "SetVisibility", 4) -- SelfHitTestInvisible
+                            if not compared and select(1, call(entry, "GetVisibility")) ~= 1 then
+                                compared = true
+                                -- After a layout pass, so desired sizes are real.
+                                actions:schedule_after("banner_tree", 300, function()
+                                    log_tree_diff(name, entry, banner, entry_slot, new_slot)
+                                end, entry, banner)
+                            end
                             fatigue_banners[#fatigue_banners + 1] = banner
                             built = built + 1
                             log("BANNER | slot %s | added '%s' | tinted %d image(s) | slot %s%s%s", name, label, tinted,
