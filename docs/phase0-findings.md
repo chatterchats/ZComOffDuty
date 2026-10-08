@@ -253,3 +253,13 @@ package `/OffDuty/<rest>` → `/Game/<rest>` through the container header's `Pac
 **`/Game/OffDuty/Effects/GE_OffDuty_Fatigue`**, and the pak ships as
 `Content/Paks/~mods/OffDuty_P.{pak,ucas,utoc}`, mounted at startup like other `~mods` paks (and
 supported by Zero Mod Manager). Override mods need no `GameFeatureData`. Run 4 restarts from step 1.
+
+### Run 4, step 1 retries (2026-10-08)
+
+- With the `~mods` pak, UE4SS `LoadAsset("/Game/OffDuty/Effects/GE_OffDuty_Fatigue")` returned an
+  object, so the pak mounts and the remapped package resolves. But the class wasn't findable, and
+  touching the returned object crashed the game. Most likely `LoadAsset` goes through the asset
+  registry, which never merges a `~mods` pak's registry, and returns a bogus pointer. Saves don't use
+  UE4SS: the engine resolves the effect class itself.
+- The probe now loads classes the engine's way (`KismetSystemLibrary.MakeSoftClassPath` →
+  `Conv_SoftClassPathToSoftClassRef` → `LoadClassAsset_Blocking`) and never touches unverified objects.

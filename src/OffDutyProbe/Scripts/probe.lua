@@ -167,61 +167,50 @@ function M.start(runtime, actions, logger, config)
         return nil
     end
 
+    -- Classes load through the engine (a soft class path), never UE4SS's LoadAsset: for a ~mods
+    -- pak whose registry the game never merged, LoadAsset returned a pointer that crashed on use.
+    local kismet_system = nil
+    local function engine_load_class(path)
+        if not valid(kismet_system) then
+            local ok, object = pcall(StaticFindObject, "/Script/Engine.Default__KismetSystemLibrary")
+            kismet_system = ok and valid(object) and object or nil
+        end
+        if not kismet_system then return nil, "KismetSystemLibrary unavailable" end
+        local soft_path, err = call(kismet_system, "MakeSoftClassPath", path)
+        if err then return nil, "MakeSoftClassPath: " .. err end
+        local soft_ref
+        soft_ref, err = call(kismet_system, "Conv_SoftClassPathToSoftClassRef", soft_path)
+        if err then return nil, "Conv_SoftClassPathToSoftClassRef: " .. err end
+        local class
+        class, err = call(kismet_system, "LoadClassAsset_Blocking", soft_ref)
+        if err then return nil, "LoadClassAsset_Blocking: " .. err end
+        return class, nil
+    end
+
     local function load_class(path)
         local ok, class = pcall(StaticFindObject, path)
         if ok and valid(class) then return class end
-        if type(LoadAsset) == "function" then
-            pcall(LoadAsset, (path:gsub("%.[^.]+$", "")))
-            ok, class = pcall(StaticFindObject, path)
-            if ok and valid(class) then return class end
-        end
+        local loaded, err = engine_load_class(path)
+        if err then log("load_class(%s) | %s", path, err) end
+        -- Re-find by path rather than trusting the returned wrapper.
+        ok, class = pcall(StaticFindObject, path)
+        if ok and valid(class) then return class end
         return nil
     end
 
-    -- Run 4 diagnostics: what LoadAsset returns for the remapped package, and where its class lives.
-    local function inspect(label, object)
-        if object == nil then log("    %s | nil", label); return end
-        local function try(method)
-            local ok, value = pcall(function() return object[method](object) end)
-            if not ok then return "error: " .. tostring(value) end
-            value = unwrap(value)
-            if type(value) == "userdata" then
-                local name_ok, name = pcall(function() return value:GetFullName() end)
-                if name_ok and type(name) == "string" then return name end
-                local fname_ok, fname = pcall(function() return value:GetFName():ToString() end)
-                return fname_ok and ("fname " .. tostring(fname)) or tostring(value)
-            end
-            return tostring(value)
-        end
-        log("    %s | IsValid=%s | GetFullName=%s | GetFName=%s | GetClass=%s | GetOuter=%s",
-            label, try("IsValid"), try("GetFullName"), try("GetFName"), try("GetClass"), try("GetOuter"))
-    end
-
+    -- Run 4: where the remapped fatigue class lives. Lookups only; nothing touches unverified objects.
     local function diagnose_fatigue_load()
-        local candidates = {
-            "/Game/OffDuty/Effects/GE_OffDuty_Fatigue",
-            "/Game/OffDuty/Effects/GE_OffDuty_Fatigue.GE_OffDuty_Fatigue",
+        for _, path in ipairs({
             "/Game/OffDuty/Effects/GE_OffDuty_Fatigue.GE_OffDuty_Fatigue_C",
             "/Game/OffDuty/Effects/GE_OffDuty_Fatigue.Default__GE_OffDuty_Fatigue_C",
-            "/OffDuty/OffDuty/Effects/GE_OffDuty_Fatigue",
+            "/Game/OffDuty/Effects/GE_OffDuty_Fatigue",
             "/OffDuty/OffDuty/Effects/GE_OffDuty_Fatigue.GE_OffDuty_Fatigue_C",
-            "/OffDuty/OffDuty/Effects/GE_OffDuty_Fatigue.Default__GE_OffDuty_Fatigue_C",
-        }
-        for _, path in ipairs({ candidates[1], candidates[5] }) do
-            local ok, result = pcall(LoadAsset, path)
-            log("  LoadAsset(%s) ok=%s", path, tostring(ok))
-            if ok then inspect("loaded", unwrap(result)) else log("    error %s", tostring(result)) end
-        end
-        for _, path in ipairs(candidates) do
+            "/OffDuty/OffDuty/Effects/GE_OffDuty_Fatigue",
+        }) do
             local ok, result = pcall(StaticFindObject, path)
             local found = ok and valid(result)
-            log("  StaticFindObject(%s) -> %s", path, found and "FOUND" or (ok and "nil" or ("error " .. tostring(result))))
-            if found then inspect("found", result) end
+            log("  StaticFindObject(%s) -> %s", path, found and ("FOUND " .. full_name(result)) or (ok and "nil" or ("error " .. tostring(result))))
         end
-        local ok, instances = pcall(FindAllOf, "GE_OffDuty_Fatigue_C")
-        local count = 0
-        if ok and instances then for _ in pairs(instances) do count = count + 1 end end
-        log("  FindAllOf(GE_OffDuty_Fatigue_C) ok=%s count=%d", tostring(ok), count)
     end
 
     local function describe(value)
