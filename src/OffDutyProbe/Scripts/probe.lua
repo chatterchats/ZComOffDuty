@@ -670,11 +670,47 @@ function M.start(runtime, actions, logger, config)
     -- operator's fatigue tier. Press again to rebuild; UI only, nothing is saved.
     local fatigue_banners = {}
     -- Tier colours are a test: tints multiply the banner's red art, so results may differ.
+    -- Tier colours come from the game's own palette (UBitReactorColorBank, tags in BitReactorUITags.ini).
     local TIER_LABELS = {
-        { 5, "SPENT", { R = 0.75, G = 0.35, B = 1.0, A = 1.0 } },
-        { 3, "EXHAUSTED", { R = 1.0, G = 0.55, B = 0.1, A = 1.0 } },
-        { 1, "TIRED", { R = 1.0, G = 0.9, B = 0.35, A = 1.0 } },
+        { 5, "SPENT", "ColorBank.UI.AccentYellow" },
+        { 3, "EXHAUSTED", "ColorBank.UI.AccentYellow" },
+        { 1, "TIRED", "ColorBank.UI.AccentYellow" },
     }
+    local function colour_table(value)
+        local ok, c = pcall(function() return { R = value.R, G = value.G, B = value.B, A = value.A } end)
+        return ok and type(c.R) == "number" and c or nil
+    end
+
+    local palette_logged = false
+    local function bank_colour(tag)
+        local bank = cdo("/Script/BitReactorGame.Default__BitReactorColorBank")
+        if not bank then return nil end
+        if not palette_logged then
+            palette_logged = true
+            local entries = {}
+            pcall(function()
+                array_each(bank.ColorEntries, function(_, entry)
+                    local c = colour_table(entry.Color)
+                    entries[#entries + 1] = string.format("%s=%s", (text(entry.Key.TagName) or "?"):gsub("^ColorBank%.UI%.", ""),
+                        c and string.format("%.2f,%.2f,%.2f", c.R, c.G, c.B) or "?")
+                end)
+            end)
+            log("BANNER ART | palette: %s", #entries > 0 and table.concat(entries, " ") or "unreadable")
+        end
+        return colour_table(select(1, call(bank, "GetColor", { TagName = FName(tag) })))
+    end
+
+    local function reddish(c) return c and c.R > 0.4 and c.G < 0.35 and c.B < 0.35 end
+
+    local function material_vectors(material)
+        local params = {}
+        pcall(function()
+            array_each(material.VectorParameterValues, function(_, p)
+                params[#params + 1] = { name = text(p.ParameterInfo.Name) or "?", value = colour_table(p.ParameterValue) }
+            end)
+        end)
+        return params
+    end
     local BANNER_IMAGES = { "Back", "PillBack", "PillBack_Highlight", "GlowBack", "EndCapBG", "Icon" }
     -- The game sizes the banner's "Sizer" box at runtime (250x34 with "1 INJURY", whose text is 76 wide);
     -- a created copy keeps the design default of 380x36. Widen by however much longer our label is.
@@ -816,7 +852,7 @@ function M.start(runtime, actions, logger, config)
                         label = "NO FATIGUE DATA"
                     else
                         for _, tier in ipairs(TIER_LABELS) do
-                            if count >= tier[1] then label, colour = string.format("%s (%d)", tier[2], count), tier[3]; break end
+                            if count >= tier[1] then label, colour = string.format("%s (%d)", tier[2], count), (bank_colour(tier[3]) or { R = 1.0, G = 0.75, B = 0.15, A = 1.0 }); break end
                         end
                     end
                     if label == nil then
@@ -841,23 +877,46 @@ function M.start(runtime, actions, logger, config)
                             for _, node in ipairs(widget_tree(banner)) do
                                 parts[node.name] = node.widget
                                 if wanted[node.name] then
-                                    -- A multiply tint over red art only darkens it (seen in game), so log where the
-                                    -- red lives, then put the tier colour on the brush and leave the widget tint white.
+                                    -- A multiply tint over red art only darkened it. UBitReactorImage colours come
+                                    -- from a palette tag (ColorAndOpacityColorTag) or material parameters, so
+                                    -- recolour red material vectors, else replace the widget tint.
+                                    local w = node.widget
+                                    local material = select(2, pcall(function() return w.Brush.ResourceObject end))
+                                    local vectors = valid(material) and material_vectors(material) or {}
                                     if not logged_art[node.name] then
                                         logged_art[node.name] = true
-                                        log("BANNER ART | %s | widget tint %s | brush tint %s | draws %s", node.name,
-                                            colour_string(select(2, pcall(function() return node.widget.ColorAndOpacity end))),
-                                            colour_string(select(2, pcall(function() return node.widget.Brush.TintColor end))),
-                                            full_name(select(2, pcall(function() return node.widget.Brush.ResourceObject end))))
+                                        local listed = {}
+                                        for _, v in ipairs(vectors) do
+                                            listed[#listed + 1] = v.name .. "=" .. colour_string(v.value)
+                                        end
+                                        log("BANNER ART | %s | colour tag %s | brush type %s | has material %s | widget tint %s | brush tint %s | draws %s | vectors [%s]",
+                                            node.name,
+                                            select(2, pcall(function() return text(w.ColorAndOpacityColorTag.TagName) end)) or "?",
+                                            tostring(select(2, pcall(function() return w.BrushType end))),
+                                            tostring((call(w, "GetHasMaterial"))),
+                                            colour_string(select(2, pcall(function() return w.ColorAndOpacity end))),
+                                            colour_string(select(2, pcall(function() return w.Brush.TintColor end))),
+                                            full_name(material), table.concat(listed, " "))
                                     end
-                                    local _, white_err = call(node.widget, "SetColorAndOpacity", { R = 1, G = 1, B = 1, A = 1 })
-                                    local _, brush_err = call(node.widget, "SetBrushTintColor",
-                                        { SpecifiedColor = colour, ColorUseRule = 0 })
-                                    if white_err == nil and brush_err == nil then
-                                        tinted = tinted + 1
-                                    elseif not logged_art[node.name .. "!"] then
+                                    local changed, errors = 0, {}
+                                    local red_vectors = {}
+                                    for _, v in ipairs(vectors) do
+                                        if reddish(v.value) then red_vectors[#red_vectors + 1] = v.name end
+                                    end
+                                    if #red_vectors > 0 then
+                                        local mid, mid_err = call(w, "GetDynamicMaterial")
+                                        for _, param in ipairs(red_vectors) do
+                                            local _, e = call(mid, "SetVectorParameterValue", FName(param), colour)
+                                            if e == nil and valid(mid) then changed = changed + 1 else errors[#errors + 1] = tostring(e or mid_err) end
+                                        end
+                                    else
+                                        local _, e = call(w, "SetColorAndOpacity", colour)
+                                        if e == nil then changed = changed + 1 else errors[#errors + 1] = tostring(e) end
+                                    end
+                                    if changed > 0 then tinted = tinted + 1 end
+                                    if #errors > 0 and not logged_art[node.name .. "!"] then
                                         logged_art[node.name .. "!"] = true
-                                        log("BANNER ART | %s | tint failed: %s %s", node.name, tostring(white_err), tostring(brush_err))
+                                        log("BANNER ART | %s | recolour errors: %s", node.name, table.concat(errors, " | "))
                                     end
                                 end
                             end
