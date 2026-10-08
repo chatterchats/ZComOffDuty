@@ -8,9 +8,12 @@ OffDuty is a Modkit "override" mod: packaging remaps the plugin's content onto /
 /Game/OffDuty/Effects/GE_OffDuty_Fatigue in game. The pak goes in Content/Paks/~mods and mounts at
 startup, before any save loads. (A "Content Mod" mounted at /OffDuty/ wasn't loadable in game.)
 
-GE_OffDuty_Fatigue copies the pattern of the game's GE_Injured, the effect that survives saves and
-missions: infinite, AggregateByTarget, bIncludeInSaveData=true, bTerminateWithCombat=false. It has no
-modifiers, executions or components, so it does nothing on its own; Off Duty reads its stack count.
+GE_OffDuty_Fatigue copies the pattern of the game's GE_Injured: infinite, AggregateByTarget,
+bTerminateWithCombat=false, bIncludeInSaveData=true (that flag governs mid-mission saves). The hub save
+only keeps effects whose asset tags include BitReactor.GameplayEffect.Persists (every one of the 21
+effect classes in a real hub save has it), so the effect carries that tag through an
+AssetTagsGameplayEffectComponent. No modifiers or executions: it does nothing on its own; Off Duty reads
+its stack count.
 """
 import sys
 
@@ -20,6 +23,7 @@ PLUGIN_ROOT = "/OffDuty"
 EFFECT_DIR = PLUGIN_ROOT + "/OffDuty/Effects"  # -> /Game/OffDuty/Effects after the remap
 EFFECT_NAME = "GE_OffDuty_Fatigue"
 STACK_LIMIT = 10  # far above any designed fatigue level; Off Duty caps it lower in Lua
+PERSIST_TAG = "BitReactor.GameplayEffect.Persists"  # the hub save's filter for character effects
 
 EFFECT_DEFAULTS = {
     "duration_policy": unreal.GameplayEffectDurationType.INFINITE,
@@ -59,6 +63,48 @@ def load_class(path):
     return cls
 
 
+def inherited_tags(tags):
+    # ParentTags is derived by the engine and can't be text-imported.
+    container = "(GameplayTags=(%s))" % ",".join('(TagName="%s")' % tag for tag in tags)
+    value = unreal.InheritedTagContainer()
+    value.import_text("(CombinedTags=%s,Added=%s,Removed=(GameplayTags=()))" % (container, container))
+    return value
+
+
+def ensure_asset_tags(defaults):
+    """Give the effect the Persists asset tag through an AssetTagsGameplayEffectComponent."""
+    wanted = inherited_tags([PERSIST_TAG])
+    # Not exposed as a Python type: load the class and set its properties by name.
+    component_class = load_class("/Script/GameplayAbilities.AssetTagsGameplayEffectComponent")
+    components = list(defaults.get_editor_property("ge_components"))
+    component = next((c for c in components if c is not None and c.get_class() == component_class), None)
+    if component is None:
+        component = unreal.new_object(component_class, outer=defaults, name="AssetTagsGameplayEffectComponent_0")
+        components.append(component)
+        defaults.set_editor_property("ge_components", components)
+    # The class isn't exposed to Python, so its properties go by their Unreal names.
+    name = None
+    errors = []
+    for candidate in ("InheritableAssetTags", "inheritable_asset_tags"):
+        try:
+            component.set_editor_property(candidate, wanted)
+            name = candidate
+            break
+        except Exception as error:
+            errors.append("%s: %s" % (candidate, error))
+    if name is None:
+        fail("could not set the component's asset tags: " + " | ".join(errors))
+    exported = component.get_editor_property(name).export_text()
+    if PERSIST_TAG not in exported:
+        fail("asset tag not applied (is %s registered?): %s" % (PERSIST_TAG, exported))
+    # The game's own effects also carry the pre-5.3 field; keep it in step when the editor allows it.
+    try:
+        defaults.set_editor_property("inheritable_gameplay_effect_tags", wanted)
+        log("asset tags: component + InheritableGameplayEffectTags = " + PERSIST_TAG)
+    except Exception as error:  # deprecated property may be read-only to Python
+        log("asset tags: component = %s (InheritableGameplayEffectTags not settable: %s)" % (PERSIST_TAG, error))
+
+
 def ensure_effect():
     path = EFFECT_DIR + "/" + EFFECT_NAME
     parent = load_class("/Script/BitReactorGame.BitReactorGameplayEffect")
@@ -88,6 +134,7 @@ def ensure_effect():
     for name in ("modifiers", "executions"):
         if len(defaults.get_editor_property(name)) != 0:
             fail(name + " must be empty")
+    ensure_asset_tags(defaults)
 
     blueprint.modify()
     if not assets.save_loaded_asset(blueprint, only_if_is_dirty=False):

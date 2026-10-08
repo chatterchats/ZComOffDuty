@@ -306,3 +306,27 @@ Next diagnostic: the dump prints the live default-object flags of `GE_OffDuty_Fa
   (**Ctrl+Shift+K**) to the game's own keep-loaded list, `UBrunoSaveGameSubsystem.TrackedPreloadObjects
   .CachedObjects` (a transient `TArray<UObject*>` on a game-instance subsystem), and dumps report that
   list's size and whether our class is in it.
+- Keep-loaded retest: the append worked (259 → 260, class PRESENT), but after the load
+  `CachedObjects` was **0**: it's a temporary preload cache, filled for a load and then emptied.
+
+### The hub save's real filter: the `Persists` asset tag (2026-10-08)
+
+Saves live in the Proton prefix: `.../AppData/Local/SWZeroCompany/Saved/SaveGames/*.sav`. Each is
+a **ZIP**: `SaveGame` (tagged-property data), `SaveGameTrackedClasses` (the preload lists),
+`SaveGameSpawnedActors`, metadata, a screenshot and portraits.
+
+The test save made 6 s after applying fatigue (`HUB_Root_2026.10.08-13.53.37.sav`) contains **no
+trace of `GE_OffDuty_Fatigue`**: the effect was dropped while *saving*. Character effects are stored as
+tagged `FGameplayEffectSpec`s with `Def = "/Game/.../GE_X.Default__GE_X_C"`, so effect classes are
+loaded by path (they aren't on the preload lists, which cover rewards, customization, gear,
+abilities, recipes and characters).
+
+The 21 effect classes in that save: 19 have `bIncludeInSaveData=false`, so that flag isn't the hub
+filter. **All 21 carry the asset tag `BitReactor.GameplayEffect.Persists`** (in
+`InheritableGameplayEffectTags`); 52 other game effects have it too (Away, Dismissed, other
+cross-training) and simply weren't on anyone. `GE_OffDuty_Fatigue` had no components and no tags.
+
+**Fix:** the authoring script now adds an `AssetTagsGameplayEffectComponent` with
+`BitReactor.GameplayEffect.Persists` (the class isn't exposed to Python, so it's loaded by path and its
+`InheritableAssetTags` set by Unreal name; the tag text can't include `ParentTags`) and also sets the
+deprecated `InheritableGameplayEffectTags`. The cooked package now names the component and the tag.
