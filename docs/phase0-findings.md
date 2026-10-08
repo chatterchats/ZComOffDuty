@@ -99,7 +99,7 @@ SpecialActionPoints, ClassTacticPoints, …`. `BitReactorHealthSet`: `MaxHealth`
 
 ## In-game probe run 1 (2026-10-08, strategy turn 28, skirmish SK_Brentaal_030)
 
-- **Q2 answered: the turn budget is 1 action + 1 move.** Every deployed operator (Hawks,
+- ~~Q2 answered: the turn budget is 1 action + 1 move.~~ **Wrong: those were hub values; a mission turn is 3 AP (see Correction below).** Every deployed operator (Hawks,
   Kabb Uppercut, Kara Nova, BR-1) had `RefreshActionPoints=1`,
   `RefreshMovementActionPoints=1`, `SpecialActionPoints=1`, `ClassTacticPoints=1`.
   Losing one AP would cost a whole action or the whole move, so **AP penalties are out**.
