@@ -441,3 +441,11 @@ None). Next: each tier effect also carries its tag as an asset tag, and Lua cons
 `BitReactorTagUIDataViewModel` per tier (name, description, Lethargy icon) and assigns it to our statuses'
 `StatusEffectTagVM`, from a post-hook on `BRG_ActiveStatusEffectsListViewModel:GetStatusEffects` plus
 timed passes after mission start.
+
+**Verified in game (2026-10-08):** Tired, Exhausted and Spent show under Debuffs in the Inspect panel with
+their own names, descriptions (rich text works) and the Lethargy icon. The post-hook on
+`BRG_ActiveStatusEffectsListViewModel:GetStatusEffects` attaches the view model when a list is first read
+(Spent attached when its Inspect panel opened); Lua `StaticConstructObject` of
+`BitReactorTagUIDataViewModel` and setting its FText fields from `FText()` both work. Timed passes were
+never needed. Tier descriptions are per tier (shared view model), so per-operator details such as
+fatigue points belong in the squad-select tooltip.
