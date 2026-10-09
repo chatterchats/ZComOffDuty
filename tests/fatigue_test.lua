@@ -21,6 +21,7 @@ end
 
 local roster, logs, hooks, scheduled = {}, {}, {}, 0
 mission_ready = true
+loading_save = false
 local settings = {}
 local g = {
     unwrap = function(x) return x end,
@@ -57,6 +58,8 @@ local g = {
     unit_statics = function() return nil end,
     safe = function(_, callback) return callback end, -- let errors fail the test
     mission_actor = function() return {} end,
+    loading_from_save = function() return loading_save end,
+    was_loaded_from_save = function(actor) return actor.from_save == true end,
     mission_ready = function() return mission_ready end,
 }
 -- IsPlayerTeamMember is called on unit_statics() with the owner: route it through the owner.
@@ -118,7 +121,7 @@ local never = operator("Luco2", "L2", 1)
 roster[#roster + 1] = never
 mission_start(nil, never)
 eq(never.effects[Game.FATIGUE], 1, "roster never readable: untouched")
-assert(logs[#logs]:find("not ready after 7 tries", 1, true), logs[#logs])
+assert(logs[#logs]:find("not ready after 8 tries", 1, true), logs[#logs])
 g.roster_ids = roster_ids
 
 -- A second call in the same turn changes nothing.
@@ -127,25 +130,26 @@ eq(kabb.effects[Game.FATIGUE], 5, "no double gain"); eq(kabb.effects[ACCURACY], 
 
 -- Loading a tactical save: the hook fires before the save restores effects (mission not ready yet).
 -- Once ready, the restored marker means "already counted": no gain; the tier is restored.
-local restored = operator("Saved", "S1", 5, { effects = {} }) -- effects arrive with the save
+local restored = operator("Saved", "S1", 5, { effects = {}, from_save = true }) -- effects arrive with the save
 roster[#roster + 1] = restored
-local ready_calls = 0
-g.mission_ready = function()
-    ready_calls = ready_calls + 1
-    if ready_calls < 3 then return false end
-    -- the save's effects land before the mission reports ready
+local load_checks = 0
+loading_save = true
+g.loading_from_save = function()
+    load_checks = load_checks + 1
+    if load_checks < 4 then return true end
+    -- the save's effects are restored by the time loading reports done
     restored.effects[Game.FATIGUE] = 5; restored.effects[Game.DEPLOYED] = 1; restored.effects.GE_OffDuty_Exhausted = 1
-    return true
+    return false
 end
 mission_start(nil, restored)
 eq(restored.effects[Game.FATIGUE], 5, "loaded save: no gain")
 eq(restored.effects.GE_OffDuty_Exhausted, 1, "loaded save: saved tier kept")
 eq(restored.effects[ACCURACY], 2, "loaded save: accuracy topped up to the tier")
 assert(logs[#logs]:find("Mission resumed", 1, true), logs[#logs])
+g.loading_from_save = function() return false end
 -- An older save without the tier effect: fall back to the tier this mission started at (fatigue - gain).
-local old = operator("Old", "O1", 5, { effects = { [Game.FATIGUE] = 5, [Game.DEPLOYED] = 1 } })
+local old = operator("Old", "O1", 5, { effects = { [Game.FATIGUE] = 5, [Game.DEPLOYED] = 1 }, from_save = true })
 roster[#roster + 1] = old
-g.mission_ready = function() return true end
 mission_start(nil, old)
 eq(old.effects.GE_OffDuty_Exhausted, 1, "old save: tier from fatigue before the mission (3)")
 eq(old.effects[Game.FATIGUE], 5, "old save: no gain")
@@ -154,6 +158,12 @@ local over = operator("Over", "O2", 9, { effects = { [Game.FATIGUE] = 9, [Game.D
 roster[#roster + 1] = over
 mission_start(nil, over)
 eq(over.effects[Game.FATIGUE], 7, "clamped to cap")
+-- A save made mid-mission before Off Duty counted it (no marker): resumed, no gain.
+local unmarked = operator("Unmarked", "U1", 3, { from_save = true })
+roster[#roster + 1] = unmarked
+mission_start(nil, unmarked)
+eq(unmarked.effects[Game.FATIGUE], 3, "loaded save without marker: no gain")
+eq(unmarked.effects[Game.DEPLOYED], nil, "loaded save without marker: not marked")
 
 -- A rested operator deploys with no penalty.
 local fresh = operator("Cly", "C", 0)

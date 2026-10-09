@@ -35,9 +35,12 @@ function M.new(ctx)
     -- Mission start ---------------------------------------------------------------------------------
 
     -- The hook fires while the mission map loads: before the roster can be read, and on a tactical save
-    -- load before the save's effects are restored (both verified). Wait until the mission is ready.
-    -- Then the deployed marker tells the two apart: absent = a new mission, present = a loaded save.
-    local READY_RETRY_MS = { 250, 500, 1000, 2000, 4000, 8000 }
+    -- load while the save is still restoring effects (both verified; touching effects then crashed the
+    -- game, and "mission ready" came too early). So: note whether this is a save load, wait until the
+    -- roster is readable, the mission is ready and no save is loading, then process. A loaded save never
+    -- adds fatigue (the mission was counted when it started); it only restores the tier.
+    local READY_RETRY_MS = { 250, 500, 1000, 2000, 4000, 8000, 16000 }
+    local SAVE_SETTLE_MS = 500
     local process_mission_start
 
     local function on_mission_start(_, character)
@@ -46,12 +49,15 @@ function M.new(ctx)
         local name = g.character_name(actor) or g.full_name(actor)
         local id = g.character_id(actor)
         if not id then log("WARNING: mission start | %s | no character ID; skipped", name); return end
-        local attempt = 0
+        local attempt, settled = 0, false
+        local from_save = g.was_loaded_from_save(actor) or g.loading_from_save()
         local function try()
             attempt = attempt + 1
-            local wco = g.world_context()
+            local loading = g.loading_from_save()
+            from_save = from_save or loading or g.was_loaded_from_save(actor)
+            local wco = not loading and g.world_context() or nil
             local ids = wco and g.roster_ids(wco) or {}
-            if next(ids) == nil or not g.mission_ready(g.mission_actor()) then
+            if loading or next(ids) == nil or not g.mission_ready(g.mission_actor()) then
                 local delay = READY_RETRY_MS[attempt]
                 if delay then
                     actions:schedule_after("mission_start", delay, g.safe("mission start retry", try), actor)
@@ -65,7 +71,12 @@ function M.new(ctx)
                 log("Mission start | %s | not on the roster (guest unit); no fatigue", name)
                 return
             end
-            process_mission_start(actor, name, attempt)
+            if from_save and not settled then
+                settled = true -- one more beat after the load reports done
+                actions:schedule_after("mission_start", SAVE_SETTLE_MS, g.safe("mission start settle", try), actor)
+                return
+            end
+            process_mission_start(actor, name, attempt, from_save)
         end
         try()
     end
@@ -92,7 +103,7 @@ function M.new(ctx)
         return summary
     end
 
-    function process_mission_start(actor, name, attempt)
+    function process_mission_start(actor, name, attempt, from_save)
         if not g.valid(actor) then return end
         local asc = g.asc(actor)
         local fatigue_class, deployed_class = g.effect_class(Game.FATIGUE), g.effect_class(Game.DEPLOYED)
@@ -109,9 +120,13 @@ function M.new(ctx)
         end
         local ready_note = attempt > 1 and string.format(" (ready after %d tries)", attempt) or ""
 
-        if g.effect_count(asc, deployed_class) > 0 then
+        local marked = g.effect_count(asc, deployed_class) > 0
+        if from_save or marked then
             -- A tactical save loaded (or a second call): fatigue is already counted. Restore the tier: the
             -- saved tier effect if the save kept it, else the tier this mission started at.
+            if from_save and not marked then
+                log("Mission resumed | %s | save has no deployed marker (saved before Off Duty counted it); no gain", name)
+            end
             local tier = tier_effect_present(asc)
                 or Rules.tier(math.max(fatigue - s.gain, 0), s.preset)
             local summary = tier and apply_tier(asc, tier, name) or "rested"

@@ -250,6 +250,20 @@ function M.new(log)
             and g.read(mission, "bIsMissionEnding") == false
     end
 
+    -- A save load in progress (game instance or gameplay master says so). While it is, the save is still
+    -- restoring operators' effects: touching them then crashed the game.
+    function g.loading_from_save()
+        local instance = g.find_live("BrunoGameInstance")
+        if instance and (g.call(instance, "IsLoadingFromSaveGame")) == true then return true end
+        local master = g.find_live("GameGameplayMaster")
+        if master and (g.call(master, "IsLoadingFromSave")) == true then return true end
+        return false
+    end
+
+    function g.was_loaded_from_save(actor)
+        return (g.call(g.scripting(), "WasLoadedFromSave", actor)) == true
+    end
+
     -- Roster members: { guid, id, away, actor (may be nil) }.
     function g.roster(wco)
         local members = {}

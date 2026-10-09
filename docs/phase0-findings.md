@@ -497,3 +497,8 @@ the imported texture and `BrushType` to None; never write `WeakResourceObject`.
   new mission (apply tier, mark, add fatigue) from a loaded save (restore the tier only).
 - Tier effects weren't kept by tactical saves (copied the game's `bIncludeInSaveData = false`); they're
   saved now. The game's accuracy stacks are topped up from the tier on a loaded save.
+- **Correction:** `bIsMissionActorReady` comes before a tactical save finishes restoring effects. Processing
+  then (fatigue read 0, effects added) crashed the game (access violation in SWZeroCompany.exe, 3 s after).
+  Off Duty now checks `UBitReactorGameInstance::IsLoadingFromSaveGame` / `AGameGameplayMaster::IsLoadingFromSave`
+  and `UBitReactorAbilityScriptingFunctions::WasLoadedFromSave(actor)`, waits until no save is loading
+  (plus 500 ms), and never adds fatigue on a loaded save.
