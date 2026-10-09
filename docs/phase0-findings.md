@@ -465,4 +465,7 @@ only calling the plain getters. Likely cause: Lua cached the tag view models it 
 reference doesn't keep a UObject alive, so a freed one could be attached again. The probe now builds a
 fresh view model per status and caches no UObjects. Icons: the textures cook correctly (inline
 PF_B8G8R8A8, 64 KB) and are in the container, but `LoadAsset_Blocking` on
-`/Game/OffDuty/Icons/T_OffDuty_Fatigue_N` returns nothing in game (being narrowed down).
+`/Game/OffDuty/Icons/T_OffDuty_Fatigue_N` returns nothing in game, under the plugin paths too, while a
+control load of `GE_OffDuty_Tired_C` through the same loader works: a texture cooked on Linux doesn't
+load in the Windows game (data-only Blueprints do). Icons now ship as PNGs in the Lua mod (`icons/`) and
+are loaded with `KismetRenderingLibrary.ImportFileAsTexture2D`; the plugin cooks no textures.

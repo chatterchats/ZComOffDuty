@@ -75,10 +75,6 @@ grep -q "Remapping plugin content to game: 'True'" "$logs/cook.log" \
 "$engine/Binaries/Linux/UnrealPak" "$out/OffDuty_P.utoc" -List > "$logs/list.log" 2>&1
 grep -q '/OffDuty/Effects/GE_OffDuty_Fatigue.uasset"' "$logs/list.log" \
     || { echo "GE_OffDuty_Fatigue missing from the container; see $logs/list.log" >&2; exit 1; }
-for tier in 1 2 3; do
-    grep -q "/OffDuty/Icons/T_OffDuty_Fatigue_$tier.uasset\"" "$logs/list.log" \
-        || { echo "T_OffDuty_Fatigue_$tier missing from the container; see $logs/list.log" >&2; exit 1; }
-done
 printf '"%s" "../../../SWZeroCompany/Config/Tags/OffDutyTags.ini"\n' \
     "$repo/unreal/OffDuty/Config/Tags/OffDutyTags.ini" > "$logs/tags-pak.txt"
 "$engine/Binaries/Linux/UnrealPak" "$out/OffDutyTags_P.pak" -create="$logs/tags-pak.txt" > "$logs/tags-pak.log" 2>&1 \

@@ -245,24 +245,24 @@ function M.start(runtime, actions, logger, config)
         return valid(object) and object or nil
     end
 
-    -- Off Duty's Zzz tier icons (unreal/icons, cooked into OffDuty_P): 1 Tired, 2 Exhausted, 3 Spent.
-    -- No Lua-side cache: a Lua reference doesn't keep a UObject alive (load_object checks memory first).
-    local icon_paths_logged = false
+    -- Off Duty's Zzz tier icons (1 Tired, 2 Exhausted, 3 Spent): PNGs in this mod's icons/ folder, imported
+    -- at runtime (a texture cooked on Linux didn't load in the Windows game). Each call imports a new
+    -- transient texture; whatever brush it's set on keeps it alive, so nothing is cached in Lua.
+    local function mod_dir()
+        local ok, info = pcall(debug.getinfo, 1, "S")
+        local source = ok and info and type(info.source) == "string" and info.source:gsub("^@", "") or ""
+        local script_dir = source:match("^(.*)[/\\][^/\\]+$") or "."
+        return ((script_dir:match("^(.*)[/\\][Ss]cripts$") or script_dir):gsub("\\", "/"))
+    end
+    local icon_failure_logged = false
     local function fatigue_icon(level)
-        local name = "T_OffDuty_Fatigue_" .. level
-        -- Remapped onto /Game like the effects; the plugin paths are tried in case textures aren't.
-        for _, dir in ipairs({ "/Game/OffDuty/Icons/", "/OffDuty/OffDuty/Icons/", "/OffDuty/Icons/" }) do
-            local icon = load_object(dir .. name .. "." .. name)
-            if icon then
-                if not icon_paths_logged then icon_paths_logged = true; log("LOAD | icons load from %s", dir) end
-                return icon
-            end
-        end
-        if not icon_paths_logged then
-            icon_paths_logged = true
-            local control = load_object("/Game/OffDuty/Effects/GE_OffDuty_Tired.GE_OffDuty_Tired_C")
-            log("LOAD | no icon path worked; control load of GE_OffDuty_Tired_C through the same loader: %s",
-                control and "ok" or "failed")
+        local path = mod_dir() .. "/icons/T_OffDuty_Fatigue_" .. level .. ".png"
+        local rendering = cdo("/Script/Engine.Default__KismetRenderingLibrary")
+        local texture, err = call(rendering, "ImportFileAsTexture2D", world_context(), path)
+        if valid(texture) then return texture end
+        if not icon_failure_logged then
+            icon_failure_logged = true
+            log("ICON | could not import %s%s", path, err and (" | " .. err) or "")
         end
         return nil
     end

@@ -1,14 +1,18 @@
 """Draw Off Duty's fatigue tier icons: white "Zzz" glyphs on transparency, like the game's status icons
 (the HUD tints them). One Z for Tired, two for Exhausted, three for Spent, rising and growing.
 
-    python3 unreal/scripts/draw_icons.py   ->  unreal/icons/T_OffDuty_Fatigue_{1,2,3}.png (128x128)
+    python3 unreal/scripts/draw_icons.py   ->  src/OffDuty{,Probe}/icons/T_OffDuty_Fatigue_{1,2,3}.png (128x128)
+
+They ship as PNG files in the Lua mod and are loaded at runtime with
+KismetRenderingLibrary.ImportFileAsTexture2D: a texture cooked on Linux didn't load in the Windows game.
 """
 import os
 
 from PIL import Image, ImageDraw
 
 SIZE, SCALE = 128, 8  # draw at 8x, then downsample for clean edges
-OUT = os.path.join(os.path.dirname(__file__), "..", "icons")
+REPO = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
+OUTS = [os.path.join(REPO, "src", mod, "icons") for mod in ("OffDuty", "OffDutyProbe")]
 
 # (centre x, centre y, height) per Z, in 128-px units; each tier adds a bigger, higher Z.
 LAYOUTS = {
@@ -30,7 +34,8 @@ def draw_z(draw, cx, cy, height):
 
 
 def main():
-    os.makedirs(OUT, exist_ok=True)
+    for out in OUTS:
+        os.makedirs(out, exist_ok=True)
     for tier, zs in LAYOUTS.items():
         alpha = Image.new("L", (SIZE * SCALE, SIZE * SCALE), 0)
         draw = ImageDraw.Draw(alpha)
@@ -39,9 +44,10 @@ def main():
         alpha = alpha.resize((SIZE, SIZE), Image.LANCZOS)
         icon = Image.new("RGBA", (SIZE, SIZE), (255, 255, 255, 0))
         icon.putalpha(alpha)
-        path = os.path.join(OUT, "T_OffDuty_Fatigue_%d.png" % tier)
-        icon.save(path)
-        print(path)
+        for out in OUTS:
+            path = os.path.normpath(os.path.join(out, "T_OffDuty_Fatigue_%d.png" % tier))
+            icon.save(path)
+            print(path)
 
 
 if __name__ == "__main__":
