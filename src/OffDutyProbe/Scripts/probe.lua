@@ -695,13 +695,24 @@ function M.start(runtime, actions, logger, config)
         lines[#lines + 1] = string.format("Fully rested after <Bold>%d</> turn%s off duty.", count, count == 1 and "" or "s")
         return table.concat(lines, "\n")
     end
+    local bank_colour
+    local function tier_for(count)
+        for _, tier in ipairs(TIER_LABELS) do
+            if count and count >= tier[1] then
+                return tier, type(tier[3]) == "table" and tier[3] or bank_colour(tier[3])
+                    or { R = 0.98, G = 0.45, B = 0.07, A = 1.0 }
+            end
+        end
+        return nil
+    end
+
     local function colour_table(value)
         local ok, c = pcall(function() return { R = value.R, G = value.G, B = value.B, A = value.A } end)
         return ok and type(c.R) == "number" and c or nil
     end
 
     local palette_logged = false
-    local function bank_colour(tag)
+    function bank_colour(tag)
         local bank = cdo("/Script/BitReactorGame.Default__BitReactorColorBank")
         if not bank then return nil end
         if not palette_logged then
@@ -736,8 +747,9 @@ function M.start(runtime, actions, logger, config)
     local BANNER_ROLES = { Back = 1.0, PillBack = 1.0, EndCapBG = 1.0, GlowBack = 0.64, PillBack_Highlight = 1.6 }
 
     local function recolour_banner(parts, colour)
-        -- The banner's state animation re-applies injury red every frame; stop it, then recolour.
-        local _, stop_err = call(parts.__banner, "StopAllAnimations")
+        -- The caller stops the state animation first: stopping restores the pre-animation (design)
+        -- colours on a later frame, which overwrote a recolour made in the same call.
+        local stop_err = nil
         local done = 0
         for part, scale in pairs(BANNER_ROLES) do
             local c = { R = math.min(1, colour.R * scale), G = math.min(1, colour.G * scale),
@@ -787,18 +799,20 @@ function M.start(runtime, actions, logger, config)
     end
 
     local function fatigue_by_name()
-        local stacks = {}
+        -- Returns fatigue stacks by operator name and by character ID string.
+        local stacks, by_id = {}, {}
         local wco = world_context()
         local class = load_class(FATIGUE_EFFECT)
-        if not wco or not class then return stacks end
+        if not wco or not class then return stacks, by_id end
         for _, member in ipairs(roster_members(wco)) do
             local name = member.actor and character_name(member.actor)
             local asc = name and select(1, call(ability_library(), "GetAbilitySystemComponent", member.actor))
             if valid(asc) then
                 stacks[name] = tonumber((call(asc, "GetGameplayEffectCount", class, nil, true))) or 0
+                if member.id then by_id[member.id] = stacks[name] end
             end
         end
-        return stacks
+        return stacks, by_id
     end
 
     local function copy_slot_layout(from, to)
@@ -884,6 +898,68 @@ function M.start(runtime, actions, logger, config)
         log("TILE | %d live roster tile(s)%s", count, count == 0 and " (open the portrait strip first)" or "")
     end
 
+    -- Portrait tiles: a copy of the tile's WBP_HeroInjuries marker at the portrait's bottom right,
+    -- one image showing the game's Lethargy status icon in the tier colour, with our tooltip.
+    local LETHARGY_ICON = "/Game/Game/UI/Icons/StatusEffects/T_UI_StatusEffect_Lethargy.T_UI_StatusEffect_Lethargy"
+    local tile_markers = {}
+
+    local function build_tile_markers(by_id, library)
+        for _, marker in ipairs(tile_markers) do
+            pcall(function() if valid(marker) then marker:RemoveFromParent() end end)
+        end
+        tile_markers = {}
+        local list_lib = cdo("/Script/UMG.Default__UserObjectListEntryLibrary")
+        local icon = select(2, pcall(StaticFindObject, LETHARGY_ICON))
+        if not valid(icon) then log("TILE MARK | Lethargy icon not loaded; keeping the heartbeat icon") icon = nil end
+        local ok, tiles = pcall(FindAllOf, "WBP_RosterTile_C")
+        local built = 0
+        for _, tile in pairs(ok and tiles or {}) do
+            local item = live(tile) and (call(list_lib, "GetListItemObject", tile)) or nil
+            local id = item and guid_string((call(item, "GetCharacterID"))) or nil
+            local count = id and by_id[id] or nil
+            local tier, colour = tier_for(count)
+            local injuries = select(2, pcall(function() return tile.WBP_HeroInjuries end))
+            local parent = valid(injuries) and (call(injuries, "GetParent")) or nil
+            if tier and valid(parent) then
+                local marker, err = call(library, "Create", tile, injuries:GetClass(), (call(injuries, "GetOwningPlayer")))
+                if valid(marker) then
+                    local new_slot = (call(parent, "AddChild", marker))
+                    local old_slot = select(2, pcall(function() return injuries.Slot end))
+                    if valid(new_slot) and valid(old_slot) then copy_slot_layout(old_slot, new_slot) end
+                    call(new_slot, "SetHorizontalAlignment", 3) -- Right
+                    local parts = {}
+                    for _, node in ipairs(widget_tree(marker)) do parts[node.name] = node.widget end
+                    call(parts.Injury_2, "SetVisibility", 1) -- Collapsed: one icon
+                    call(parts.Injury_1, "SetVisibility", 4)
+                    if icon then call(parts.Injury_1, "SetBrushFromTexture", icon, false) end
+                    for part_name, widget in pairs(parts) do
+                        if part_name:find("^BitReactorTooltipBox") then
+                            call(widget, "SetTooltipPayloadTags", {})
+                            call(widget, "SetTooltipPayloadEntries", {
+                                { HeaderText = FText(tier[2]), BodyText = FText(tier_body(tier, count)) } })
+                        end
+                    end
+                    call(marker, "SetVisibility", 4)
+                    tile_markers[#tile_markers + 1] = marker
+                    built = built + 1
+                    actions:schedule_after("tile_mark", 100, function()
+                        call(marker, "StopAllAnimations")
+                        actions:schedule_after("tile_mark_colour", 150, function()
+                            call(parts.Injury_1, "SetColorAndOpacity", colour)
+                        end, marker)
+                    end, marker)
+                    log("TILE MARK | %s | %s (%d) | slot h %s v %s", plain(text((call(item, "GetFullName"))) or "?"),
+                        tier[2], count,
+                        tostring(select(2, pcall(function() return old_slot.HorizontalAlignment end))),
+                        tostring(select(2, pcall(function() return old_slot.VerticalAlignment end))))
+                else
+                    log("TILE MARK | Create failed: %s", tostring(err))
+                end
+            end
+        end
+        log("TILE MARK | %d marker(s) added", built)
+    end
+
     local function build_fatigue_banners()
         for _, banner in ipairs(fatigue_banners) do
             pcall(function() if valid(banner) then banner:RemoveFromParent() end end)
@@ -892,7 +968,7 @@ function M.start(runtime, actions, logger, config)
         local library = cdo("/Script/UMG.Default__WidgetBlueprintLibrary")
         local compared = false
         local logged_art = {}
-        local stacks = fatigue_by_name()
+        local stacks, stacks_by_id = fatigue_by_name()
         local ok, slots = pcall(FindAllOf, "WBP_CharacterSlot_C")
         local built = 0
         for _, slot in pairs(ok and slots or {}) do
@@ -1033,10 +1109,13 @@ function M.start(runtime, actions, logger, config)
                             end
                             actions:schedule_after("banner_size", 100, function()
                                 if colour then
-                                    local done, stop_err = recolour_banner(parts, colour)
-                                    log("BANNER | %s | stopped animations%s, recoloured %d part(s)", name,
-                                        stop_err and (" (error " .. stop_err .. ")") or "", done)
-                                    actions:schedule_after("banner_check", 500, function()
+                                    local _, stop_err = call(banner, "StopAllAnimations")
+                                    actions:schedule_after("banner_recolour", 150, function()
+                                        local done = recolour_banner(parts, colour)
+                                        log("BANNER | %s | stopped animations%s, recoloured %d part(s)", name,
+                                            stop_err and (" (error " .. stop_err .. ")") or "", done)
+                                    end, banner)
+                                    actions:schedule_after("banner_check", 700, function()
                                         log("BANNER | %s | Back colour after 0.5 s: %s (wanted %s)", name,
                                             colour_string(select(2, pcall(function() return parts.Back.ColorAndOpacity end))),
                                             colour_string(colour))
@@ -1068,6 +1147,7 @@ function M.start(runtime, actions, logger, config)
             end
         end
         dump_roster_tiles()
+        build_tile_markers(stacks_by_id, library)
         log("BANNER | %d banner(s) added (fatigue known for %d operator(s))", built,
             (function() local n = 0; for _ in pairs(stacks) do n = n + 1 end; return n end)())
     end
