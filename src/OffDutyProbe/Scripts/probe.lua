@@ -1500,28 +1500,32 @@ function M.start(runtime, actions, logger, config)
             local set_ok, err = pcall(function() vm[field] = value end)
             if not set_ok then errors[#errors + 1] = field .. " " .. tostring(err) end
         end
-        -- Start from the game's Lethargy brush (size, draw type, tint), then draw our texture as a plain
-        -- brush: type None, so the soft pointer (Lethargy's) isn't loaded over it.
+        -- Start from the game's Lethargy brush (size, draw type, tint, type Texture2D). config.status_icon
+        -- (default true) points it at our texture: the hard resource, plus the soft pointer if UE4SS can
+        -- write it. A type-None brush with a nil soft pointer crashed the HUD at the first turn start.
         local b_ok, b_err = pcall(function() vm.TagBrush = lethargy.TagBrush end)
         if not b_ok then errors[#errors + 1] = "TagBrush " .. tostring(b_err) end
         local level = tier[1] >= 5 and 3 or tier[1] >= 3 and 2 or 1
-        local icon = fatigue_icon(level)
+        local icon = config.status_icon ~= false and fatigue_icon(level) or nil
         if icon then
-            for field, value in pairs({ ResourceObject = icon, BrushType = 0 }) do
-                local ok, err = pcall(function() vm.TagBrush[field] = value end)
-                if not ok then errors[#errors + 1] = "TagBrush." .. field .. " " .. tostring(err) end
-            end
-            pcall(function() vm.TagBrush.WeakResourceObject = nil end)
-        else
+            local r_ok, r_err = pcall(function() vm.TagBrush.ResourceObject = icon end)
+            if not r_ok then errors[#errors + 1] = "TagBrush.ResourceObject " .. tostring(r_err) end
+            local w_ok, w_err = pcall(function() vm.TagBrush.WeakResourceObject = icon end)
+            if not w_ok then errors[#errors + 1] = "TagBrush.WeakResourceObject (left as Lethargy) " .. tostring(w_err) end
+        elseif config.status_icon ~= false then
             errors[#errors + 1] = "icon T_OffDuty_Fatigue_" .. level .. " not loadable"
         end
         local created_before = tier_tag_vms[title] ~= nil
         tier_tag_vms[title] = true -- logged once per tier; never holds the object
         if created_before then return vm end
-        log("STATUS UI | %s tag view model created | name reads back '%s' | icon %s (type %s)%s", title,
+        log("STATUS UI | %s tag view model created | name reads back '%s' | icon %s (type %s, soft %s)%s", title,
             tostring(text((call(vm, "GetDisplayName")))),
             full_name(select(2, pcall(function() return vm.TagBrush.ResourceObject end))),
             tostring(select(2, pcall(function() return vm.TagBrush.BrushType end))),
+            tostring(select(2, pcall(function()
+                local soft = vm.TagBrush.WeakResourceObject
+                return type(soft) == "userdata" and (pcall(function() return soft:ToString() end) and soft:ToString()) or soft
+            end))),
             #errors > 0 and (" | " .. table.concat(errors, " | ")) or "")
         return vm
     end

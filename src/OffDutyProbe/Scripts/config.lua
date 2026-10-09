@@ -23,6 +23,8 @@ return {
     -- At mission start, apply each deployed operator's tier (from their fatigue: 1 Tired, 3 Exhausted,
     -- 5 Spent) directly. Don't also queue tiers with Ctrl+Shift+1/2/3, or penalties double up.
     auto_tier = true,
+    -- Draw the Zzz icon on the in-mission debuff (false keeps the game's Lethargy icon there).
+    status_icon = true,
 
     -- Ctrl+Shift+F sets these exact counts (case-insensitive name substring); press again to reset
     -- to them. Defaults cover each tier (1 Tired, 3 Exhausted, 5/7 Spent) and 0/1/2 injuries.
