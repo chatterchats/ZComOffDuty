@@ -13,7 +13,8 @@ Keys avoid F10 (ConsoleEnablerMod's console) and F11 (fullscreen toggle).
   retries the squad-select / roster-tile hooks.
 - **Ctrl+Shift+F** sets exact fatigue and injury counts on the operators in
   `config.test_squad` (default: Tesh 1/1, Kabb 3/2, BR-1 5/0, Kara 7/0, as fatigue/injuries).
-  Pressing it again resets them to those counts.
+  Pressing it again resets them to those counts. It also queues each one's tier penalty
+  (Tired/Exhausted/Spent) for the next mission, once per game session.
 - **Ctrl+Shift+G** removes one `GE_OffDuty_Fatigue` stack from every
   roster operator who has a live actor (needs `~mods/OffDuty_P.*`, `tools/build_plugin.sh --install`).
   Writes to your save once you save, so **use a throwaway save**.

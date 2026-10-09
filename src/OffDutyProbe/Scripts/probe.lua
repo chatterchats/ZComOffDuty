@@ -1229,6 +1229,8 @@ function M.start(runtime, actions, logger, config)
         return tonumber((call(asc, "GetGameplayEffectCount", class, nil, true))) or 0, err
     end
 
+    local squad_tiers_queued = {}
+    local queue_tier -- defined below; the test squad queues tiers through it
     local function apply_test_squad()
         local wco = world_context()
         if not wco or not roster_statics() then log("SQUAD | no world context (load a campaign first)"); return end
@@ -1236,6 +1238,7 @@ function M.start(runtime, actions, logger, config)
         local injured = load_class(class_path(RESULT_EFFECTS, "GE_Injured"))
         if not fatigue or not injured then log("SQUAD | effect classes not loadable"); return end
         local done = {}
+        local queued = {}
         for _, member in ipairs((roster_members(wco))) do
             local name = member.actor and character_name(member.actor)
             for _, entry in ipairs(config.test_squad or {}) do
@@ -1252,6 +1255,15 @@ function M.start(runtime, actions, logger, config)
                         log("SQUAD | %s | fatigue %d (wanted %d) | injuries %d (wanted %d)%s%s", name,
                             f, entry.fatigue or 0, i, entry.injuries or 0,
                             f_err and (" | fatigue error " .. f_err) or "", i_err and (" | injury error " .. i_err) or "")
+                        -- Queue the matching tier penalty for the next mission (1/3/5 = Tired/Exhausted/Spent),
+                        -- once per game session: the queue stacks, so repeats would add accuracy stacks.
+                        local level = f >= 5 and 3 or f >= 3 and 2 or f >= 1 and 1 or nil
+                        if level and member.id and not squad_tiers_queued[member.id] then
+                            squad_tiers_queued[member.id] = true
+                            queue_tier(level, member.id)
+                        elseif level then
+                            log("SQUAD | %s | tier already queued this session (restart the game to queue again)", name)
+                        end
                     end
                 end
             end
@@ -1261,7 +1273,8 @@ function M.start(runtime, actions, logger, config)
         end
     end
 
-    local function queue_tier(level)
+    function queue_tier(level, only_id)
+        -- only_id: queue for that one roster character ID string instead of everyone.
         local tier = TIERS[level]
         local wco = world_context()
         if not wco or not roster_statics() then log("TIER | no world context (load a campaign first)"); return end
@@ -1270,7 +1283,7 @@ function M.start(runtime, actions, logger, config)
         if not accuracy or (tier.effect and not extra) then log("TIER | effect classes not loadable"); return end
         local queued = 0
         for _, member in ipairs((roster_members(wco))) do
-            if not member.away then
+            if not member.away and (only_id == nil or member.id == only_id) then
                 local name = member.actor and (character_name(member.actor) or full_name(member.actor)) or ("id " .. tostring(member.id))
                 local err
                 for _ = 1, tier.accuracy_stacks do
@@ -1283,8 +1296,10 @@ function M.start(runtime, actions, logger, config)
                 queued = queued + 1
             end
         end
-        log("TIER | %s queued on %d operator(s) for their next mission | next-mission entries %s | press once: reload the save to undo",
-            tier.name, queued, next_mission_map_count())
+        if only_id == nil then
+            log("TIER | %s queued on %d operator(s) for their next mission | next-mission entries %s | press once: reload the save to undo",
+                tier.name, queued, next_mission_map_count())
+        end
     end
 
     -- AP-loss experiment: roll at each player operator's team turn start (Exhausted/Spent only).
