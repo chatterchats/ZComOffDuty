@@ -29,8 +29,12 @@ local SLOT_EVENTS = {
 -- IsRosterTileSelectable is called whenever a tile refreshes (the probe saw it fire often): debounced.
 local TILE_EVENTS = { "OnListItemObjectSet", "IsRosterTileSelectable" }
 local SQUAD_VM = "/Game/Game/UI/Strategy/SquadSelect/BPs/VM_SquadSelect.VM_SquadSelect_C"
-local SQUAD_VM_EVENTS = { "OnCharacterSlotClicked", "RequestOnHologramsRefreshed", "ChangeState",
-    "UpdateCurrentCharacterSlot", "SetSquadSelectionInProgress", "UpdateLastSquad" }
+-- Screen open/close (seen firing as squad select opened): these ask for a full pass. Per-pick events such as
+-- UpdateCurrentCharacterSlot are left out: slot and tile events cover changes, with their own widget.
+local SQUAD_VM_EVENTS = { "ChangeState", "SetSquadSelectionInProgress" }
+-- Passes the clicked slot widget: a per-slot trigger.
+local SLOT_CLICKED = "OnCharacterSlotClicked"
+local FULL_PASS_MIN_S = 1
 local REFRESH_ALL_DELAY_MS = 150
 -- Our own widget changes can make the game re-run these functions (e.g. IsRosterTileSelectable): ignore
 -- triggers during a refresh and briefly after it, so a refresh can't trigger the next one forever.
@@ -176,7 +180,13 @@ function M.new(ctx)
 
     -- Fatigue lookup --------------------------------------------------------------------------------
 
+    -- Fatigue can't change while squad select is open: reuse the last scan (plain values) for a moment.
+    local FATIGUE_CACHE_S = 2
+    local fatigue_cache = nil
     local function fatigue_by_operator()
+        if fatigue_cache and os.time() - fatigue_cache.at <= FATIGUE_CACHE_S then
+            return fatigue_cache.by_name, fatigue_cache.by_id
+        end
         local by_name, by_id = {}, {}
         local wco = g.world_context()
         local class = g.effect_class(Game.FATIGUE)
@@ -190,6 +200,7 @@ function M.new(ctx)
                 if member.id then by_id[member.id] = points end
             end
         end
+        fatigue_cache = { at = os.time(), by_name = by_name, by_id = by_id }
         return by_name, by_id
     end
 
@@ -202,13 +213,16 @@ function M.new(ctx)
     -- Each widget's last applied state, as a plain string (never a UObject). A refresh whose state matches,
     -- with our copy still in place, does nothing: re-applying everything (and re-importing icons) on every
     -- trigger made the screen lag.
+    -- The parent's child count is part of the check: if our copy was removed (or another appeared), the
+    -- count differs and the widget is redone. Cheaper than scanning the children each time.
     local signatures = {}
-    local function unchanged(widget, signature, parent, native, want_copy)
-        if signatures[tostring(g.address(widget))] ~= signature then return false end
-        local copies = #our_copies(parent, native)
-        return (want_copy and copies == 1) or (not want_copy and copies == 0)
+    local function child_count(parent) return tonumber((g.call(parent, "GetChildrenCount"))) or -1 end
+    local function unchanged(widget, signature, parent)
+        return signatures[tostring(g.address(widget))] == signature .. "#" .. child_count(parent)
     end
-    local function remember(widget, signature) signatures[tostring(g.address(widget))] = signature end
+    local function remember(widget, signature, parent)
+        signatures[tostring(g.address(widget))] = signature .. "#" .. child_count(parent)
+    end
 
     -- view: { by_name, by_id, settings } computed once per refresh.
     local function refresh_slot(slot, view)
@@ -221,10 +235,10 @@ function M.new(ctx)
         local points = name ~= "" and view.by_name[name] or nil
         local tier = current_tier(points)
         local signature = string.format("%s|%s|%s|%s", name, tostring(points), tier and tier.id or "-", view.settings)
-        if unchanged(slot, signature, parent, native, tier ~= nil) then return end
+        if unchanged(slot, signature, parent) then return end
         if not tier then
             remove_copies(parent, native)
-            remember(slot, signature)
+            remember(slot, signature, parent)
             note(slot, string.format("slot '%s' | fatigue %s | no banner", name, tostring(points)))
             return
         end
@@ -242,7 +256,7 @@ function M.new(ctx)
         g.call(parts.Sizer, "SetHeightOverride", BANNER_SIZE[2])
         set_tooltip(tooltip_box(parts), tier, points)
         g.call(banner, "SetVisibility", SELF_HIT_TEST_INVISIBLE)
-        remember(slot, signature)
+        remember(slot, signature, parent)
         note(slot, string.format("slot '%s' | fatigue %d | %s banner %s", name, points, tier.name,
             created and "created" or "updated"))
 
@@ -272,10 +286,10 @@ function M.new(ctx)
         local points = id and view.by_id[id] or nil
         local tier = current_tier(points)
         local signature = string.format("%s|%s|%s|%s", tostring(id), tostring(points), tier and tier.id or "-", view.settings)
-        if unchanged(tile, signature, parent, native, tier ~= nil) then return end
+        if unchanged(tile, signature, parent) then return end
         if not tier then
             remove_copies(parent, native)
-            remember(tile, signature)
+            remember(tile, signature, parent)
             note(tile, string.format("tile %s | fatigue %s | no marker", tostring(id), tostring(points)))
             return
         end
@@ -293,7 +307,7 @@ function M.new(ctx)
         if icon then g.call(parts.Injury_1, "SetBrushFromTexture", icon, false) end
         set_tooltip(tooltip_box(parts), tier, points)
         g.call(marker, "SetVisibility", SELF_HIT_TEST_INVISIBLE)
-        remember(tile, signature)
+        remember(tile, signature, parent)
         note(tile, string.format("tile %s | fatigue %d | %s marker %s", tostring(id), points, tier.name,
             created and "created" or "updated"))
         local colour = colour_of(tier)
@@ -306,17 +320,34 @@ function M.new(ctx)
 
     -- A trigger during the quiet period is remembered and runs once when it ends. That can't loop: a refresh
     -- that changes nothing touches no widgets, so it triggers nothing.
+    -- Widgets that triggered, refreshed together. Held only until the refresh runs (a fraction of a second)
+    -- and validated there. A trigger without a widget (view model events, e.g. the screen opening) asks
+    -- for a full pass, which finds every slot and tile with FindAllOf (an engine-wide scan: kept rare).
+    local pending_widgets, full_pass, last_full_pass = {}, false, 0
     local quiet, pending = false, false
     local schedule_refresh_all
-    function schedule_refresh_all()
+    function schedule_refresh_all(kind, widget)
+        if kind and widget and g.address(widget) then
+            pending_widgets[tostring(g.address(widget))] = { kind = kind, widget = widget }
+        elseif os.time() - last_full_pass >= FULL_PASS_MIN_S then
+            full_pass = true
+        else
+            return -- a full pass ran within the last second
+        end
         if quiet then pending = true return end
         actions:cancel_group("squad_ui_refresh", "superseded")
         actions:schedule_after("squad_ui_refresh", REFRESH_ALL_DELAY_MS, g.safe("squad UI refresh", function()
             quiet = true
-            local ok, err = pcall(refresh_all)
+            local widgets, full = pending_widgets, full_pass
+            pending_widgets, full_pass = {}, false
+            if full then last_full_pass = os.time() end
+            local ok, err = pcall(refresh_all, full, widgets)
             actions:schedule_after("squad_ui_quiet", QUIET_AFTER_REFRESH_MS, function()
                 quiet = false
-                if pending then pending = false; schedule_refresh_all() end
+                if pending then
+                    pending = false
+                    if full_pass or next(pending_widgets) then schedule_refresh_all() end
+                end
             end)
             if not ok then error(err) end
         end))
@@ -325,13 +356,17 @@ function M.new(ctx)
     local installed = {}
     local function install_hooks(reason)
         local missing = 0
-        for class, events in pairs({ [SLOT] = SLOT_EVENTS, [TILE] = TILE_EVENTS, [SQUAD_VM] = SQUAD_VM_EVENTS }) do
+        local vm_events = { SLOT_CLICKED }
+        for _, event in ipairs(SQUAD_VM_EVENTS) do vm_events[#vm_events + 1] = event end
+        for class, events in pairs({ [SLOT] = SLOT_EVENTS, [TILE] = TILE_EVENTS, [SQUAD_VM] = vm_events }) do
             for _, event in ipairs(events) do
                 local path = class .. ":" .. event
                 if not installed[path] then
-                    local callback = g.safe(event, function()
+                    local kind = (class == SLOT and "slot") or (class == TILE and "tile") or nil
+                    local callback = g.safe(event, function(context, clicked)
                         count_fire(event)
-                        schedule_refresh_all()
+                        if event == SLOT_CLICKED then schedule_refresh_all("slot", g.unwrap(clicked))
+                        else schedule_refresh_all(kind, kind and g.unwrap(context) or nil) end
                     end)
                     -- Pre-hook: post-hooks on Blueprint functions never fire in UE4SS 3.0.1 (the probe logged
                     -- 140 pre and 0 post calls on Blueprint functions). The refresh is deferred anyway.
@@ -354,23 +389,31 @@ function M.new(ctx)
     end
 
     -- Refresh every live slot and tile (on any trigger, and after settings change).
-    function refresh_all()
-        local by_name, by_id = fatigue_by_operator() -- one roster scan for every widget
+    function refresh_all(full, widgets)
+        local by_name, by_id = fatigue_by_operator() -- one roster scan (or a cached one) for every widget
         local s = Rules.normalise(ctx.settings())
         local view = { by_name = by_name, by_id = by_id,
                        settings = string.format("%s/%d/%d", s.preset, s.gain, s.rest) }
-        for class_name, refresh in pairs({ WBP_CharacterSlot_C = refresh_slot, WBP_RosterTile_C = refresh_tile }) do
-            local ok, widgets = pcall(FindAllOf, class_name)
-            for _, widget in pairs(ok and widgets or {}) do
-                if g.live(widget) then
-                    local r_ok, err = pcall(refresh, widget, view)
-                    if not r_ok then warn_once("refresh_" .. class_name, "%s refresh failed | %s", class_name, tostring(err)) end
-                end
+        local refreshers = { slot = refresh_slot, tile = refresh_tile }
+        local function run(kind, widget)
+            if not g.live(widget) then return end
+            local ok, err = pcall(refreshers[kind], widget, view)
+            if not ok then warn_once("refresh_" .. kind, "%s refresh failed | %s", kind, tostring(err)) end
+        end
+        if full then
+            for class_name, kind in pairs({ WBP_CharacterSlot_C = "slot", WBP_RosterTile_C = "tile" }) do
+                local ok, found = pcall(FindAllOf, class_name)
+                for _, widget in pairs(ok and found or {}) do run(kind, widget) end
             end
+        else
+            for _, entry in pairs(widgets or {}) do run(entry.kind, entry.widget) end
         end
     end
 
-    function self:refresh_all() schedule_refresh_all() end
+    function self:refresh_all()
+        fatigue_cache = nil -- settings or fatigue changed: read fresh
+        schedule_refresh_all()
+    end
 
     return self
 end
