@@ -1,9 +1,10 @@
 -- The fatigue loop. Fatigue lives in the save as GE_OffDuty_Fatigue stacks on each operator.
 --
---   Mission start (ApplyNextMissionEffectsToCharacter, once per deployed operator):
---     1. apply the tier their current fatigue puts them in (accuracy stacks + tier effect);
---     2. mark them deployed this turn (GE_OffDuty_Deployed, saved, so a reload can't lose it);
---     3. add the mission's fatigue (capped).
+--   Mission start (ApplyNextMissionEffectsToCharacter, once per deployed operator, also on a tactical save
+--   load), processed once the mission is ready:
+--     new mission: apply the tier their current fatigue puts them in (accuracy stacks + tier effect),
+--       mark them deployed this turn (GE_OffDuty_Deployed, saved), add the mission's fatigue (capped);
+--     loaded save (marker present): fatigue is already counted; restore the tier only.
 --   Strategy turn end (EndStrategyTurn): every roster operator who isn't away and wasn't deployed
 --     recovers; the deployed marker is cleared. Away operators (operations) are frozen.
 --   Player turn start (OnTeamTurnStarted with PlayerTeam): Exhausted/Spent operators roll to lose 1 AP.
@@ -33,11 +34,12 @@ function M.new(ctx)
 
     -- Mission start ---------------------------------------------------------------------------------
 
+    -- The hook fires while the mission map loads: before the roster can be read, and on a tactical save
+    -- load before the save's effects are restored (both verified). Wait until the mission is ready.
+    -- Then the deployed marker tells the two apart: absent = a new mission, present = a loaded save.
+    local READY_RETRY_MS = { 250, 500, 1000, 2000, 4000, 8000 }
     local process_mission_start
 
-    -- The hook fires while the mission map loads, before the roster can be read (verified: every
-    -- operator came back "not on the roster"). Retry briefly until the roster answers.
-    local ROSTER_RETRY_MS = { 250, 500, 1000, 2000, 4000 }
     local function on_mission_start(_, character)
         local actor = g.unwrap(character)
         if not g.is_actor(actor) then return end
@@ -49,12 +51,12 @@ function M.new(ctx)
             attempt = attempt + 1
             local wco = g.world_context()
             local ids = wco and g.roster_ids(wco) or {}
-            if next(ids) == nil then
-                local delay = ROSTER_RETRY_MS[attempt]
+            if next(ids) == nil or not g.mission_ready(g.mission_actor()) then
+                local delay = READY_RETRY_MS[attempt]
                 if delay then
                     actions:schedule_after("mission_start", delay, g.safe("mission start retry", try), actor)
                 else
-                    log("WARNING: mission start | %s | roster still unreadable after %d tries; no fatigue this mission",
+                    log("WARNING: mission start | %s | mission or roster not ready after %d tries; no fatigue this mission",
                         name, attempt)
                 end
                 return
@@ -63,13 +65,34 @@ function M.new(ctx)
                 log("Mission start | %s | not on the roster (guest unit); no fatigue", name)
                 return
             end
-            if attempt > 1 then log("Mission start | %s | roster readable after %d tries", name, attempt) end
-            process_mission_start(actor, name)
+            process_mission_start(actor, name, attempt)
         end
         try()
     end
 
-    function process_mission_start(actor, name)
+    local function apply_tier(asc, tier, name)
+        -- apply_effect returns nil on success, so no `x and apply() or "error"` shortcuts here.
+        local accuracy, effect = g.load_class(Game.ACCURACY), g.effect_class(tier.effect)
+        local err
+        if not accuracy then err = "accuracy effect unavailable"
+        else
+            local missing = tier.accuracy_stacks - g.effect_count(asc, accuracy)
+            if missing > 0 then err = g.apply_effect(asc, accuracy, missing) end
+        end
+        if not err then
+            if not effect then err = tier.effect .. " unavailable"
+            elseif g.effect_count(asc, effect) < 1 then err = g.apply_effect(asc, effect, 1) end
+        end
+        -- Game state is authoritative: re-read what actually applied.
+        local summary = string.format("%s (%s %d, accuracy stacks %d)", tier.name, tier.effect,
+            g.effect_count(asc, effect), g.effect_count(asc, accuracy))
+        if err or g.effect_count(asc, effect) < 1 then
+            log("WARNING: mission start | %s | %s penalty not applied | %s", name, tier.name, tostring(err))
+        end
+        return summary
+    end
+
+    function process_mission_start(actor, name, attempt)
         if not g.valid(actor) then return end
         local asc = g.asc(actor)
         local fatigue_class, deployed_class = g.effect_class(Game.FATIGUE), g.effect_class(Game.DEPLOYED)
@@ -77,38 +100,34 @@ function M.new(ctx)
             log("WARNING: mission start | %s | ability system or Off Duty effects unavailable (is OffDuty_P installed?)", name)
             return
         end
+        local s = current_settings()
+        local cap = Rules.preset(s.preset).cap
+        local fatigue = g.effect_count(asc, fatigue_class)
+        if fatigue > cap then
+            fatigue = g.set_effect_count(asc, fatigue_class, cap)
+            log("WARNING: mission start | %s | fatigue was above the cap; clamped to %d", name, fatigue)
+        end
+        local ready_note = attempt > 1 and string.format(" (ready after %d tries)", attempt) or ""
+
         if g.effect_count(asc, deployed_class) > 0 then
-            log("Mission start | %s | already counted this turn", name)
+            -- A tactical save loaded (or a second call): fatigue is already counted. Restore the tier: the
+            -- saved tier effect if the save kept it, else the tier this mission started at.
+            local tier = tier_effect_present(asc)
+                or Rules.tier(math.max(fatigue - s.gain, 0), s.preset)
+            local summary = tier and apply_tier(asc, tier, name) or "rested"
+            log("Mission resumed | %s | fatigue %d unchanged | %s%s", name, fatigue, summary, ready_note)
             return
         end
+
         actions:cancel_group("ap_loss", "mission start") -- a new mission session
-        local s = current_settings()
-        local before = g.effect_count(asc, fatigue_class)
-        local tier = Rules.tier(before, s.preset)
-        local penalty = "rested"
-        if tier then
-            local accuracy, effect = g.load_class(Game.ACCURACY), g.effect_class(tier.effect)
-            -- apply_effect returns nil on success, so no `x and apply() or "error"` shortcuts here.
-            local err
-            if not accuracy then err = "accuracy effect unavailable"
-            else err = g.apply_effect(asc, accuracy, tier.accuracy_stacks) end
-            if not err then
-                if not effect then err = tier.effect .. " unavailable"
-                else err = g.apply_effect(asc, effect, 1) end
-            end
-            -- Game state is authoritative: re-read what actually applied.
-            penalty = string.format("%s (%s %d, accuracy stacks %d)", tier.name, tier.effect,
-                g.effect_count(asc, effect), g.effect_count(asc, accuracy))
-            if err or g.effect_count(asc, effect) < 1 then
-                log("WARNING: mission start | %s | %s penalty not applied | %s", name, tier.name, tostring(err))
-            end
-        end
+        local tier = Rules.tier(fatigue, s.preset)
+        local summary = tier and apply_tier(asc, tier, name) or "rested"
         g.apply_effect(asc, deployed_class, 1)
         if g.effect_count(asc, deployed_class) < 1 then
             log("WARNING: mission start | %s | deployed marker not applied; turn-end recovery may count them", name)
         end
-        local after = g.set_effect_count(asc, fatigue_class, Rules.after_mission(before, s))
-        log("Mission start | %s | fatigue %d -> %d | %s", name, before, after, penalty)
+        local after = g.set_effect_count(asc, fatigue_class, Rules.after_mission(fatigue, s))
+        log("Mission start | %s | fatigue %d -> %d | %s%s", name, fatigue, after, summary, ready_note)
         if ctx.on_mission_start then ctx.on_mission_start() end
     end
 
@@ -134,7 +153,7 @@ function M.new(ctx)
             elseif member.away then
                 frozen = frozen + 1
             else
-                local before = g.effect_count(asc, fatigue_class)
+                local before = math.min(g.effect_count(asc, fatigue_class), Rules.preset(s.preset).cap)
                 if before > 0 then
                     g.set_effect_count(asc, fatigue_class, Rules.after_rest(before, s))
                     rested = rested + 1

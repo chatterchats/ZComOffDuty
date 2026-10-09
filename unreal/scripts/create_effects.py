@@ -16,7 +16,8 @@ Effects (all UBitReactorGameplayEffect Blueprints):
   turn-start roll hits (a turn is 3 AP; the game refills them at the next turn start).
 - GE_OffDuty_Tired / GE_OffDuty_Exhausted / GE_OffDuty_Spent: next-mission penalties, queued with
   UBrunoGameStatics::AddNextMissionCharacterEffect like the game's GE_Lose_NextMission_* effects and
-  copying their pattern (bTerminateWithCombat, not saved, TemporaryPenalty + StatusEffect.Negative tags).
+  copying their pattern (bTerminateWithCombat, TemporaryPenalty + StatusEffect.Negative tags), but saved in
+  tactical saves so an in-mission save keeps them.
   Percentages use MultiplyAdditive, which the engine multiplies by the stack count, so these never stack
   (limit 1): one effect per tier instead. Tired has no modifiers of its own (its accuracy is the game's
   effect); it exists so the tier shows in mission.
@@ -57,7 +58,9 @@ COMMON = {
     "stack_period_reset_policy": unreal.GameplayEffectStackingPeriodPolicy.NEVER_RESET,
     "stack_expiration_policy": unreal.GameplayEffectStackingExpirationPolicy.CLEAR_ENTIRE_STACK,
 }
-NEXT_MISSION_PENALTY = dict(COMMON, stack_limit_count=1, include_in_save_data=False, terminate_with_combat=True)
+# Saved in tactical saves (bIncludeInSaveData) so loading an in-mission save keeps the tier; it still ends with
+# combat, and the hub save drops it (no Persists tag). Loading a tactical save doesn't re-apply it otherwise.
+NEXT_MISSION_PENALTY = dict(COMMON, stack_limit_count=1, include_in_save_data=True, terminate_with_combat=True)
 
 EFFECTS = [
     {

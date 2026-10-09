@@ -226,6 +226,30 @@ function M.new(log)
         return g.effect_count(asc, class)
     end
 
+    function g.read(object, property)
+        local ok, value = pcall(function() return g.unwrap(object)[property] end)
+        if ok then return g.unwrap(value) end
+        return nil
+    end
+
+    -- The live tactical mission, if any (BRGameMissionActor; FastResonance's readiness check).
+    function g.mission_actor()
+        local ok, actors = pcall(FindAllOf, "BRGameMissionActor")
+        if not ok or actors == nil then return nil end
+        for _, actor in pairs(actors) do
+            if g.live(actor) then return actor end
+        end
+        return nil
+    end
+
+    -- Ready means loaded, including effects restored from a tactical save.
+    function g.mission_ready(mission)
+        return g.valid(mission)
+            and g.read(mission, "bIsMissionActorReady") == true
+            and g.read(mission, "MissionStatus") == 1 -- EMissionStatus.Active
+            and g.read(mission, "bIsMissionEnding") == false
+    end
+
     -- Roster members: { guid, id, away, actor (may be nil) }.
     function g.roster(wco)
         local members = {}

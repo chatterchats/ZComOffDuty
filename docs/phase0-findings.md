@@ -484,3 +484,16 @@ Lua. Next run compares leaving the brush type as Texture2D against setting it to
 Lethargy icon (the soft pointer is loaded over it); setting `BrushType = None` as well draws our Zzz icon
 beside the health bar, with no crash. Recipe: copy the Lethargy brush whole, then set `ResourceObject` to
 the imported texture and `BrushType` to None; never write `WeakResourceObject`.
+
+### Real mod, first loop runs (2026-10-09)
+
+- Fatigue added on the tactical character during a mission carries back to the hub and into the hub
+  autosave (decoded from `Autosave_Den`: the post-mission stacks). The deployed marker's clear at turn end
+  also carries back. **One mission is one strategy turn: `EndStrategyTurn` fires as the mission ends.**
+- `ApplyNextMissionEffectsToCharacter` fires before the roster can be read, and **also when a tactical
+  save loads, before the save restores effects**: the first build read fatigue 0, added 2, then the
+  save's stacks landed on top (9 > cap). Off Duty now waits for the mission actor to be ready
+  (`bIsMissionActorReady`, `MissionStatus` Active, not ending), then uses the deployed marker to tell a
+  new mission (apply tier, mark, add fatigue) from a loaded save (restore the tier only).
+- Tier effects weren't kept by tactical saves (copied the game's `bIncludeInSaveData = false`); they're
+  saved now. The game's accuracy stacks are topped up from the tier on a loaded save.
