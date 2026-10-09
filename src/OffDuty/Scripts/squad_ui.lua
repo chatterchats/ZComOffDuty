@@ -18,10 +18,13 @@ local M = {}
 local SLOT = "/Game/Game/UI/Strategy/SquadSelect/Widgets/WBP_CharacterSlot.WBP_CharacterSlot_C"
 local TILE = "/Game/Game/UI/Strategy/_Common/Widgets/WBP_RosterTile.WBP_RosterTile_C"
 local SLOT_EVENTS = {
-    "FilledSlotState", "EmptySlotState",
+    "FilledSlotState", "EmptySlotState", "UpdateState",
     "BndEvt__WBP_CharacterSlot_BrunoCharacterViewModel_MDVMNode_ViewModelFieldNotify_13_FullName",
 }
-local TILE_EVENTS = { "OnListItemObjectSet" }
+-- IsRosterTileSelectable is called whenever a tile refreshes (the probe saw it fire often): debounced.
+local TILE_EVENTS = { "OnListItemObjectSet", "IsRosterTileSelectable" }
+-- The squad select view model's slot click passes the slot widget (proven to fire in the probe).
+local SLOT_CLICKED = "/Game/Game/UI/Strategy/SquadSelect/BPs/VM_SquadSelect.VM_SquadSelect_C:OnCharacterSlotClicked"
 local INSTALL_RETRY_MS = { 1000, 5000, 15000, 60000 }
 local REFRESH_DELAY_MS = 50
 local STOP_DELAY_MS, RECOLOUR_DELAY_MS = 100, 150
@@ -43,6 +46,23 @@ function M.new(ctx)
         if warned[key] then return end
         warned[key] = true
         log("WARNING: squad UI | " .. fmt, ...)
+    end
+
+    -- Each widget's outcome is logged when it changes (not every refresh).
+    local outcomes = {}
+    local function note(widget, text)
+        local key = tostring(g.address(widget))
+        if outcomes[key] == text then return end
+        outcomes[key] = text
+        log("Squad UI | %s", text)
+    end
+
+    -- Hook calls: the first few per event, then every 100th.
+    local fired = {}
+    local function count_fire(event)
+        fired[event] = (fired[event] or 0) + 1
+        local n = fired[event]
+        if n <= 3 or n % 100 == 0 then log("Squad UI | %s fired (%d)", event, n) end
     end
 
     -- Widgets ---------------------------------------------------------------------------------------
@@ -178,7 +198,11 @@ function M.new(ctx)
         local name = g.plain(g.text(full_name and (g.call(full_name, "GetText"))) or ""):upper()
         local points = name ~= "" and (fatigue_by_operator())[name] or nil
         local tier = current_tier(points)
-        if not tier then remove_copies(parent, native) return end
+        if not tier then
+            remove_copies(parent, native)
+            note(slot, string.format("slot '%s' | fatigue %s | no banner", name, tostring(points)))
+            return
+        end
 
         local banner, created = ensure_copy(slot, parent, native)
         if not banner then warn_once("banner_create", "could not create a banner | %s", tostring(created)) return end
@@ -193,6 +217,8 @@ function M.new(ctx)
         g.call(parts.Sizer, "SetHeightOverride", BANNER_SIZE[2])
         set_tooltip(tooltip_box(parts), tier, points)
         g.call(banner, "SetVisibility", SELF_HIT_TEST_INVISIBLE)
+        note(slot, string.format("slot '%s' | fatigue %d | %s banner %s", name, points, tier.name,
+            created and "created" or "updated"))
 
         local colour = colour_of(tier)
         tint_later(banner, function()
@@ -220,7 +246,11 @@ function M.new(ctx)
         local _, by_id = fatigue_by_operator()
         local points = id and by_id[id] or nil
         local tier = current_tier(points)
-        if not tier then remove_copies(parent, native) return end
+        if not tier then
+            remove_copies(parent, native)
+            note(tile, string.format("tile %s | fatigue %s | no marker", tostring(id), tostring(points)))
+            return
+        end
 
         local marker, created = ensure_copy(tile, parent, native)
         if not marker then warn_once("marker_create", "could not create a portrait marker | %s", tostring(created)) return end
@@ -235,6 +265,8 @@ function M.new(ctx)
         if icon then g.call(parts.Injury_1, "SetBrushFromTexture", icon, false) end
         set_tooltip(tooltip_box(parts), tier, points)
         g.call(marker, "SetVisibility", SELF_HIT_TEST_INVISIBLE)
+        note(tile, string.format("tile %s | fatigue %d | %s marker %s", tostring(id), points, tier.name,
+            created and "created" or "updated"))
         local colour = colour_of(tier)
         tint_later(marker, function() g.call(parts.Injury_1, "SetColorAndOpacity", colour) end)
     end
@@ -258,6 +290,7 @@ function M.new(ctx)
                 if not installed[path] then
                     local is_slot = class == SLOT
                     local callback = g.safe(event, function(context)
+                        count_fire(event)
                         local widget = g.unwrap(context)
                         if is_slot then schedule_refresh("slot", widget, refresh_slot)
                         else schedule_refresh("tile", widget, refresh_tile) end
@@ -266,6 +299,14 @@ function M.new(ctx)
                     if ok then installed[path] = true; log("Hooked | %s", path) else missing = missing + 1 end
                 end
             end
+        end
+        if not installed[SLOT_CLICKED] then
+            local callback = g.safe("OnCharacterSlotClicked", function(_, slot)
+                count_fire("OnCharacterSlotClicked")
+                schedule_refresh("slot", g.unwrap(slot), refresh_slot)
+            end)
+            local ok = pcall(function() ctx.runtime:register_hook(SLOT_CLICKED, function() end, callback) end)
+            if ok then installed[SLOT_CLICKED] = true; log("Hooked | %s", SLOT_CLICKED) else missing = missing + 1 end
         end
         if missing > 0 then log("Squad UI | %d hook(s) not ready (%s); will retry", missing, reason) end
         return missing == 0
