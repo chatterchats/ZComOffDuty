@@ -10,6 +10,8 @@
 #   3. assemble a ~mods pak mod (a Modkit "override" mod: content remapped onto /Game):
 #        SWZeroCompany/Content/Paks/~mods/OffDuty_P.{pak,ucas,utoc}
 #      and check the remap ran (in game the effect is /Game/OffDuty/Effects/GE_OffDuty_Fatigue)
+#   4. OffDutyTags_P.pak: Config/Tags/OffDutyTags.ini mounted at the project's Config/Tags, in case the
+#      game only reads gameplay tag files from there (the cooked plugin config lands under Mods/OffDuty/)
 #
 # The Linux editor has no Windows target platform, so this cooks for Linux. GE_OffDuty_Fatigue
 # has no shaders, textures or other platform-specific data; whether a Linux cook loads in the
@@ -38,6 +40,9 @@ fi
 # The DLC cook reads the base release for the cook platform; the shipped registry is a package list.
 mkdir -p "$kit/Releases/BaseGame/$platform"
 cp "$kit/Releases/BaseGame/Windows/AssetRegistry.bin" "$kit/Releases/BaseGame/$platform/"
+# The editor doesn't scan an explicitly loaded plugin's Config/Tags; register Off Duty's tags in the
+# kit's (a merge.py rerun may prune it; this puts it back every build).
+cp "$repo/unreal/OffDuty/Config/Tags/OffDutyTags.ini" "$kit/Config/Tags/OffDutyTags.ini"
 
 echo "1/3 Authoring assets"
 "$engine/Binaries/Linux/UnrealEditor-Cmd" "$project" -run=pythonscript \
@@ -70,12 +75,17 @@ grep -q "Remapping plugin content to game: 'True'" "$logs/cook.log" \
 "$engine/Binaries/Linux/UnrealPak" "$out/OffDuty_P.utoc" -List > "$logs/list.log" 2>&1
 grep -q '/OffDuty/Effects/GE_OffDuty_Fatigue.uasset"' "$logs/list.log" \
     || { echo "GE_OffDuty_Fatigue missing from the container; see $logs/list.log" >&2; exit 1; }
-( cd "$out" && sha256sum OffDuty_P.* ) > "$repo/dist/plugin/SHA256SUMS"
+printf '"%s" "../../../SWZeroCompany/Config/Tags/OffDutyTags.ini"\n' \
+    "$repo/unreal/OffDuty/Config/Tags/OffDutyTags.ini" > "$logs/tags-pak.txt"
+"$engine/Binaries/Linux/UnrealPak" "$out/OffDutyTags_P.pak" -create="$logs/tags-pak.txt" > "$logs/tags-pak.log" 2>&1 \
+    || { tail -5 "$logs/tags-pak.log" >&2; echo "Tags pak failed; see $logs/tags-pak.log" >&2; exit 1; }
+( cd "$out" && sha256sum OffDuty_P.* OffDutyTags_P.pak ) > "$repo/dist/plugin/SHA256SUMS"
 cat "$repo/dist/plugin/SHA256SUMS"
 
 if $install; then
     game=${SWZC_GAME:-$(cat "$kit/GameInstallDirectory.txt")}
     target="$game/SWZeroCompany/Content/Paks/~mods"
-    mkdir -p "$target" && rm -f "$target"/OffDuty_P.* && cp "$out"/OffDuty_P.* "$target/"
-    echo "Installed: $target/OffDuty_P.{pak,ucas,utoc}"
+    mkdir -p "$target" && rm -f "$target"/OffDuty_P.* "$target"/OffDutyTags_P.pak \
+        && cp "$out"/OffDuty_P.* "$out"/OffDutyTags_P.pak "$target/"
+    echo "Installed: $target/OffDuty_P.{pak,ucas,utoc} and OffDutyTags_P.pak"
 fi

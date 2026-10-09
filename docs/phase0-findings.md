@@ -417,3 +417,19 @@ match the game's look. Verified in game 2026-10-08.
   in the same Overlay, aligned right, one image set to `T_UI_StatusEffect_Lethargy` and tinted,
   marks fatigue. Note: UE4SS's `UObject:GetFullName()` shadows the view model's `GetFullName`; read
   the `FullName` property.
+
+### In-mission debuff (2026-10-08)
+
+The Inspect panel's Debuffs list is a `BRG_ActiveStatusEffectsListViewModel` with `EffectTagQuery` = any
+of `BitReactor.GameplayEffect.StatusEffect.Negative` (Buffs: `...StatusEffect.Positive`; also lists for
+`GameplayEffect.Passive`, `br.UI.Effect.CoreCondition`, Backup buffs). An effect shows once it carries
+`BRG_StatusEffectUIData` (GE_Injured's component; only the first UI data component counts). Verified:
+the tier effect appeared under Debuffs, but named "Lethargy" with the Seer's description: the name,
+description and icon come from the `StatusEffectTag`'s tag UI data (`UBitReactorTagUIDataViewModel`,
+`FindOrCreateTagUIDataViewModel`), not from the component's PreviewTitle. GE_Injured's status tag is
+`ImageBank.Icon.Character.Status.Injury`.
+
+Next: own tags `OffDuty.Status.<Tier>` (Config/Tags/OffDutyTags.ini, shipped in the plugin config and in
+`OffDutyTags_P.pak` at the project's Config/Tags) with their tag UI view models filled in from Lua.
+The editor ignores an explicitly loaded plugin's Config/Tags, so the build copies the ini into the
+kit's Config/Tags for authoring.

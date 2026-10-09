@@ -624,8 +624,10 @@ function M.start(runtime, actions, logger, config)
         log("UI | %s | components: %s", label, #parts > 0 and table.concat(parts, " | ") or "none")
     end
 
+    local patch_status_tag_ui_ref = nil
     local function dump_injury_ui()
         log("UI | ---- injury banner dump ----")
+        if patch_status_tag_ui_ref then patch_status_tag_ui_ref("Ctrl+Shift+U") end
         local ok, lists = pcall(FindAllOf, "BrunoGameplayEffectListViewModel")
         local count = 0
         for _, list in pairs(ok and lists or {}) do
@@ -1390,6 +1392,69 @@ function M.start(runtime, actions, logger, config)
         return fatigue >= 5 and 3 or fatigue >= 3 and 2 or fatigue >= 1 and 1 or nil
     end
 
+    -- Status effect text: the Inspect panel shows a status's name/description/icon from its
+    -- StatusEffectTag's tag UI view model. Each tier effect has its own OffDuty.Status.<Tier> tag with no
+    -- game UI data, so fill its view model(s) in here, borrowing the Lethargy icon.
+    local TIER_INTROS = {
+        TIRED = "Worn down from back-to-back deployments.",
+        EXHAUSTED = "Pushed too hard for too long.",
+        SPENT = "Running on empty.",
+    }
+    local status_tags_checked = false
+    local function patch_status_tag_ui(reason)
+        local lib = cdo("/Script/BitReactorGame.Default__BitReactorTagUIDataViewModel")
+        local wco = world_context()
+        if not lib or not wco then return end
+        if not status_tags_checked then
+            -- Registered tags survive loading the cooked effect; unknown ones load as None.
+            status_tags_checked = true
+            for _, tier in ipairs(TIER_LABELS) do
+                local title = tier[2]:sub(1, 1) .. tier[2]:sub(2):lower()
+                local defaults = cdo("/Game/OffDuty/Effects/GE_OffDuty_" .. title .. ".Default__GE_OffDuty_" .. title .. "_C")
+                local found = "effect not loaded"
+                pcall(function()
+                    array_each(defaults.GEComponents, function(_, component)
+                        local ok, tag = pcall(function() return text(component.StatusEffectTag.TagName) end)
+                        if ok and tag then found = tag end
+                    end)
+                end)
+                log("STATUS TAG | GE_OffDuty_%s status tag at runtime: %s", title, tostring(found))
+            end
+        end
+        local lethargy = (call(lib, "FindOrCreateTagUIDataViewModel", wco,
+            { TagName = FName("BitReactor.Status.Character.Lethargy") }))
+        for _, tier in ipairs(TIER_LABELS) do
+            local title = tier[2]:sub(1, 1) .. tier[2]:sub(2):lower()
+            local tag = "OffDuty.Status." .. title
+            local lines = { TIER_INTROS[tier[2]] or "" }
+            for _, penalty in ipairs(tier[4]) do lines[#lines + 1] = penalty end
+            lines[#lines + 1] = "Rest off duty to recover."
+            local description = table.concat(lines, "\n")
+            local targets = { (call(lib, "FindOrCreateTagUIDataViewModel", wco, { TagName = FName(tag) })) }
+            local ok, all = pcall(FindAllOf, "BitReactorTagUIDataViewModel")
+            for _, vm in pairs(ok and all or {}) do
+                local vm_tag = select(2, pcall(function() return text((call(vm, "GetTag")).TagName) end))
+                if vm_tag == tag and vm ~= targets[1] then targets[#targets + 1] = vm end
+            end
+            local patched, errors = 0, {}
+            for _, vm in ipairs(targets) do
+                if valid(vm) then
+                    local n_ok, n_err = pcall(function() vm.DisplayName = FText(title) end)
+                    local d_ok, d_err = pcall(function() vm.TagDescription = FText(description) end)
+                    local b_ok, b_err = pcall(function() vm.TagBrush = lethargy.TagBrush end)
+                    if n_ok and d_ok then patched = patched + 1 end
+                    if not n_ok then errors[#errors + 1] = "name " .. tostring(n_err) end
+                    if not b_ok then errors[#errors + 1] = "icon " .. tostring(b_err) end
+                end
+            end
+            log("STATUS TAG | %s | %s | patched %d view model(s) | reads back '%s' (tag %s)%s", reason, tag, patched,
+                tostring(text((call(targets[1], "GetDisplayName")))),
+                tostring(select(2, pcall(function() return text((call(targets[1], "GetTag")).TagName) end))),
+                #errors > 0 and (" | " .. table.concat(errors, " | ")) or "")
+        end
+    end
+
+    patch_status_tag_ui_ref = patch_status_tag_ui
     local function apply_tier_at_mission_start(_, character)
         if not config.auto_tier then return end
         local actor = unwrap(character)
@@ -1413,6 +1478,7 @@ function M.start(runtime, actions, logger, config)
             _, err = call(asc, "BP_ApplyGameplayEffectToSelf", accuracy, 1.0, (call(asc, "MakeEffectContext")))
         end
         local _, effect_err = call(asc, "BP_ApplyGameplayEffectToSelf", effect, 1.0, (call(asc, "MakeEffectContext")))
+        patch_status_tag_ui("mission start")
         log("MISSION TIER | %s | fatigue %d | %s | accuracy stacks %s | %s %s%s%s", name, fatigue, tier.name,
             tostring((call(asc, "GetGameplayEffectCount", accuracy, nil, true))), tier.effect,
             tostring((call(asc, "GetGameplayEffectCount", effect, nil, true))),

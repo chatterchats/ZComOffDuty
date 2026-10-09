@@ -20,8 +20,9 @@ Effects (all UBitReactorGameplayEffect Blueprints):
   (limit 1): one effect per tier instead. Tired has no modifiers of its own (its accuracy is the game's
   effect); it exists so the tier shows in mission.
   Each carries BRG_StatusEffectUIData, the component GE_Injured uses, so the tactical Inspect panel lists
-  it under Debuffs: status tag BitReactor.Status.Character.Lethargy, the game's Lethargy icon, and our
-  own preview title/description. A GameplayEffect's UI data is found as its first UGameplayEffectUIData
+  it under Debuffs. The list takes a status's name, description and icon from its StatusEffectTag's tag
+  UI data, so each tier has its own tag (OffDuty.Status.<Tier>, Config/Tags/OffDutyTags.ini) whose text
+  Off Duty fills in at runtime; the game's own tag, Lethargy, belongs to the Seer's drain. A GameplayEffect's UI data is found as its first UGameplayEffectUIData
   component, so the strategy-side BrunoGameEffectUIData these used to carry is removed.
   Accuracy uses the game's own GE_Lose_NextMission_RangedAccuracy (-5% per stack), which keeps the
   native "Penalty from Operation" line in the hit breakdown.
@@ -39,7 +40,7 @@ HEALTH = ("BitReactorHealthSet", "MaxHealth")
 MOVEMENT = ("BitReactorCombatSet", "MovementPerAP")
 ACTION_POINTS = ("BitReactorCombatSet", "ActionPoints")
 MAX_HEALTH = '<Keyword id="UI.Keyword.Health">Max Health</>'
-STATUS_TAG = "BitReactor.Status.Character.Lethargy"
+STATUS_TAG = "OffDuty.Status.%s"
 STATUS_ICON = "ImageBank.Icon.Lethargy"
 BRUNO_UI_DATA = "/Script/Bruno.BrunoGameEffectUIData"
 STATUS_UI_DATA = "/Script/BitReactorGame.BRG_StatusEffectUIData"
@@ -210,10 +211,11 @@ def remove_components(defaults, class_path):
 
 
 def apply_ui(defaults, name, description):
+    status_tag = STATUS_TAG % name
     # Only the first UI data component counts, so drop the strategy-side one before adding ours.
     remove_components(defaults, BRUNO_UI_DATA)
     ui = component(defaults, STATUS_UI_DATA)
-    set_by_unreal_name(ui, "StatusEffectTag", gameplay_tag(STATUS_TAG))
+    set_by_unreal_name(ui, "StatusEffectTag", gameplay_tag(status_tag))
     set_by_unreal_name(ui, "PreviewTitle", unreal.Text(name))
     set_by_unreal_name(ui, "PreviewDescription", unreal.Text(description))
     icon = get_by_unreal_name(ui, "PreviewStatusEffectIcon")
