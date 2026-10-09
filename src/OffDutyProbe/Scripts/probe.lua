@@ -15,6 +15,7 @@ local TRACKED_EFFECTS = {
     { label = "NM_LoseMaxHealth", path = class_path(NEXT_MISSION_EFFECTS, "GE_Lose_NextMission_LoseMaxHealth") },
     { label = "OD_Fatigue", path = "/Game/OffDuty/Effects/GE_OffDuty_Fatigue.GE_OffDuty_Fatigue_C" },
     { label = "OD_Tired", path = "/Game/OffDuty/Effects/GE_OffDuty_Tired.GE_OffDuty_Tired_C" },
+    { label = "OD_Deployed", path = "/Game/OffDuty/Effects/GE_OffDuty_Deployed.GE_OffDuty_Deployed_C" },
     { label = "OD_Exhausted", path = "/Game/OffDuty/Effects/GE_OffDuty_Exhausted.GE_OffDuty_Exhausted_C" },
     { label = "OD_Spent", path = "/Game/OffDuty/Effects/GE_OffDuty_Spent.GE_OffDuty_Spent_C" },
 }

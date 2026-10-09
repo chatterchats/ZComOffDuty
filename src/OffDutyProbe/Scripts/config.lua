@@ -35,6 +35,8 @@ return {
         { name = "Kabb", fatigue = 3, injuries = 2 },
         { name = "BR-1", fatigue = 5, injuries = 0 },
         { name = "Kara", fatigue = 7, injuries = 0 },
+        -- Benched (don't deploy): shows turn-end recovery (4 -> 3 after a mission turn).
+        { name = "Tel-Rea", fatigue = 4, injuries = 0 },
     },
 
     -- High-frequency hooks (roster tiles) log their first N calls, then every Nth.
