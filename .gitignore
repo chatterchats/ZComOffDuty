@@ -13,3 +13,5 @@ Thumbs.db
 /unreal/OffDuty/Saved/
 /unreal/OffDuty/Intermediate/
 /unreal/OffDuty/Binaries/
+# Written by the MXM settings menu at runtime (the mod is symlinked into the game)
+/src/*/MXM/values.lua
