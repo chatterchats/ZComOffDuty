@@ -324,17 +324,13 @@ function M.new(ctx)
     -- and validated there. A trigger without a widget (view model events, e.g. the screen opening) asks
     -- for a full pass, which finds every slot and tile with FindAllOf (an engine-wide scan: kept rare).
     local pending_widgets, full_pass, last_full_pass = {}, false, 0
-    local quiet, pending = false, false
-    local schedule_refresh_all
-    function schedule_refresh_all(kind, widget)
-        if kind and widget and g.address(widget) then
-            pending_widgets[tostring(g.address(widget))] = { kind = kind, widget = widget }
-        elseif os.time() - last_full_pass >= FULL_PASS_MIN_S then
-            full_pass = true
-        else
-            return -- a full pass ran within the last second
-        end
-        if quiet then pending = true return end
+    local quiet, waiting = false, false
+
+    -- Starts the refresh for whatever is queued (unless one is due or the quiet period is on).
+    local start_refresh
+    function start_refresh()
+        if quiet then waiting = true return end
+        if not full_pass and next(pending_widgets) == nil then return end
         actions:cancel_group("squad_ui_refresh", "superseded")
         actions:schedule_after("squad_ui_refresh", REFRESH_ALL_DELAY_MS, g.safe("squad UI refresh", function()
             quiet = true
@@ -344,13 +340,22 @@ function M.new(ctx)
             local ok, err = pcall(refresh_all, full, widgets)
             actions:schedule_after("squad_ui_quiet", QUIET_AFTER_REFRESH_MS, function()
                 quiet = false
-                if pending then
-                    pending = false
-                    if full_pass or next(pending_widgets) then schedule_refresh_all() end
-                end
+                -- Work queued during the quiet period runs now (it's already queued: no rate limit).
+                if waiting then waiting = false; start_refresh() end
             end)
             if not ok then error(err) end
         end))
+    end
+
+    -- Queues a widget (slot/tile triggers) or a full pass (view model events: the screen opening; at most
+    -- once a second), then starts a refresh.
+    local function schedule_refresh_all(kind, widget)
+        if kind and widget and g.address(widget) then
+            pending_widgets[tostring(g.address(widget))] = { kind = kind, widget = widget }
+        elseif os.time() - last_full_pass >= FULL_PASS_MIN_S then
+            full_pass = true
+        end
+        start_refresh()
     end
 
     local installed = {}
