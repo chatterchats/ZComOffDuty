@@ -34,7 +34,7 @@ local SQUAD_VM_EVENTS = { "OnCharacterSlotClicked", "RequestOnHologramsRefreshed
 local REFRESH_ALL_DELAY_MS = 150
 -- Our own widget changes can make the game re-run these functions (e.g. IsRosterTileSelectable): ignore
 -- triggers during a refresh and briefly after it, so a refresh can't trigger the next one forever.
-local QUIET_AFTER_REFRESH_MS = 400
+local QUIET_AFTER_REFRESH_MS = 250
 local INSTALL_RETRY_MS = { 1000, 5000, 15000, 60000 }
 local REFRESH_DELAY_MS = 50
 local STOP_DELAY_MS, RECOLOUR_DELAY_MS = 100, 150
@@ -199,17 +199,32 @@ function M.new(ctx)
 
     -- Squad slots ---------------------------------------------------------------------------------------
 
-    local function refresh_slot(slot)
+    -- Each widget's last applied state, as a plain string (never a UObject). A refresh whose state matches,
+    -- with our copy still in place, does nothing: re-applying everything (and re-importing icons) on every
+    -- trigger made the screen lag.
+    local signatures = {}
+    local function unchanged(widget, signature, parent, native, want_copy)
+        if signatures[tostring(g.address(widget))] ~= signature then return false end
+        local copies = #our_copies(parent, native)
+        return (want_copy and copies == 1) or (not want_copy and copies == 0)
+    end
+    local function remember(widget, signature) signatures[tostring(g.address(widget))] = signature end
+
+    -- view: { by_name, by_id, settings } computed once per refresh.
+    local function refresh_slot(slot, view)
         if not g.live(slot) then return end
         local native = g.read(slot, "WBP_InjuryWarningEntry")
         local parent = g.valid(native) and (g.call(native, "GetParent")) or nil
         if not g.valid(parent) then warn_once("slot_parent", "slot has no injury banner parent") return end
         local full_name = g.read(slot, "FullName")
         local name = g.plain(g.text(full_name and (g.call(full_name, "GetText"))) or ""):upper()
-        local points = name ~= "" and (fatigue_by_operator())[name] or nil
+        local points = name ~= "" and view.by_name[name] or nil
         local tier = current_tier(points)
+        local signature = string.format("%s|%s|%s|%s", name, tostring(points), tier and tier.id or "-", view.settings)
+        if unchanged(slot, signature, parent, native, tier ~= nil) then return end
         if not tier then
             remove_copies(parent, native)
+            remember(slot, signature)
             note(slot, string.format("slot '%s' | fatigue %s | no banner", name, tostring(points)))
             return
         end
@@ -227,6 +242,7 @@ function M.new(ctx)
         g.call(parts.Sizer, "SetHeightOverride", BANNER_SIZE[2])
         set_tooltip(tooltip_box(parts), tier, points)
         g.call(banner, "SetVisibility", SELF_HIT_TEST_INVISIBLE)
+        remember(slot, signature)
         note(slot, string.format("slot '%s' | fatigue %d | %s banner %s", name, points, tier.name,
             created and "created" or "updated"))
 
@@ -245,7 +261,7 @@ function M.new(ctx)
 
     -- Portrait tiles ------------------------------------------------------------------------------------
 
-    local function refresh_tile(tile)
+    local function refresh_tile(tile, view)
         if not g.live(tile) then return end
         local native = g.read(tile, "WBP_HeroInjuries")
         local parent = g.valid(native) and (g.call(native, "GetParent")) or nil
@@ -253,11 +269,13 @@ function M.new(ctx)
         local list_library = g.cdo("/Script/UMG.Default__UserObjectListEntryLibrary")
         local item = (g.call(list_library, "GetListItemObject", tile))
         local id = item and g.guid_string((g.call(item, "GetCharacterID"))) or nil
-        local _, by_id = fatigue_by_operator()
-        local points = id and by_id[id] or nil
+        local points = id and view.by_id[id] or nil
         local tier = current_tier(points)
+        local signature = string.format("%s|%s|%s|%s", tostring(id), tostring(points), tier and tier.id or "-", view.settings)
+        if unchanged(tile, signature, parent, native, tier ~= nil) then return end
         if not tier then
             remove_copies(parent, native)
+            remember(tile, signature)
             note(tile, string.format("tile %s | fatigue %s | no marker", tostring(id), tostring(points)))
             return
         end
@@ -275,6 +293,7 @@ function M.new(ctx)
         if icon then g.call(parts.Injury_1, "SetBrushFromTexture", icon, false) end
         set_tooltip(tooltip_box(parts), tier, points)
         g.call(marker, "SetVisibility", SELF_HIT_TEST_INVISIBLE)
+        remember(tile, signature)
         note(tile, string.format("tile %s | fatigue %d | %s marker %s", tostring(id), points, tier.name,
             created and "created" or "updated"))
         local colour = colour_of(tier)
@@ -285,14 +304,20 @@ function M.new(ctx)
 
     local refresh_all -- defined below
 
-    local quiet = false
-    local function schedule_refresh_all()
-        if quiet then return end
+    -- A trigger during the quiet period is remembered and runs once when it ends. That can't loop: a refresh
+    -- that changes nothing touches no widgets, so it triggers nothing.
+    local quiet, pending = false, false
+    local schedule_refresh_all
+    function schedule_refresh_all()
+        if quiet then pending = true return end
         actions:cancel_group("squad_ui_refresh", "superseded")
         actions:schedule_after("squad_ui_refresh", REFRESH_ALL_DELAY_MS, g.safe("squad UI refresh", function()
             quiet = true
             local ok, err = pcall(refresh_all)
-            actions:schedule_after("squad_ui_quiet", QUIET_AFTER_REFRESH_MS, function() quiet = false end)
+            actions:schedule_after("squad_ui_quiet", QUIET_AFTER_REFRESH_MS, function()
+                quiet = false
+                if pending then pending = false; schedule_refresh_all() end
+            end)
             if not ok then error(err) end
         end))
     end
@@ -330,11 +355,15 @@ function M.new(ctx)
 
     -- Refresh every live slot and tile (on any trigger, and after settings change).
     function refresh_all()
+        local by_name, by_id = fatigue_by_operator() -- one roster scan for every widget
+        local s = Rules.normalise(ctx.settings())
+        local view = { by_name = by_name, by_id = by_id,
+                       settings = string.format("%s/%d/%d", s.preset, s.gain, s.rest) }
         for class_name, refresh in pairs({ WBP_CharacterSlot_C = refresh_slot, WBP_RosterTile_C = refresh_tile }) do
             local ok, widgets = pcall(FindAllOf, class_name)
             for _, widget in pairs(ok and widgets or {}) do
                 if g.live(widget) then
-                    local r_ok, err = pcall(refresh, widget)
+                    local r_ok, err = pcall(refresh, widget, view)
                     if not r_ok then warn_once("refresh_" .. class_name, "%s refresh failed | %s", class_name, tostring(err)) end
                 end
             end
