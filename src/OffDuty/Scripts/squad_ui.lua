@@ -10,8 +10,9 @@
 -- debounced refresh of every live slot and tile (cheap: a handful of widgets). Verified 2026-10-09:
 -- - UE4SS 3.0.1 keeps one script-hook callback per Blueprint function across all mods (the last registered
 --   wins), so another mod hooking the same function silently takes it; the probe no longer does;
--- - some slot functions (FilledSlotState, UpdateState, ...) never reach the hook; OnCharacterSlotClicked
---   and IsRosterTileSelectable do. Several candidates are hooked so the screen opening is caught too.
+-- - post-hooks on Blueprint functions never fire (only pre-hooks do), so these are pre-hooks;
+-- - OnCharacterSlotClicked and IsRosterTileSelectable fired in the probe; several candidates are hooked so
+--   the screen opening is caught too.
 -- Our copies are found again by class among the native widget's siblings, so a refresh or hot reload
 -- adopts them instead of adding more.
 local Rules = require("rules")
@@ -307,7 +308,9 @@ function M.new(ctx)
                         count_fire(event)
                         schedule_refresh_all()
                     end)
-                    local ok = pcall(function() ctx.runtime:register_hook(path, function() end, callback) end)
+                    -- Pre-hook: post-hooks on Blueprint functions never fire in UE4SS 3.0.1 (the probe logged
+                    -- 140 pre and 0 post calls on Blueprint functions). The refresh is deferred anyway.
+                    local ok = pcall(function() ctx.runtime:register_hook(path, callback) end)
                     if ok then installed[path] = true; log("Hooked | %s", path) else missing = missing + 1 end
                 end
             end

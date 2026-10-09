@@ -519,3 +519,6 @@ the imported texture and `BrushType` to None; never write `WeakResourceObject`.
   hooks. The squad UI now hooks several squad select view model, slot and tile functions, and any call
   schedules one debounced refresh of every live slot and tile (with a quiet period so our own widget
   changes can't retrigger it).
+- **Post-hooks on Blueprint functions never fire in UE4SS 3.0.1** (probe history: 140 pre, 0 post on `/Game/`
+  functions; native `/Script/` functions fire both). The squad UI used post-hooks; it uses pre-hooks now.
+  `WBP_CharacterSlot_C:FilledSlotState` and the like were probably hookable after all.
