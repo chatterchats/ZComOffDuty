@@ -14,12 +14,13 @@ local TRACKED_EFFECTS = {
     { label = "NM_LoseAccuracy", path = class_path(NEXT_MISSION_EFFECTS, "GE_Lose_NextMission_RangedAccuracy") },
     { label = "NM_LoseMaxHealth", path = class_path(NEXT_MISSION_EFFECTS, "GE_Lose_NextMission_LoseMaxHealth") },
     { label = "OD_Fatigue", path = "/Game/OffDuty/Effects/GE_OffDuty_Fatigue.GE_OffDuty_Fatigue_C" },
+    { label = "OD_Tired", path = "/Game/OffDuty/Effects/GE_OffDuty_Tired.GE_OffDuty_Tired_C" },
     { label = "OD_Exhausted", path = "/Game/OffDuty/Effects/GE_OffDuty_Exhausted.GE_OffDuty_Exhausted_C" },
     { label = "OD_Spent", path = "/Game/OffDuty/Effects/GE_OffDuty_Spent.GE_OffDuty_Spent_C" },
 }
 -- Ctrl+Shift+1/2/3: queue a tier's next-mission penalty (accuracy = stacks of the game's -5% effect).
 local TIERS = {
-    { name = "Tired", accuracy_stacks = 1 },
+    { name = "Tired", accuracy_stacks = 1, effect = "GE_OffDuty_Tired" },
     { name = "Exhausted", accuracy_stacks = 2, effect = "GE_OffDuty_Exhausted" },
     { name = "Spent", accuracy_stacks = 3, effect = "GE_OffDuty_Spent" },
 }
@@ -660,6 +661,39 @@ function M.start(runtime, actions, logger, config)
                         tag_names(select(2, pcall(function() return vm.GrantedTags end))))
                 end
             end
+        end
+        -- In mission: the Inspect panel's Buffs/Debuffs and the health-bar icons use
+        -- BRG_ActiveStatusEffectsListViewModel; names/icons come from each status's StatusEffectTag.
+        local s_ok, status_lists = pcall(FindAllOf, "BRG_ActiveStatusEffectsListViewModel")
+        local s_count = 0
+        for _, list in pairs(s_ok and status_lists or {}) do
+            if live(list) then
+                s_count = s_count + 1
+                local query = select(2, pcall(function() return list.StatusEffectQuery end))
+                local fields = {}
+                for _, field in ipairs({ "OwningTagQuery", "EffectTagQuery", "SourceTagQuery" }) do
+                    local f_ok, value = pcall(function() return query[field] end)
+                    if f_ok and value ~= nil then fields[#fields + 1] = field .. "=" .. tag_query(value) end
+                end
+                local statuses = to_list((call(list, "GetStatusEffects")))
+                log("UI | status list %d | %d status(es) | query: %s", s_count, #statuses, table.concat(fields, " | "))
+                for _, active in ipairs(statuses) do
+                    local vm = select(2, pcall(function() return active.StatusEffectVM end))
+                    log("UI |   status %s | tag %s | stacks %s | asset tags [%s] | %s",
+                        tostring(text((call(vm, "GetStatusEffectName")))),
+                        tostring(select(2, pcall(function() return text((call(vm, "GetStatusEffectTag")).TagName) end))),
+                        tostring(select(2, pcall(function() return active.CurrentStackCount end))),
+                        tag_names(select(2, pcall(function() return vm.AssetTags end))),
+                        (tostring(text((call(vm, "GetStatusEffectDescription")))) or ""):sub(1, 90))
+                end
+            end
+        end
+        if s_count > 0 then
+            local tag_vm = (call(cdo("/Script/BitReactorGame.Default__BitReactorTagUIDataViewModel"),
+                "FindOrCreateTagUIDataViewModel", world_context(), { TagName = FName("BitReactor.Status.Character.Lethargy") }))
+            log("UI | tag UI data for BitReactor.Status.Character.Lethargy: name '%s' | description '%s'",
+                tostring(text((call(tag_vm, "GetDisplayName")))),
+                (tostring(text((call(tag_vm, "GetTagDescription")))) or ""):sub(1, 90))
         end
         log("UI | %d live effect list view model(s)%s", count,
             count == 0 and " (open squad select with an injured operator first)" or "")

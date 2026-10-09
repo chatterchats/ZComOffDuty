@@ -17,7 +17,8 @@ Keys avoid F10 (ConsoleEnablerMod's console) and F11 (fullscreen toggle).
 - **Ctrl+Shift+G** removes one `GE_OffDuty_Fatigue` stack from every
   roster operator who has a live actor (needs `~mods/OffDuty_P.*`, `tools/build_plugin.sh --install`).
   Writes to your save once you save, so **use a throwaway save**.
-- **Ctrl+Shift+U** (in squad select): dumps the injury banner's effect lists: the
+- **Ctrl+Shift+U** (squad select or in mission): dumps the injury banner's effect lists and, in a
+  mission, the Inspect panel's status lists (query, each status's name and tag). The
   `EffectQuery` that picks which effects count, the effects each list holds, and the
   tags on `GE_Injured` and `GE_OffDuty_Fatigue` for comparison. Read-only.
 - **Ctrl+Shift+B** (in squad select): fatigue banner prototype. Adds a copy of the game's

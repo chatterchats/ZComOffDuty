@@ -13,11 +13,16 @@ Effects (all UBitReactorGameplayEffect Blueprints):
   asset tag. No modifiers: it does nothing on its own.
 - GE_OffDuty_LoseAP: instant ActionPoints -1, applied by Off Duty when a fatigued operator's
   turn-start roll hits (a turn is 3 AP; the game refills them at the next turn start).
-- GE_OffDuty_Exhausted / GE_OffDuty_Spent: next-mission penalties, queued with
+- GE_OffDuty_Tired / GE_OffDuty_Exhausted / GE_OffDuty_Spent: next-mission penalties, queued with
   UBrunoGameStatics::AddNextMissionCharacterEffect like the game's GE_Lose_NextMission_* effects and
-  copying their pattern (bTerminateWithCombat, not saved, TemporaryPenalty + StatusEffect.Negative tags,
-  BrunoGameEffectUIData for the briefing). Percentages use MultiplyAdditive, which the engine multiplies
-  by the stack count, so these never stack (limit 1): one effect per tier instead.
+  copying their pattern (bTerminateWithCombat, not saved, TemporaryPenalty + StatusEffect.Negative tags).
+  Percentages use MultiplyAdditive, which the engine multiplies by the stack count, so these never stack
+  (limit 1): one effect per tier instead. Tired has no modifiers of its own (its accuracy is the game's
+  effect); it exists so the tier shows in mission.
+  Each carries BRG_StatusEffectUIData, the component GE_Injured uses, so the tactical Inspect panel lists
+  it under Debuffs: status tag BitReactor.Status.Character.Lethargy, the game's Lethargy icon, and our
+  own preview title/description. A GameplayEffect's UI data is found as its first UGameplayEffectUIData
+  component, so the strategy-side BrunoGameEffectUIData these used to carry is removed.
   Accuracy uses the game's own GE_Lose_NextMission_RangedAccuracy (-5% per stack), which keeps the
   native "Penalty from Operation" line in the hit breakdown.
 """
@@ -34,6 +39,10 @@ HEALTH = ("BitReactorHealthSet", "MaxHealth")
 MOVEMENT = ("BitReactorCombatSet", "MovementPerAP")
 ACTION_POINTS = ("BitReactorCombatSet", "ActionPoints")
 MAX_HEALTH = '<Keyword id="UI.Keyword.Health">Max Health</>'
+STATUS_TAG = "BitReactor.Status.Character.Lethargy"
+STATUS_ICON = "ImageBank.Icon.Lethargy"
+BRUNO_UI_DATA = "/Script/Bruno.BrunoGameEffectUIData"
+STATUS_UI_DATA = "/Script/BitReactorGame.BRG_StatusEffectUIData"
 
 COMMON = {
     "duration_policy": unreal.GameplayEffectDurationType.INFINITE,
@@ -52,19 +61,27 @@ EFFECTS = [
         "modifiers": [],
     },
     {
+        "name": "GE_OffDuty_Tired",
+        "defaults": NEXT_MISSION_PENALTY,
+        "asset_tags": PENALTY_TAGS,
+        "modifiers": [],
+        "ui": ("Tired", "Worn down from back-to-back deployments. <Bold>-5%</> Chance-To-Hit."),
+    },
+    {
         "name": "GE_OffDuty_Exhausted",
         "defaults": NEXT_MISSION_PENALTY,
         "asset_tags": PENALTY_TAGS,
         "modifiers": [(HEALTH, "MultiplyAdditive", 0.95)],
-        "ui": ("Exhausted", "Reduces %s by <Bold>5%%</>. <Bold>5%%</> chance each turn to lose <Bold>1 AP</>." % MAX_HEALTH),
+        "ui": ("Exhausted", "Pushed too hard for too long. <Bold>-10%%</> Chance-To-Hit, <Bold>-5%%</> %s, "
+                            "<Bold>5%%</> chance each turn to lose <Bold>1 AP</>." % MAX_HEALTH),
     },
     {
         "name": "GE_OffDuty_Spent",
         "defaults": NEXT_MISSION_PENALTY,
         "asset_tags": PENALTY_TAGS,
         "modifiers": [(HEALTH, "MultiplyAdditive", 0.9), (MOVEMENT, "MultiplyAdditive", 0.95)],
-        "ui": ("Spent", "Reduces %s by <Bold>10%%</> and <Bold>Movement</> by <Bold>5%%</>. <Bold>10%%</> chance "
-                        "each turn to lose <Bold>1 AP</>." % MAX_HEALTH),
+        "ui": ("Spent", "Running on empty. <Bold>-15%%</> Chance-To-Hit, <Bold>-10%%</> %s, <Bold>-5%%</> "
+                        "Movement, <Bold>10%%</> chance each turn to lose <Bold>1 AP</>." % MAX_HEALTH),
     },
     {
         "name": "GE_OffDuty_LoseAP",
@@ -139,6 +156,17 @@ def set_by_unreal_name(target, name, value):
     fail("could not set %s on %s: %s" % (name, target.get_class().get_name(), " | ".join(errors)))
 
 
+def get_by_unreal_name(target, name):
+    python_name = "".join("_" + c.lower() if c.isupper() else c for c in name).lstrip("_")
+    errors = []
+    for candidate in (name, python_name):
+        try:
+            return target.get_editor_property(candidate)
+        except Exception as error:
+            errors.append("%s: %s" % (candidate, error))
+    fail("could not read %s on %s: %s" % (name, target.get_class().get_name(), " | ".join(errors)))
+
+
 def component(defaults, class_path):
     """The effect's component of this class, created if missing."""
     component_class = load_class(class_path)
@@ -166,13 +194,34 @@ def apply_asset_tags(defaults, tags):
         log("InheritableGameplayEffectTags not settable: %s" % error)
 
 
-def apply_ui(defaults, name, description):
-    ui = component(defaults, "/Script/Bruno.BrunoGameEffectUIData")
-    set_by_unreal_name(ui, "DisplayableEffectName", unreal.Text(name))
-    set_by_unreal_name(ui, "GenericDescription", unreal.Text(description))
+def gameplay_tag(name):
     tag = unreal.GameplayTag()
-    tag.import_text('(TagName="UI.Notification.StatusEffect.Negative")')
-    set_by_unreal_name(ui, "NotificationTag", tag)
+    tag.import_text('(TagName="%s")' % name)
+    if name not in tag.export_text():
+        fail("gameplay tag did not import (registered?): " + name)
+    return tag
+
+
+def remove_components(defaults, class_path):
+    component_class = load_class(class_path)
+    components = [c for c in defaults.get_editor_property("ge_components")
+                  if c is not None and c.get_class() != component_class]
+    defaults.set_editor_property("ge_components", components)
+
+
+def apply_ui(defaults, name, description):
+    # Only the first UI data component counts, so drop the strategy-side one before adding ours.
+    remove_components(defaults, BRUNO_UI_DATA)
+    ui = component(defaults, STATUS_UI_DATA)
+    set_by_unreal_name(ui, "StatusEffectTag", gameplay_tag(STATUS_TAG))
+    set_by_unreal_name(ui, "PreviewTitle", unreal.Text(name))
+    set_by_unreal_name(ui, "PreviewDescription", unreal.Text(description))
+    icon = get_by_unreal_name(ui, "PreviewStatusEffectIcon")
+    icon.import_text('(ImageReferenceType=ImageBank,ImageBankTag=(TagName="%s"))' % STATUS_ICON)
+    name = set_by_unreal_name(ui, "PreviewStatusEffectIcon", icon)
+    exported = ui.get_editor_property(name).export_text()
+    if STATUS_ICON not in exported:
+        fail("status icon not applied: " + exported)
 
 
 def ensure_effect(spec):
