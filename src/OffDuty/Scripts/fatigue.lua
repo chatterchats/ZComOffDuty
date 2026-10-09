@@ -39,7 +39,10 @@ function M.new(ctx)
     -- game, and "mission ready" came too early). So: note whether this is a save load, wait until the
     -- roster is readable, the mission is ready and no save is loading, then process. A loaded save never
     -- adds fatigue (the mission was counted when it started); it only restores the tier.
-    local READY_RETRY_MS = { 250, 500, 1000, 2000, 4000, 8000, 16000 }
+    -- A fresh mission took ~16 s to report ready (7 tries) in testing: retry quickly at first, then every
+    -- 2 s for about a minute, so slower loads and longer intros aren't missed.
+    local READY_RETRY_MS = { 250, 500, 1000 }
+    for _ = 1, 30 do READY_RETRY_MS[#READY_RETRY_MS + 1] = 2000 end
     local SAVE_SETTLE_MS = 500
     local process_mission_start
 

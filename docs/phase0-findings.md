@@ -506,3 +506,6 @@ the imported texture and `BrushType` to None; never write `WeakResourceObject`.
   (four identical crashes at `SWZeroCompany.exe+0x958c3da`, null+0xa68, including one where Off Duty's Lua did
   nothing). Reverted: tier effects aren't saved. The deployed marker's stack count records the tier the
   mission started at (1 + level), and Off Duty re-applies that tier when a tactical save loads.
+- **Verified (2026-10-09):** with tier effects unsaved and the tier in the marker, in-mission saves load
+  without crashing; three reloads each logged `Mission resumed` with the right tier and unchanged fatigue.
+  A fresh mission reported ready after ~16 s (7 tries), so the wait now runs about a minute.

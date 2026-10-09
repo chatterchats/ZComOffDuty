@@ -122,7 +122,7 @@ local never = operator("Luco2", "L2", 1)
 roster[#roster + 1] = never
 mission_start(nil, never)
 eq(never.effects[Game.FATIGUE], 1, "roster never readable: untouched")
-assert(logs[#logs]:find("not ready after 8 tries", 1, true), logs[#logs])
+assert(logs[#logs]:find("not ready after 34 tries", 1, true), logs[#logs])
 g.roster_ids = roster_ids
 
 -- A second call in the same turn changes nothing.
