@@ -458,3 +458,11 @@ The HUD portraits at the bottom of the screen show injuries only. Off Duty draws
 (`unreal/scripts/draw_icons.py`: white Zzz glyphs, one to three Z's), imported as uncompressed UI textures
 (TC_EditorIcon, no mips) and cooked into OffDuty_P. Lua sets them as a plain brush (type None,
 ResourceObject = texture) on the tier view models, and on the squad-select banner and portrait markers.
+
+Run with icons (2026-10-09): hovering the Inspect entry crashed once (null read, no Lua error; callstack
+unresolvable under Proton) and not on a retry with the Ctrl+Shift+H trace on, which showed the tooltip
+only calling the plain getters. Likely cause: Lua cached the tag view models it constructed, but a Lua
+reference doesn't keep a UObject alive, so a freed one could be attached again. The probe now builds a
+fresh view model per status and caches no UObjects. Icons: the textures cook correctly (inline
+PF_B8G8R8A8, 64 KB) and are in the container, but `LoadAsset_Blocking` on
+`/Game/OffDuty/Icons/T_OffDuty_Fatigue_N` returns nothing in game (being narrowed down).
