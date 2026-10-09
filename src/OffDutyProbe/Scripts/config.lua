@@ -24,8 +24,8 @@ return {
     -- 5 Spent) directly. Don't also queue tiers with Ctrl+Shift+1/2/3, or penalties double up.
     auto_tier = true,
     -- Draw the Zzz icon on the in-mission debuff: true, false (keep the game's Lethargy icon), or
-    -- "bisect" (crash hunt: each tier stops at a different step and logs before each one).
-    status_icon = "bisect",
+    -- "compare" (Tired keeps the brush type, Exhausted/Spent set it to None; see which shows the Zzz).
+    status_icon = "compare",
 
     -- Ctrl+Shift+F sets these exact counts (case-insensitive name substring); press again to reset
     -- to them. Defaults cover each tier (1 Tired, 3 Exhausted, 5/7 Spent) and 0/1/2 injuries.

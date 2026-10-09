@@ -476,3 +476,7 @@ dumps (`Saved/Crashes/UECC-*/UEMinidump.dmp` in the Proton prefix) puts both ins
 memcpy called from it), so a Lua operation crashed, not the game's UI. Suspect: UE4SS 3.0.1 writing a
 field inside a struct property (`vm.TagBrush.ResourceObject = texture`); whole-struct copies and
 object-property writes on UObjects have worked. Bisect run pending (config.status_icon = "bisect").
+**Bisect result:** the last line before the crash was `writing TagBrush.WeakResourceObject`; the PNG import
+and the `ResourceObject` write (inside the struct) both succeeded and the Exhausted view model attached.
+**Writing a soft-object property crashes UE4SS 3.0.1** (also with `nil`). Never write soft pointers from
+Lua. Next run compares leaving the brush type as Texture2D against setting it to None.

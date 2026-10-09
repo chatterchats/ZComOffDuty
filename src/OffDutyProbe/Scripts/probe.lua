@@ -1500,30 +1500,31 @@ function M.start(runtime, actions, logger, config)
             local set_ok, err = pcall(function() vm[field] = value end)
             if not set_ok then errors[#errors + 1] = field .. " " .. tostring(err) end
         end
-        -- Start from the game's Lethargy brush (size, draw type, tint, type Texture2D). config.status_icon
-        -- (default true) points it at our texture: the hard resource, plus the soft pointer if UE4SS can
-        -- write it. A type-None brush with a nil soft pointer crashed the HUD at the first turn start.
+        -- Start from the game's Lethargy brush (size, draw type, tint, type Texture2D), then point it at
+        -- our texture (below).
         local b_ok, b_err = pcall(function() vm.TagBrush = lethargy.TagBrush end)
         if not b_ok then errors[#errors + 1] = "TagBrush " .. tostring(b_err) end
         local level = tier[1] >= 5 and 3 or tier[1] >= 3 and 2 or 1
-        -- Crash bisect (config.status_icon = "bisect"): each tier stops at a different step, logging before
-        -- each one, so the last STEP line before a crash names it. Tired: import only. Exhausted: import +
-        -- ResourceObject. Spent: import + ResourceObject + WeakResourceObject.
+        -- Writing a soft-object property (TagBrush.WeakResourceObject) crashes UE4SS 3.0.1 (bisected
+        -- 2026-10-09); a hard ObjectProperty or enum inside the struct writes fine. So only ResourceObject
+        -- (and BrushType) are set. config.status_icon = "compare": Tired keeps type Texture2D, Exhausted
+        -- and Spent switch to None, to see whether the soft pointer (Lethargy) gets loaded over ours.
         local mode = config.status_icon
         if mode ~= false then
-            local depth = mode == "bisect" and level or 3
-            log("STEP | %s | importing icon (inside the status list hook)", title)
+            local set_type_none = mode ~= "compare" or level >= 2
+            log("STEP | %s | importing icon", title)
             local icon = fatigue_icon(level)
-            log("STEP | %s | import %s", title, icon and "ok" or "failed")
-            if icon and depth >= 2 then
+            if icon then
                 log("STEP | %s | writing TagBrush.ResourceObject", title)
                 local r_ok, r_err = pcall(function() vm.TagBrush.ResourceObject = icon end)
-                log("STEP | %s | ResourceObject written: %s", title, r_ok and "ok" or tostring(r_err))
-            end
-            if icon and depth >= 3 then
-                log("STEP | %s | writing TagBrush.WeakResourceObject", title)
-                local w_ok, w_err = pcall(function() vm.TagBrush.WeakResourceObject = icon end)
-                log("STEP | %s | WeakResourceObject written: %s", title, w_ok and "ok" or tostring(w_err))
+                log("STEP | %s | ResourceObject: %s", title, r_ok and "ok" or tostring(r_err))
+                if set_type_none then
+                    log("STEP | %s | writing TagBrush.BrushType = None", title)
+                    local t_ok, t_err = pcall(function() vm.TagBrush.BrushType = 0 end)
+                    log("STEP | %s | BrushType: %s", title, t_ok and "ok" or tostring(t_err))
+                end
+            else
+                errors[#errors + 1] = "icon T_OffDuty_Fatigue_" .. level .. " not loadable"
             end
         end
         log("STEP | %s | brush done", title)
