@@ -8,7 +8,7 @@ local directory = assert(source:match("^(.*[/\\])"), "Scripts directory unavaila
 -- Explicit path: never resolve another mod's generic module names.
 package.path = directory .. "?.lua;" .. package.path
 for _, module in ipairs({"hook_registry", "actions", "logging", "MXM", "rules", "game", "icons", "fatigue",
-                         "status_ui"}) do
+                         "status_ui", "squad_ui"}) do
     package.loaded[module] = nil
 end
 local Runtime = require("hook_registry")
@@ -46,6 +46,15 @@ local function start()
     ctx.icons = require("icons").new(ctx)
     require("fatigue").new(ctx):install()
     require("status_ui").new(ctx):install()
+    local squad = require("squad_ui").new(ctx)
+    squad:install()
+    -- MXM calls OnChange from its LoopAsync poll, off the game thread: only schedule game-thread work.
+    runtime:bind("settings_changed", function(dispatch) Settings.OnChange(dispatch) end, function(_, changed)
+        actions:schedule_after("settings_changed", 0, function()
+            log("Settings changed | %s", table.concat(changed or {}, ", "))
+            squad:refresh_all()
+        end)
+    end)
     local s = require("rules").normalise(Settings.All())
     logger:transition("runtime", "ready", string.format("preset=%s gain=%d rest=%d ap_loss=%s",
         s.preset, s.gain, s.rest, tostring(s.ap_loss)))
