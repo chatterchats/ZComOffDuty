@@ -30,6 +30,9 @@ older Ctrl+Shift+1/2/3 keys queue a tier by hand and would double up with it.
   per tier, with a tooltip listing fatigue points and penalties. Also marks the portrait strip's
   tiles with the game's Lethargy icon. Press again to rebuild after changing the squad or
   scrolling the strip. UI only; nothing is saved.
+- **Ctrl+Shift+H** toggles a trace of the status-effect UI: every call the game makes to the
+  status/tag view model getters and tooltip boxes is logged (`TRACE |`, our view models marked
+  `OURS`). Turn it on right before hovering something that crashes; the last lines name the culprit.
 - **Ctrl+Shift+T** calls `AddNextMissionCharacterEffect` on one operator (see
   `Scripts/config.lua`). This is the probe's only write to the game. **Use a throwaway save.**
 

@@ -1599,6 +1599,58 @@ function M.start(runtime, actions, logger, config)
         log("AP-loss hook %s | %s%s", ok and "installed" or "FAILED", TURN_HOOK, ok and "" or (" | " .. tostring(err)))
     end
 
+    -- Ctrl+Shift+H: trace the status-effect UI. While on, every call the game makes to these view model
+    -- getters is logged (flushed per line), marking our own view models, so the last line before a
+    -- crash names what the hovered tooltip was reading.
+    local STATUS_TRACE = {
+        "/Script/BitReactorGame.BitReactorTagUIDataViewModel:GetTagUIDataStruct",
+        "/Script/BitReactorGame.BitReactorTagUIDataViewModel:GetTagDescription",
+        "/Script/BitReactorGame.BitReactorTagUIDataViewModel:GetTagBrush",
+        "/Script/BitReactorGame.BitReactorTagUIDataViewModel:GetTag",
+        "/Script/BitReactorGame.BitReactorTagUIDataViewModel:GetDisplayName",
+        "/Script/BitReactorGame.BRG_StatusEffectViewModel:GetStatusEffectTag",
+        "/Script/BitReactorGame.BRG_StatusEffectViewModel:GetStatusEffectName",
+        "/Script/BitReactorGame.BRG_StatusEffectViewModel:GetStatusEffectIcon",
+        "/Script/BitReactorGame.BRG_StatusEffectViewModel:GetStatusEffectDescription",
+        "/Script/BitReactorGame.BRG_StatusEffectViewModel:GetDuration",
+        "/Script/BitReactorGame.BRG_ActiveStatusEffectViewModel:GetEffectCauser",
+        "/Script/BitReactorGame.BitReactorTooltipBox:ShowTooltipWidget",
+        "/Script/BitReactorGame.BitReactorTooltipBox:SetTooltipPayloadObject",
+        "/Script/BitReactorGame.BitReactorTooltipBox:SetTooltipPayloadObjects",
+        "/Script/BitReactorGame.BitReactorTooltipBox:SetTooltipPayloadTags",
+        "/Script/BitReactorGame.BitReactorTooltipBox:SetTooltipPayloadTag",
+    }
+    local trace_on, trace_count = false, 0
+    local function is_ours(object)
+        local ok, address = pcall(function() return unwrap(object):GetAddress() end)
+        if not ok then return false end
+        for _, vm in pairs(tier_tag_vms) do
+            local v_ok, v_address = pcall(function() return vm:GetAddress() end)
+            if v_ok and v_address == address then return true end
+        end
+        local s_ok, tag_vm = pcall(function() return unwrap(object).StatusEffectTagVM end)
+        if s_ok and valid(tag_vm) then return is_ours(tag_vm) end
+        return false
+    end
+    for _, path in ipairs(STATUS_TRACE) do
+        local short = path:match(":(.+)$")
+        local class_name = path:match("%.([%w_]+):")
+        local ok, err = pcall(function()
+            runtime:register_hook(path, function(context)
+                if not trace_on then return end
+                trace_count = trace_count + 1
+                log("TRACE | %d | %s.%s | %s%s", trace_count, class_name, short,
+                    full_name(context):match("([^.:]+)$") or "?", is_ours(context) and " | OURS" or "")
+            end)
+        end)
+        if not ok then log("TRACE | hook failed %s | %s", path, tostring(err)) end
+    end
+
+    runtime:register_keybind(Key.H, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
+        trace_on = not trace_on
+        trace_count = 0
+        log("TRACE | status UI trace %s", trace_on and "ON (hover the debuff now)" or "OFF")
+    end)
     runtime:register_keybind(Key.D, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
         actions:schedule_after("dump", 0, function() dump("Ctrl+Shift+D") end)
     end)
