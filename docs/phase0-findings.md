@@ -402,3 +402,18 @@ Grey1-3, OffWhite, Foreground, PositiveTeal, Player.*, Enemy.*.
 PillBack_Highlight (100 ms after creation), holds: the fatigue banner renders in AccentYellow next to
 the red injury banner. Tier label, pips (1 Tired, 2 Exhausted/Spent) and 250x34 + label sizing all
 match the game's look. Verified in game 2026-10-08.
+
+### Fatigue UI prototype verified (2026-10-08)
+
+- **Recolour timing:** `StopAllAnimations` restores the widget's design colours on a later frame, so
+  recolouring in the same call was overwritten (every tier read AccentYellow). Stop, then recolour
+  ~150 ms later: Tired (0.98, 0.75, 0.07), Exhausted AccentYellow, Spent AccentRed1 all hold.
+- **Tooltip:** the injury banner's `WarningTooltip` (`BitReactorTooltipBox`) renders from payload tag
+  `UI.Keyword.Injured`. Clearing tags and setting one `FTooltipPaylodEntry` {HeaderText, BodyText}
+  shows our own rich text (`<Bold>` works).
+- **Portrait strip:** `WBP_RosterTile_C` (also used on roster screens). Its list item
+  (`UserObjectListEntryLibrary.GetListItemObject`) is a `BrunoCharacterViewModel`; `GetCharacterID`
+  matches roster IDs. A copy of its `WBP_HeroInjuries` (Overlay > BitReactorTooltipBox > Injury_1/2)
+  in the same Overlay, aligned right, one image set to `T_UI_StatusEffect_Lethargy` and tinted,
+  marks fatigue. Note: UE4SS's `UObject:GetFullName()` shadows the view model's `GetFullName`; read
+  the `FullName` property.

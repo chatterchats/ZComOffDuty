@@ -872,7 +872,7 @@ function M.start(runtime, actions, logger, config)
             if live(tile) then
                 count = count + 1
                 local item, item_err = call(list_lib, "GetListItemObject", tile)
-                local who = item and plain(text((call(item, "GetFullName"))) or "?") or "?"
+                local who = item and plain(text(select(2, pcall(function() return item.FullName end))) or "?") or "?"
                 local id = item and guid_string((call(item, "GetCharacterID"))) or "?"
                 local injuries = select(2, pcall(function() return tile.WBP_HeroInjuries end))
                 local vis = valid(injuries) and tostring((call(injuries, "GetVisibility"))) or "none"
@@ -948,7 +948,7 @@ function M.start(runtime, actions, logger, config)
                             call(parts.Injury_1, "SetColorAndOpacity", colour)
                         end, marker)
                     end, marker)
-                    log("TILE MARK | %s | %s (%d) | slot h %s v %s", plain(text((call(item, "GetFullName"))) or "?"),
+                    log("TILE MARK | %s | %s (%d) | slot h %s v %s", plain(text(select(2, pcall(function() return item.FullName end))) or "?"),
                         tier[2], count,
                         tostring(select(2, pcall(function() return old_slot.HorizontalAlignment end))),
                         tostring(select(2, pcall(function() return old_slot.VerticalAlignment end))))
