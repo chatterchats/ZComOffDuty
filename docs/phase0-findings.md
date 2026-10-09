@@ -509,3 +509,13 @@ the imported texture and `BrushType` to None; never write `WeakResourceObject`.
 - **Verified (2026-10-09):** with tier effects unsaved and the tier in the marker, in-mission saves load
   without crashing; three reloads each logged `Mission resumed` with the right tier and unchanged fatigue.
   A fresh mission reported ready after ~16 s (7 tries), so the wait now runs about a minute.
+
+### Squad-select UI in the real mod (2026-10-09)
+
+- **UE4SS 3.0.1 keeps one script-hook callback per Blueprint function across all mods; the last one
+  registered wins.** The probe (loaded after Off Duty) hooked `OnCharacterSlotClicked` and
+  `IsRosterTileSelectable`, and only its callbacks fired. The probe no longer hooks Blueprint functions.
+- `WBP_CharacterSlot_C` `FilledSlotState`, `EmptySlotState` and the FullName notify never reached their
+  hooks. The squad UI now hooks several squad select view model, slot and tile functions, and any call
+  schedules one debounced refresh of every live slot and tile (with a quiet period so our own widget
+  changes can't retrigger it).

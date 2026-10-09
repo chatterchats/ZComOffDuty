@@ -66,12 +66,9 @@ local PRELOAD_BEFORE = {
     ["/Script/Bruno.BrunoStrategySaveGame:ApplySaveInfo"] = true,
 }
 -- Blueprint classes load with their screens, so these install lazily.
-local BLUEPRINT_HOOKS = {
-    ROSTER_TILE .. ":IsRosterTileSelectable",
-    SQUAD_SELECT .. ":OnAddButtonClicked",
-    SQUAD_SELECT .. ":OnCharacterSlotClicked",
-    SQUAD_SELECT .. ":OnRemoveButtonClicked",
-}
+-- Empty now: UE4SS 3.0.1 keeps one script-hook callback per Blueprint function across mods (the last
+-- registered wins), so the probe hooking these took them from the real mod's squad UI (2026-10-09).
+local BLUEPRINT_HOOKS = {}
 
 function M.start(runtime, actions, logger, config)
     local log = function(...) logger:log(...) end

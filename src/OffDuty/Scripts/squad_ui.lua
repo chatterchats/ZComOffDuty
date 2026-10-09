@@ -6,10 +6,14 @@
 -- colour and tooltip. Their state animations re-apply injury red every frame: stop them, then recolour on
 -- a later frame (stopping restores the design colours on the next frame, overwriting a same-frame tint).
 --
--- Triggers (Blueprint functions, so hookable): a slot changing operator (FilledSlotState, EmptySlotState,
--- the FullName notify) and a tile receiving its operator (OnListItemObjectSet). Each refreshes only that
--- widget, debounced. Our copies are found again by class among the native widget's siblings, so a hot
--- reload adopts them instead of adding more.
+-- Triggers: Blueprint functions on the squad select view model, slots and tiles. Any of them schedules one
+-- debounced refresh of every live slot and tile (cheap: a handful of widgets). Verified 2026-10-09:
+-- - UE4SS 3.0.1 keeps one script-hook callback per Blueprint function across all mods (the last registered
+--   wins), so another mod hooking the same function silently takes it; the probe no longer does;
+-- - some slot functions (FilledSlotState, UpdateState, ...) never reach the hook; OnCharacterSlotClicked
+--   and IsRosterTileSelectable do. Several candidates are hooked so the screen opening is caught too.
+-- Our copies are found again by class among the native widget's siblings, so a refresh or hot reload
+-- adopts them instead of adding more.
 local Rules = require("rules")
 local Game = require("game")
 
@@ -23,8 +27,13 @@ local SLOT_EVENTS = {
 }
 -- IsRosterTileSelectable is called whenever a tile refreshes (the probe saw it fire often): debounced.
 local TILE_EVENTS = { "OnListItemObjectSet", "IsRosterTileSelectable" }
--- The squad select view model's slot click passes the slot widget (proven to fire in the probe).
-local SLOT_CLICKED = "/Game/Game/UI/Strategy/SquadSelect/BPs/VM_SquadSelect.VM_SquadSelect_C:OnCharacterSlotClicked"
+local SQUAD_VM = "/Game/Game/UI/Strategy/SquadSelect/BPs/VM_SquadSelect.VM_SquadSelect_C"
+local SQUAD_VM_EVENTS = { "OnCharacterSlotClicked", "RequestOnHologramsRefreshed", "ChangeState",
+    "UpdateCurrentCharacterSlot", "SetSquadSelectionInProgress", "UpdateLastSquad" }
+local REFRESH_ALL_DELAY_MS = 150
+-- Our own widget changes can make the game re-run these functions (e.g. IsRosterTileSelectable): ignore
+-- triggers during a refresh and briefly after it, so a refresh can't trigger the next one forever.
+local QUIET_AFTER_REFRESH_MS = 400
 local INSTALL_RETRY_MS = { 1000, 5000, 15000, 60000 }
 local REFRESH_DELAY_MS = 50
 local STOP_DELAY_MS, RECOLOUR_DELAY_MS = 100, 150
@@ -273,40 +282,35 @@ function M.new(ctx)
 
     -- Hooks -----------------------------------------------------------------------------------------------
 
-    local function schedule_refresh(kind, widget, refresh)
-        local address = g.address(widget)
-        if not address then return end
-        local group = kind .. ":" .. tostring(address)
-        actions:cancel_group(group, "superseded")
-        actions:schedule_after(group, REFRESH_DELAY_MS, g.safe(kind .. " refresh", function() refresh(widget) end), widget)
+    local refresh_all -- defined below
+
+    local quiet = false
+    local function schedule_refresh_all()
+        if quiet then return end
+        actions:cancel_group("squad_ui_refresh", "superseded")
+        actions:schedule_after("squad_ui_refresh", REFRESH_ALL_DELAY_MS, g.safe("squad UI refresh", function()
+            quiet = true
+            local ok, err = pcall(refresh_all)
+            actions:schedule_after("squad_ui_quiet", QUIET_AFTER_REFRESH_MS, function() quiet = false end)
+            if not ok then error(err) end
+        end))
     end
 
     local installed = {}
     local function install_hooks(reason)
         local missing = 0
-        for class, events in pairs({ [SLOT] = SLOT_EVENTS, [TILE] = TILE_EVENTS }) do
+        for class, events in pairs({ [SLOT] = SLOT_EVENTS, [TILE] = TILE_EVENTS, [SQUAD_VM] = SQUAD_VM_EVENTS }) do
             for _, event in ipairs(events) do
                 local path = class .. ":" .. event
                 if not installed[path] then
-                    local is_slot = class == SLOT
-                    local callback = g.safe(event, function(context)
+                    local callback = g.safe(event, function()
                         count_fire(event)
-                        local widget = g.unwrap(context)
-                        if is_slot then schedule_refresh("slot", widget, refresh_slot)
-                        else schedule_refresh("tile", widget, refresh_tile) end
+                        schedule_refresh_all()
                     end)
                     local ok = pcall(function() ctx.runtime:register_hook(path, function() end, callback) end)
                     if ok then installed[path] = true; log("Hooked | %s", path) else missing = missing + 1 end
                 end
             end
-        end
-        if not installed[SLOT_CLICKED] then
-            local callback = g.safe("OnCharacterSlotClicked", function(_, slot)
-                count_fire("OnCharacterSlotClicked")
-                schedule_refresh("slot", g.unwrap(slot), refresh_slot)
-            end)
-            local ok = pcall(function() ctx.runtime:register_hook(SLOT_CLICKED, function() end, callback) end)
-            if ok then installed[SLOT_CLICKED] = true; log("Hooked | %s", SLOT_CLICKED) else missing = missing + 1 end
         end
         if missing > 0 then log("Squad UI | %d hook(s) not ready (%s); will retry", missing, reason) end
         return missing == 0
@@ -321,18 +325,20 @@ function M.new(ctx)
         end
     end
 
-    -- Refresh everything on screen (e.g. after settings change).
-    function self:refresh_all()
-        for _, class_name in ipairs({ "WBP_CharacterSlot_C", "WBP_RosterTile_C" }) do
+    -- Refresh every live slot and tile (on any trigger, and after settings change).
+    function refresh_all()
+        for class_name, refresh in pairs({ WBP_CharacterSlot_C = refresh_slot, WBP_RosterTile_C = refresh_tile }) do
             local ok, widgets = pcall(FindAllOf, class_name)
             for _, widget in pairs(ok and widgets or {}) do
                 if g.live(widget) then
-                    if class_name == "WBP_CharacterSlot_C" then schedule_refresh("slot", widget, refresh_slot)
-                    else schedule_refresh("tile", widget, refresh_tile) end
+                    local r_ok, err = pcall(refresh, widget)
+                    if not r_ok then warn_once("refresh_" .. class_name, "%s refresh failed | %s", class_name, tostring(err)) end
                 end
             end
         end
     end
+
+    function self:refresh_all() schedule_refresh_all() end
 
     return self
 end
