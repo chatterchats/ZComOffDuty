@@ -47,7 +47,7 @@ local NATIVE_HOOKS = {
     "/Script/Bruno.BrunoMissionCentral:CanAssignToMissionSquad",
     "/Script/Bruno.BrunoGameStatics:AddNextMissionCharacterEffect",
     "/Script/Bruno.BrunoGameStatics:AddNextMissionEffect",
-    "/Script/Bruno.BrunoGameStatics:ApplyNextMissionEffectsToCharacter",
+    -- ApplyNextMissionEffectsToCharacter is hooked by the mission-start tier hook (one hook per path).
     "/Script/Bruno.BrunoGameStatics:ClearNextMissionEffects",
     -- Save/load flow (delegate-bound UFUNCTIONs run through ProcessEvent).
     "/Script/Bruno.BrunoSaveGameSubsystem:OnPreLoadMap",
@@ -1393,7 +1393,7 @@ function M.start(runtime, actions, logger, config)
     local function apply_tier_at_mission_start(_, character)
         if not config.auto_tier then return end
         local actor = unwrap(character)
-        if not is_actor(actor) then return end
+        if not is_actor(actor) then log("MISSION TIER | argument is not an actor: %s", full_name(actor)); return end
         local name = character_name(actor) or full_name(actor)
         local asc = (call(ability_library(), "GetAbilitySystemComponent", actor))
         local fatigue_class = load_class(FATIGUE_EFFECT)
@@ -1421,10 +1421,13 @@ function M.start(runtime, actions, logger, config)
 
     install_blueprint_hooks("startup")
     do
+        -- The registry keeps one hook per path and ignores later ones, so say so if it's taken.
+        local taken = runtime.hooks and runtime.hooks[MISSION_START_HOOK] ~= nil
         local ok, err = pcall(function()
             runtime:register_hook(MISSION_START_HOOK, function() end, apply_tier_at_mission_start)
         end)
-        log("Mission-start tier hook %s%s", ok and "installed" or "FAILED", ok and "" or (" | " .. tostring(err)))
+        log("Mission-start tier hook %s%s", taken and "NOT installed (path already hooked)" or ok and "installed" or "FAILED",
+            ok and "" or (" | " .. tostring(err)))
     end
     do
         local ok, err = pcall(function() runtime:register_hook(TURN_HOOK, function() end, on_team_turn_started) end)
