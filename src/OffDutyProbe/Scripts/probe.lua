@@ -246,9 +246,25 @@ function M.start(runtime, actions, logger, config)
     end
 
     -- Off Duty's Zzz tier icons (unreal/icons, cooked into OffDuty_P): 1 Tired, 2 Exhausted, 3 Spent.
+    -- No Lua-side cache: a Lua reference doesn't keep a UObject alive (load_object checks memory first).
+    local icon_paths_logged = false
     local function fatigue_icon(level)
         local name = "T_OffDuty_Fatigue_" .. level
-        return load_object("/Game/OffDuty/Icons/" .. name .. "." .. name)
+        -- Remapped onto /Game like the effects; the plugin paths are tried in case textures aren't.
+        for _, dir in ipairs({ "/Game/OffDuty/Icons/", "/OffDuty/OffDuty/Icons/", "/OffDuty/Icons/" }) do
+            local icon = load_object(dir .. name .. "." .. name)
+            if icon then
+                if not icon_paths_logged then icon_paths_logged = true; log("LOAD | icons load from %s", dir) end
+                return icon
+            end
+        end
+        if not icon_paths_logged then
+            icon_paths_logged = true
+            local control = load_object("/Game/OffDuty/Effects/GE_OffDuty_Tired.GE_OffDuty_Tired_C")
+            log("LOAD | no icon path worked; control load of GE_OffDuty_Tired_C through the same loader: %s",
+                control and "ok" or "failed")
+        end
+        return nil
     end
 
     local function load_class(path)
@@ -1448,9 +1464,11 @@ function M.start(runtime, actions, logger, config)
 
     local function tier_title(tier) return tier[2]:sub(1, 1) .. tier[2]:sub(2):lower() end
 
+    -- A view model we construct is only kept alive by the statuses that point at it, not by Lua, so a
+    -- cached Lua reference can outlive it (freed memory handed to the UI: a likely hover crash). Build a
+    -- fresh one for each status that needs it instead.
     local function tag_vm_for(tier)
         local title = tier_title(tier)
-        if valid(tier_tag_vms[title]) then return tier_tag_vms[title] end
         local class = select(2, pcall(StaticFindObject, "/Script/BitReactorGame.BitReactorTagUIDataViewModel"))
         local outer = find_live("BrunoGameInstance")
         local ok, vm = pcall(StaticConstructObject, class, outer)
@@ -1483,12 +1501,14 @@ function M.start(runtime, actions, logger, config)
         else
             errors[#errors + 1] = "icon T_OffDuty_Fatigue_" .. level .. " not loadable"
         end
+        local created_before = tier_tag_vms[title] ~= nil
+        tier_tag_vms[title] = true -- logged once per tier; never holds the object
+        if created_before then return vm end
         log("STATUS UI | %s tag view model created | name reads back '%s' | icon %s (type %s)%s", title,
             tostring(text((call(vm, "GetDisplayName")))),
             full_name(select(2, pcall(function() return vm.TagBrush.ResourceObject end))),
             tostring(select(2, pcall(function() return vm.TagBrush.BrushType end))),
             #errors > 0 and (" | " .. table.concat(errors, " | ")) or "")
-        tier_tag_vms[title] = vm
         return vm
     end
 
@@ -1507,12 +1527,10 @@ function M.start(runtime, actions, logger, config)
                 end
                 checked_status_vms[address] = tier
             end
-            local ours = tier and tag_vm_for(tier) or nil
-            local function address_of(object)
-                local ok, value = pcall(function() return unwrap(object):GetAddress() end)
-                return ok and value or nil
-            end
-            if ours and address_of(select(2, pcall(function() return vm.StatusEffectTagVM end))) ~= address_of(ours) then
+            -- Already showing our text? (Read through the status, which keeps its tag view model alive.)
+            local shown = tier and text((call(vm, "GetStatusEffectName"))) or nil
+            local ours = tier and shown ~= tier_title(tier) and tag_vm_for(tier) or nil
+            if ours then
                 local title = tier_title(tier)
                 local ok, err = pcall(function() vm.StatusEffectTagVM = ours end)
                 if ok then attached = attached + 1 end
@@ -1624,9 +1642,9 @@ function M.start(runtime, actions, logger, config)
     local function is_ours(object)
         local ok, address = pcall(function() return unwrap(object):GetAddress() end)
         if not ok then return false end
-        for _, vm in pairs(tier_tag_vms) do
-            local v_ok, v_address = pcall(function() return vm:GetAddress() end)
-            if v_ok and v_address == address then return true end
+        local n_ok, name = pcall(function() return text(unwrap(object).DisplayName) end)
+        for _, tier in ipairs(TIER_LABELS) do
+            if n_ok and name == tier_title(tier) then return true end
         end
         local s_ok, tag_vm = pcall(function() return unwrap(object).StatusEffectTagVM end)
         if s_ok and valid(tag_vm) then return is_ours(tag_vm) end
