@@ -1392,66 +1392,104 @@ function M.start(runtime, actions, logger, config)
         return fatigue >= 5 and 3 or fatigue >= 3 and 2 or fatigue >= 1 and 1 or nil
     end
 
-    -- Status effect text: the Inspect panel shows a status's name/description/icon from its
-    -- StatusEffectTag's tag UI view model. Each tier effect has its own OffDuty.Status.<Tier> tag with no
-    -- game UI data, so fill its view model(s) in here, borrowing the Lethargy icon.
+    -- Status effect text: the Inspect panel names a status by its StatusEffectTag's tag UI view model.
+    -- Our OffDuty.Status.<Tier> tags register but have no game UI data, so FindOrCreate returns nothing
+    -- and the status shows blank. Build one tag UI view model per tier and attach it to each of our
+    -- statuses (found by that asset tag), borrowing the Lethargy icon.
     local TIER_INTROS = {
         TIRED = "Worn down from back-to-back deployments.",
         EXHAUSTED = "Pushed too hard for too long.",
         SPENT = "Running on empty.",
     }
-    local status_tags_checked = false
-    local function patch_status_tag_ui(reason)
-        local lib = cdo("/Script/BitReactorGame.Default__BitReactorTagUIDataViewModel")
-        local wco = world_context()
-        if not lib or not wco then return end
-        if not status_tags_checked then
-            -- Registered tags survive loading the cooked effect; unknown ones load as None.
-            status_tags_checked = true
-            for _, tier in ipairs(TIER_LABELS) do
-                local title = tier[2]:sub(1, 1) .. tier[2]:sub(2):lower()
-                local defaults = cdo("/Game/OffDuty/Effects/GE_OffDuty_" .. title .. ".Default__GE_OffDuty_" .. title .. "_C")
-                local found = "effect not loaded"
-                pcall(function()
-                    array_each(defaults.GEComponents, function(_, component)
-                        local ok, tag = pcall(function() return text(component.StatusEffectTag.TagName) end)
-                        if ok and tag then found = tag end
-                    end)
-                end)
-                log("STATUS TAG | GE_OffDuty_%s status tag at runtime: %s", title, tostring(found))
-            end
+    local STATUS_LIST_HOOK = "/Script/BitReactorGame.BRG_ActiveStatusEffectsListViewModel:GetStatusEffects"
+    local tier_tag_vms, status_logged, patching = {}, {}, false
+    local checked_status_vms = {} -- address -> true once handled (the list hook can fire every frame)
+
+    local function tier_title(tier) return tier[2]:sub(1, 1) .. tier[2]:sub(2):lower() end
+
+    local function tag_vm_for(tier)
+        local title = tier_title(tier)
+        if valid(tier_tag_vms[title]) then return tier_tag_vms[title] end
+        local class = select(2, pcall(StaticFindObject, "/Script/BitReactorGame.BitReactorTagUIDataViewModel"))
+        local outer = find_live("BrunoGameInstance")
+        local ok, vm = pcall(StaticConstructObject, class, outer)
+        if not ok or not valid(vm) then
+            log("STATUS UI | could not create a tag view model for %s: %s", title, tostring(vm)); return nil
         end
-        local lethargy = (call(lib, "FindOrCreateTagUIDataViewModel", wco,
+        local lines = { TIER_INTROS[tier[2]] or "" }
+        for _, penalty in ipairs(tier[4]) do lines[#lines + 1] = penalty end
+        lines[#lines + 1] = "Rest off duty to recover."
+        local errors = {}
+        local lib = cdo("/Script/BitReactorGame.Default__BitReactorTagUIDataViewModel")
+        local lethargy = (call(lib, "FindOrCreateTagUIDataViewModel", world_context(),
             { TagName = FName("BitReactor.Status.Character.Lethargy") }))
-        for _, tier in ipairs(TIER_LABELS) do
-            local title = tier[2]:sub(1, 1) .. tier[2]:sub(2):lower()
-            local tag = "OffDuty.Status." .. title
-            local lines = { TIER_INTROS[tier[2]] or "" }
-            for _, penalty in ipairs(tier[4]) do lines[#lines + 1] = penalty end
-            lines[#lines + 1] = "Rest off duty to recover."
-            local description = table.concat(lines, "\n")
-            local targets = { (call(lib, "FindOrCreateTagUIDataViewModel", wco, { TagName = FName(tag) })) }
-            local ok, all = pcall(FindAllOf, "BitReactorTagUIDataViewModel")
-            for _, vm in pairs(ok and all or {}) do
-                local vm_tag = select(2, pcall(function() return text((call(vm, "GetTag")).TagName) end))
-                if vm_tag == tag and vm ~= targets[1] then targets[#targets + 1] = vm end
+        for field, value in pairs({ DisplayName = FText(title), TagDescription = FText(table.concat(lines, "\n")) }) do
+            local set_ok, err = pcall(function() vm[field] = value end)
+            if not set_ok then errors[#errors + 1] = field .. " " .. tostring(err) end
+        end
+        local b_ok, b_err = pcall(function() vm.TagBrush = lethargy.TagBrush end)
+        if not b_ok then errors[#errors + 1] = "TagBrush " .. tostring(b_err) end
+        log("STATUS UI | %s tag view model created | name reads back '%s'%s", title,
+            tostring(text((call(vm, "GetDisplayName")))), #errors > 0 and (" | " .. table.concat(errors, " | ")) or "")
+        tier_tag_vms[title] = vm
+        return vm
+    end
+
+    local function patch_status_list(list)
+        local attached = 0
+        for _, active in ipairs(to_list((call(list, "GetStatusEffects")))) do
+            local vm = select(2, pcall(function() return active.StatusEffectVM end))
+            local address = valid(vm) and select(2, pcall(function() return vm:GetAddress() end)) or nil
+            local tier = address and checked_status_vms[address]
+            if address and tier == nil then
+                -- First sight: our tier (found by asset tag) or false for anyone else's status.
+                tier = false
+                local tags = tag_names(select(2, pcall(function() return vm.AssetTags end)))
+                for _, candidate in ipairs(TIER_LABELS) do
+                    if tags:find("OffDuty.Status." .. tier_title(candidate), 1, true) then tier = candidate end
+                end
+                checked_status_vms[address] = tier
             end
-            local patched, errors = 0, {}
-            for _, vm in ipairs(targets) do
-                if valid(vm) then
-                    local n_ok, n_err = pcall(function() vm.DisplayName = FText(title) end)
-                    local d_ok, d_err = pcall(function() vm.TagDescription = FText(description) end)
-                    local b_ok, b_err = pcall(function() vm.TagBrush = lethargy.TagBrush end)
-                    if n_ok and d_ok then patched = patched + 1 end
-                    if not n_ok then errors[#errors + 1] = "name " .. tostring(n_err) end
-                    if not b_ok then errors[#errors + 1] = "icon " .. tostring(b_err) end
+            local ours = tier and tag_vm_for(tier) or nil
+            local function address_of(object)
+                local ok, value = pcall(function() return unwrap(object):GetAddress() end)
+                return ok and value or nil
+            end
+            if ours and address_of(select(2, pcall(function() return vm.StatusEffectTagVM end))) ~= address_of(ours) then
+                local title = tier_title(tier)
+                local ok, err = pcall(function() vm.StatusEffectTagVM = ours end)
+                if ok then attached = attached + 1 end
+                if not status_logged[title] then
+                    status_logged[title] = true
+                    log("STATUS UI | %s status | attach %s | name now '%s'", title,
+                        ok and "ok" or ("failed: " .. tostring(err)), tostring(text((call(vm, "GetStatusEffectName")))))
                 end
             end
-            log("STATUS TAG | %s | %s | patched %d view model(s) | reads back '%s' (tag %s)%s", reason, tag, patched,
-                tostring(text((call(targets[1], "GetDisplayName")))),
-                tostring(select(2, pcall(function() return text((call(targets[1], "GetTag")).TagName) end))),
-                #errors > 0 and (" | " .. table.concat(errors, " | ")) or "")
         end
+        return attached
+    end
+
+    local function patch_status_tag_ui(reason)
+        if patching then return end
+        patching = true -- GetStatusEffects below re-enters the list hook
+        local ok, lists = pcall(FindAllOf, "BRG_ActiveStatusEffectsListViewModel")
+        local attached, count = 0, 0
+        for _, list in pairs(ok and lists or {}) do
+            if live(list) then count = count + 1; attached = attached + patch_status_list(list) end
+        end
+        patching = false
+        if attached > 0 or reason == "Ctrl+Shift+U" then
+            log("STATUS UI | %s | %d list(s) | attached %d", reason, count, attached)
+        end
+    end
+
+    local function on_status_list_read(context)
+        if patching or not config.auto_tier then return end
+        local list = unwrap(context)
+        if not live(list) then return end
+        patching = true
+        pcall(patch_status_list, list)
+        patching = false
     end
 
     patch_status_tag_ui_ref = patch_status_tag_ui
@@ -1478,7 +1516,9 @@ function M.start(runtime, actions, logger, config)
             _, err = call(asc, "BP_ApplyGameplayEffectToSelf", accuracy, 1.0, (call(asc, "MakeEffectContext")))
         end
         local _, effect_err = call(asc, "BP_ApplyGameplayEffectToSelf", effect, 1.0, (call(asc, "MakeEffectContext")))
-        patch_status_tag_ui("mission start")
+        for _, delay in ipairs({ 1000, 3000, 8000 }) do
+            actions:schedule_after("status_ui", delay, function() patch_status_tag_ui("after mission start") end)
+        end
         log("MISSION TIER | %s | fatigue %d | %s | accuracy stacks %s | %s %s%s%s", name, fatigue, tier.name,
             tostring((call(asc, "GetGameplayEffectCount", accuracy, nil, true))), tier.effect,
             tostring((call(asc, "GetGameplayEffectCount", effect, nil, true))),
@@ -1487,6 +1527,8 @@ function M.start(runtime, actions, logger, config)
 
     install_blueprint_hooks("startup")
     do
+        local l_ok, l_err = pcall(function() runtime:register_hook(STATUS_LIST_HOOK, function() end, on_status_list_read) end)
+        log("Status list hook %s%s", l_ok and "installed" or "FAILED", l_ok and "" or (" | " .. tostring(l_err)))
         -- The registry keeps one hook per path and ignores later ones, so say so if it's taken.
         local taken = runtime.hooks and runtime.hooks[MISSION_START_HOOK] ~= nil
         local ok, err = pcall(function()

@@ -256,14 +256,18 @@ def ensure_effect(spec):
         fail(spec["name"] + ": modifiers not applied")
     if len(defaults.get_editor_property("executions")) != 0:
         fail(spec["name"] + ": executions must be empty")
-    apply_asset_tags(defaults, spec["asset_tags"])
+    tags = list(spec["asset_tags"])
+    if "ui" in spec:
+        # The status view model exposes only asset tags, so each tier carries its own tag to tell them apart.
+        tags.append(STATUS_TAG % spec["ui"][0])
+    apply_asset_tags(defaults, tags)
     if "ui" in spec:
         apply_ui(defaults, *spec["ui"])
 
     blueprint.modify()
     if not assets.save_loaded_asset(blueprint, only_if_is_dirty=False):
         fail("could not save " + path)
-    log("saved: %s | modifiers=%s | tags=%s" % (path, spec["modifiers"], spec["asset_tags"]))
+    log("saved: %s | modifiers=%s | tags=%s" % (path, spec["modifiers"], tags))
 
 
 for effect in EFFECTS:

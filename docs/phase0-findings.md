@@ -433,3 +433,11 @@ Next: own tags `OffDuty.Status.<Tier>` (Config/Tags/OffDutyTags.ini, shipped in 
 `OffDutyTags_P.pak` at the project's Config/Tags) with their tag UI view models filled in from Lua.
 The editor ignores an explicitly loaded plugin's Config/Tags, so the build copies the ini into the
 kit's Config/Tags for authoring.
+
+Result with own tags: they register at runtime (`GE_OffDuty_Tired` loads with `OffDuty.Status.Tired`), so
+the Lethargy text is gone, but the status shows blank: `FindOrCreateTagUIDataViewModel` returns nothing
+for a tag without game UI data, so the status view model has no `StatusEffectTagVM` (name empty, tag
+None). Next: each tier effect also carries its tag as an asset tag, and Lua constructs a
+`BitReactorTagUIDataViewModel` per tier (name, description, Lethargy icon) and assigns it to our statuses'
+`StatusEffectTagVM`, from a post-hook on `BRG_ActiveStatusEffectsListViewModel:GetStatusEffects` plus
+timed passes after mission start.
