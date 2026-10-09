@@ -19,12 +19,19 @@ assert json.loads((SOURCE / "zcom-mod.json").read_text())["version"] == version
 assert f'local VERSION = "{version}"' in (SCRIPTS / "main.lua").read_text()
 assert f"Off Duty v{version} " in (SOURCE / "README.md").read_text()
 
-COMMON = [SOURCE / leaf for leaf in ("enabled.txt", "modinfo.json", "zcom-mod.json", "README.md")]
-REFERENCE = re.compile(r'require\("(\w+)"\)|"(\w+)\.lua"')
+COMMON = [SOURCE / leaf for leaf in ("enabled.txt", "modinfo.json", "zcom-mod.json", "README.md",
+                                     "MXM/settings.lua")]
+ICONS = [SOURCE / "icons" / f"T_OffDuty_Fatigue_{tier}.png" for tier in (1, 2, 3)]  # draw_icons.py
+REQUIRE = re.compile(r'require\("(\w+)"\)')
+FILE_REFERENCE = re.compile(r'"(\w+)\.lua"')
 
 
-def references(path):
-    return {m.group(1) or m.group(2) for m in REFERENCE.finditer(path.read_text())}
+def references(path, mod):
+    """require() targets must exist; "name.lua" strings count only when they name a mod script
+    (MXM.lua mentions its schema, MXM/settings.lua, that way)."""
+    text = path.read_text()
+    required = set(REQUIRE.findall(text))
+    return required | {name for name in FILE_REFERENCE.findall(text) if name in mod}
 
 
 def player_scripts():
@@ -36,7 +43,7 @@ def player_scripts():
         if name in seen:
             continue
         seen.add(name)
-        for ref in references(mod[name]):
+        for ref in references(mod[name], mod):
             assert ref in mod, f"{name}.lua needs missing script {ref}.lua"
             pending.append(ref)
     assert seen == mod.keys(), f"Unreachable mod scripts: {sorted(mod.keys() - seen)}"
@@ -44,7 +51,7 @@ def player_scripts():
 
 
 def build(scripts):
-    files = COMMON + scripts
+    files = COMMON + ICONS + scripts
     assert all(p.is_file() and not p.is_symlink() for p in files)
     entries = {f"{PACKAGE_ROOT}/" + p.relative_to(SOURCE).as_posix(): p for p in files}
     entries[f"{PACKAGE_ROOT}/LICENSE"] = ROOT / "LICENSE"  # MIT: copies keep the notice
@@ -69,7 +76,7 @@ def build(scripts):
             assert archive.read(name) == source.read_bytes(), name
     digest = hashlib.sha256(output.read_bytes()).hexdigest()
     output.with_suffix(".zip.sha256").write_text(f"{digest}  {output.name}\n")
-    print(f"Verified {len(entries)} packaged files ({len(scripts)} scripts): {output}")
+    print(f"Verified {len(entries)} packaged files ({len(scripts)} scripts, {len(ICONS)} icons): {output}")
     print(f"SHA256: {digest}")
 
 

@@ -11,6 +11,7 @@ Effects (all UBitReactorGameplayEffect Blueprints):
 - GE_OffDuty_Fatigue: the fatigue counter, one stack per point. Infinite, survives saves and missions.
   The hub save only keeps character effects tagged BitReactor.GameplayEffect.Persists, so it has that
   asset tag. No modifiers: it does nothing on its own.
+- GE_OffDuty_Deployed: a saved marker (Persists, no modifiers) for operators who deployed this strategy turn.
 - GE_OffDuty_LoseAP: instant ActionPoints -1, applied by Off Duty when a fatigued operator's
   turn-start roll hits (a turn is 3 AP; the game refills them at the next turn start).
 - GE_OffDuty_Tired / GE_OffDuty_Exhausted / GE_OffDuty_Spent: next-mission penalties, queued with
@@ -62,6 +63,14 @@ EFFECTS = [
     {
         "name": "GE_OffDuty_Fatigue",
         "defaults": dict(COMMON, stack_limit_count=10, include_in_save_data=True, terminate_with_combat=False),
+        "asset_tags": [PERSISTS],
+        "modifiers": [],
+    },
+    {
+        # "Deployed this strategy turn": set at mission start, cleared at turn end, so recovery skips
+        # operators who played (saved, like the fatigue counter, so a reload can't lose it).
+        "name": "GE_OffDuty_Deployed",
+        "defaults": dict(COMMON, stack_limit_count=1, include_in_save_data=True, terminate_with_combat=False),
         "asset_tags": [PERSISTS],
         "modifiers": [],
     },

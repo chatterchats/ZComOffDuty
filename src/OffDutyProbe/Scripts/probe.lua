@@ -1398,6 +1398,7 @@ function M.start(runtime, actions, logger, config)
         -- Exact class: WorldTeam_PrePlayer also starts a turn each round (before AP refill), and a
         -- substring match on "player" rolled twice per round.
         if not team_name:find(PLAYER_TEAM, 1, true) then return end
+        if not config.auto_tier then return end -- the real mod rolls AP loss now
         if not valid(asc) then return end
         local owner = select(1, call(asc, "GetOwner"))
         if not valid(owner) or select(1, call(unit_statics(), "IsPlayerTeamMember", owner)) ~= true then return end

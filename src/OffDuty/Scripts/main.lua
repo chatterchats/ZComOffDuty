@@ -1,13 +1,14 @@
 -- Off Duty v0.1.0
--- Operator fatigue and recovery. In development: this build starts the runtime
--- and logs only; fatigue tracking lands once the probe questions are answered
--- (docs/phase0-findings.md).
+-- Operator fatigue and recovery. Loader-thread composition only: hooks, UObject work and settings
+-- start on the game thread (the final scheduled action below).
 local VERSION = "0.1.0"
+local MOD_FOLDER = "OffDuty"
 local source = debug.getinfo(1, "S").source:gsub("^@", "")
 local directory = assert(source:match("^(.*[/\\])"), "Scripts directory unavailable")
 -- Explicit path: never resolve another mod's generic module names.
 package.path = directory .. "?.lua;" .. package.path
-for _, module in ipairs({"hook_registry", "actions", "logging"}) do
+for _, module in ipairs({"hook_registry", "actions", "logging", "MXM", "rules", "game", "icons", "fatigue",
+                         "status_ui"}) do
     package.loaded[module] = nil
 end
 local Runtime = require("hook_registry")
@@ -32,8 +33,29 @@ else
     logger:log("WARNING: off_duty.log unavailable; diagnostics remain in UE4SS.log")
 end
 
+local function start()
+    local log = function(...) logger:log(...) end
+    local Settings = require("MXM")
+    local game = require("game").new(log)
+    local ctx = {
+        runtime = runtime, actions = actions, log = log, game = game, mod_folder = MOD_FOLDER,
+        settings = function() return Settings.All() end,
+    }
+    ctx.icons = require("icons").new(ctx)
+    require("fatigue").new(ctx):install()
+    require("status_ui").new(ctx):install()
+    local s = require("rules").normalise(Settings.All())
+    logger:transition("runtime", "ready", string.format("preset=%s gain=%d rest=%d ap_loss=%s",
+        s.preset, s.gain, s.rest, tostring(s.ap_loss)))
+end
+
 -- This MUST remain the final operation: all Unreal work starts on the game
 -- thread, never during loader registration.
 return actions:schedule_after("bootstrap", 0, function()
-    logger:transition("runtime", "ready", "no gameplay changes in this build")
+    local ok, err = pcall(start)
+    if not ok then
+        logger:log("ERROR: game-thread setup failed | %s", tostring(err))
+        runtime:teardown("setup failed")
+        error(err)
+    end
 end)

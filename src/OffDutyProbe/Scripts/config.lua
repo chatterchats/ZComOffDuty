@@ -20,9 +20,9 @@ return {
     -- Applied after this delay so the game's own turn-start AP refill happens first.
     ap_loss_delay_ms = 250,
 
-    -- At mission start, apply each deployed operator's tier (from their fatigue: 1 Tired, 3 Exhausted,
-    -- 5 Spent) directly. Don't also queue tiers with Ctrl+Shift+1/2/3, or penalties double up.
-    auto_tier = true,
+    -- The probe's own gameplay: tiers at mission start, in-mission debuff text, AP-loss rolls. Off with
+    -- the real mod (src/OffDuty) installed, which does all three; keep the probe for its keys and dumps.
+    auto_tier = false,
     -- Draw the Zzz icon on the in-mission debuff: true, false (keep the game's Lethargy icon), or
     -- "compare" (Tired keeps the brush type, Exhausted/Spent set it to None; see which shows the Zzz).
     status_icon = true,
