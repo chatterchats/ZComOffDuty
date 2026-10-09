@@ -480,3 +480,7 @@ object-property writes on UObjects have worked. Bisect run pending (config.statu
 and the `ResourceObject` write (inside the struct) both succeeded and the Exhausted view model attached.
 **Writing a soft-object property crashes UE4SS 3.0.1** (also with `nil`). Never write soft pointers from
 Lua. Next run compares leaving the brush type as Texture2D against setting it to None.
+**Compare result (verified in game):** with only `ResourceObject` set, a Texture2D-type brush still draws the
+Lethargy icon (the soft pointer is loaded over it); setting `BrushType = None` as well draws our Zzz icon
+beside the health bar, with no crash. Recipe: copy the Lethargy brush whole, then set `ResourceObject` to
+the imported texture and `BrushType` to None; never write `WeakResourceObject`.

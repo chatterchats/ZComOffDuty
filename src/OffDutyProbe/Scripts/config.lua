@@ -25,7 +25,7 @@ return {
     auto_tier = true,
     -- Draw the Zzz icon on the in-mission debuff: true, false (keep the game's Lethargy icon), or
     -- "compare" (Tired keeps the brush type, Exhausted/Spent set it to None; see which shows the Zzz).
-    status_icon = "compare",
+    status_icon = true,
 
     -- Ctrl+Shift+F sets these exact counts (case-insensitive name substring); press again to reset
     -- to them. Defaults cover each tier (1 Tired, 3 Exhausted, 5/7 Spent) and 0/1/2 injuries.

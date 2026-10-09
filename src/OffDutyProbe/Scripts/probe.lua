@@ -1507,8 +1507,8 @@ function M.start(runtime, actions, logger, config)
         local level = tier[1] >= 5 and 3 or tier[1] >= 3 and 2 or 1
         -- Writing a soft-object property (TagBrush.WeakResourceObject) crashes UE4SS 3.0.1 (bisected
         -- 2026-10-09); a hard ObjectProperty or enum inside the struct writes fine. So only ResourceObject
-        -- (and BrushType) are set. config.status_icon = "compare": Tired keeps type Texture2D, Exhausted
-        -- and Spent switch to None, to see whether the soft pointer (Lethargy) gets loaded over ours.
+        -- (and BrushType) are set. Type None is required: with type Texture2D the game loads the soft
+        -- pointer (still Lethargy's) over ours (verified 2026-10-09 with config.status_icon = "compare").
         local mode = config.status_icon
         if mode ~= false then
             local set_type_none = mode ~= "compare" or level >= 2
