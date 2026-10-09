@@ -248,21 +248,35 @@ function M.start(runtime, actions, logger, config)
     -- Off Duty's Zzz tier icons (1 Tired, 2 Exhausted, 3 Spent): PNGs in this mod's icons/ folder, imported
     -- at runtime (a texture cooked on Linux didn't load in the Windows game). Each call imports a new
     -- transient texture; whatever brush it's set on keeps it alive, so nothing is cached in Lua.
-    local function mod_dir()
-        local ok, info = pcall(debug.getinfo, 1, "S")
-        local source = ok and info and type(info.source) == "string" and info.source:gsub("^@", "") or ""
-        local script_dir = source:match("^(.*)[/\\][^/\\]+$") or "."
-        return ((script_dir:match("^(.*)[/\\][Ss]cripts$") or script_dir):gsub("\\", "/"))
+    -- Called directly: inside pcall, level 1 would be pcall itself (a C function, no source path).
+    local SCRIPT_SOURCE = (debug.getinfo(1, "S").source or ""):gsub("^@", "")
+    local function icon_candidates(file)
+        local paths = {}
+        local script_dir = SCRIPT_SOURCE:match("^(.*)[/\\][^/\\]+$")
+        if script_dir then
+            local dir = (script_dir:match("^(.*)[/\\][Ss]cripts$") or script_dir):gsub("\\", "/")
+            paths[#paths + 1] = dir .. "/icons/" .. file
+        end
+        -- Relative to the game's working directory (Binaries/Win64), as the log file falls back to.
+        paths[#paths + 1] = "ue4ss/Mods/OffDutyProbe/icons/" .. file
+        paths[#paths + 1] = "Mods/OffDutyProbe/icons/" .. file
+        return paths
     end
-    local icon_failure_logged = false
+    local icon_failure_logged, icon_path_logged = false, false
     local function fatigue_icon(level)
-        local path = mod_dir() .. "/icons/T_OffDuty_Fatigue_" .. level .. ".png"
         local rendering = cdo("/Script/Engine.Default__KismetRenderingLibrary")
-        local texture, err = call(rendering, "ImportFileAsTexture2D", world_context(), path)
-        if valid(texture) then return texture end
+        local tried = {}
+        for _, path in ipairs(icon_candidates("T_OffDuty_Fatigue_" .. level .. ".png")) do
+            local texture, err = call(rendering, "ImportFileAsTexture2D", world_context(), path)
+            if valid(texture) then
+                if not icon_path_logged then icon_path_logged = true; log("ICON | imported from %s", path) end
+                return texture
+            end
+            tried[#tried + 1] = path .. (err and (" (" .. err .. ")") or "")
+        end
         if not icon_failure_logged then
             icon_failure_logged = true
-            log("ICON | could not import %s%s", path, err and (" | " .. err) or "")
+            log("ICON | could not import tier %d icon | tried %s", level, table.concat(tried, " | "))
         end
         return nil
     end
