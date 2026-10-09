@@ -26,13 +26,21 @@ Effects (all UBitReactorGameplayEffect Blueprints):
   component, so the strategy-side BrunoGameEffectUIData these used to carry is removed.
   Accuracy uses the game's own GE_Lose_NextMission_RangedAccuracy (-5% per stack), which keeps the
   native "Penalty from Operation" line in the hit breakdown.
+
+Icons: unreal/icons/T_OffDuty_Fatigue_{1,2,3}.png (drawn by draw_icons.py) are imported as UI textures under
+/OffDuty/OffDuty/Icons (in game /Game/OffDuty/Icons): the Zzz glyph for Tired, Exhausted and Spent, which
+Off Duty puts on its status view models and squad-select markers.
 """
+import os
 import sys
 
 import unreal
 
 PLUGIN_ROOT = "/OffDuty"
 EFFECT_DIR = PLUGIN_ROOT + "/OffDuty/Effects"  # -> /Game/OffDuty/Effects after the remap
+ICON_DIR = PLUGIN_ROOT + "/OffDuty/Icons"
+ICON_SOURCE = os.environ.get("OFFDUTY_ICONS") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "icons")
+ICONS = ["T_OffDuty_Fatigue_1", "T_OffDuty_Fatigue_2", "T_OffDuty_Fatigue_3"]
 
 PERSISTS = "BitReactor.GameplayEffect.Persists"
 PENALTY_TAGS = ["BitReactor.AbilityEffect.Strike.TemporaryPenalty", "BitReactor.GameplayEffect.StatusEffect.Negative"]
@@ -273,6 +281,35 @@ def ensure_effect(spec):
     log("saved: %s | modifiers=%s | tags=%s" % (path, spec["modifiers"], tags))
 
 
+def import_icon(name):
+    source = os.path.join(ICON_SOURCE, name + ".png")
+    if not os.path.isfile(source):
+        fail("icon source missing: " + source)
+    task = unreal.AssetImportTask()
+    task.set_editor_property("filename", source)
+    task.set_editor_property("destination_path", ICON_DIR)
+    task.set_editor_property("destination_name", name)
+    task.set_editor_property("automated", True)
+    task.set_editor_property("replace_existing", True)
+    task.set_editor_property("save", False)
+    asset_tools.import_asset_tasks([task])
+    texture = unreal.load_asset(ICON_DIR + "/" + name)
+    if texture is None:
+        fail("icon import failed: " + source)
+    # UI icon settings: uncompressed (platform-independent), no mips, never streamed.
+    for prop, value in (("compression_settings", unreal.TextureCompressionSettings.TC_EDITOR_ICON),
+                        ("lod_group", unreal.TextureGroup.TEXTUREGROUP_UI),
+                        ("mip_gen_settings", unreal.TextureMipGenSettings.TMGS_NO_MIPMAPS),
+                        ("srgb", True), ("never_stream", True)):
+        texture.set_editor_property(prop, value)
+    texture.modify()
+    if not assets.save_loaded_asset(texture, only_if_is_dirty=False):
+        fail("could not save " + name)
+    log("icon: %s/%s from %s" % (ICON_DIR, name, source))
+
+
+for icon in ICONS:
+    import_icon(icon)
 for effect in EFFECTS:
     ensure_effect(effect)
 unreal.log("OFFDUTY_RESULT ok")

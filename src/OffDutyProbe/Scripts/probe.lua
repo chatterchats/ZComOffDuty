@@ -212,6 +212,24 @@ function M.start(runtime, actions, logger, config)
         return class, nil
     end
 
+    -- An object (e.g. a texture) by path: already in memory, else loaded through the engine.
+    local function load_object(path)
+        local ok, found = pcall(StaticFindObject, path)
+        if ok and valid(found) then return found end
+        engine_load_class("/Script/Engine.Texture2D") -- initialises kismet_system
+        if not kismet_system then return nil end
+        local soft_path = (call(kismet_system, "MakeSoftObjectPath", path))
+        local soft_ref = soft_path and (call(kismet_system, "Conv_SoftObjPathToSoftObjRef", soft_path)) or nil
+        local object = soft_ref and (call(kismet_system, "LoadAsset_Blocking", soft_ref)) or nil
+        return valid(object) and object or nil
+    end
+
+    -- Off Duty's Zzz tier icons (unreal/icons, cooked into OffDuty_P): 1 Tired, 2 Exhausted, 3 Spent.
+    local function fatigue_icon(level)
+        local name = "T_OffDuty_Fatigue_" .. level
+        return load_object("/Game/OffDuty/Icons/" .. name .. "." .. name)
+    end
+
     local function load_class(path)
         local ok, class = pcall(StaticFindObject, path)
         if ok and valid(class) then return class, "already in memory" end
@@ -936,7 +954,6 @@ function M.start(runtime, actions, logger, config)
 
     -- Portrait tiles: a copy of the tile's WBP_HeroInjuries marker at the portrait's bottom right,
     -- one image showing the game's Lethargy status icon in the tier colour, with our tooltip.
-    local LETHARGY_ICON = "/Game/Game/UI/Icons/StatusEffects/T_UI_StatusEffect_Lethargy.T_UI_StatusEffect_Lethargy"
     local tile_markers = {}
 
     local function build_tile_markers(by_id, library)
@@ -945,8 +962,8 @@ function M.start(runtime, actions, logger, config)
         end
         tile_markers = {}
         local list_lib = cdo("/Script/UMG.Default__UserObjectListEntryLibrary")
-        local icon = select(2, pcall(StaticFindObject, LETHARGY_ICON))
-        if not valid(icon) then log("TILE MARK | Lethargy icon not loaded; keeping the heartbeat icon") icon = nil end
+        local icons = { fatigue_icon(1), fatigue_icon(2), fatigue_icon(3) }
+        if not icons[1] then log("TILE MARK | Off Duty icons not loadable; keeping the heartbeat icon") end
         local ok, tiles = pcall(FindAllOf, "WBP_RosterTile_C")
         local built = 0
         for _, tile in pairs(ok and tiles or {}) do
@@ -967,6 +984,7 @@ function M.start(runtime, actions, logger, config)
                     for _, node in ipairs(widget_tree(marker)) do parts[node.name] = node.widget end
                     call(parts.Injury_2, "SetVisibility", 1) -- Collapsed: one icon
                     call(parts.Injury_1, "SetVisibility", 4)
+                    local icon = icons[count >= 5 and 3 or count >= 3 and 2 or 1]
                     if icon then call(parts.Injury_1, "SetBrushFromTexture", icon, false) end
                     for part_name, widget in pairs(parts) do
                         if part_name:find("^BitReactorTooltipBox") then
@@ -1107,10 +1125,12 @@ function M.start(runtime, actions, logger, config)
                                     end
                                 end
                             end
-                            -- Pips: the game shows Injury_1 for one injury and adds Injury_2 for two.
-                            -- Here: one pip for Tired, two for Exhausted and Spent.
+                            -- The game shows Injury_1 for one injury and adds Injury_2 for two. Ours shows one
+                            -- image, the tier's Zzz icon (the Z count gives the tier).
                             call(parts.Injury_1, "SetVisibility", 4)
-                            call(parts.Injury_2, "SetVisibility", count >= 3 and 4 or 2)
+                            call(parts.Injury_2, "SetVisibility", 2)
+                            local tier_icon = fatigue_icon(count >= 5 and 3 or count >= 3 and 2 or 1)
+                            if tier_icon then call(parts.Injury_1, "SetBrushFromTexture", tier_icon, false) end
                             call(parts.Sizer, "SetWidthOverride", BANNER_SIZE[1])
                             call(parts.Sizer, "SetHeightOverride", BANNER_SIZE[2])
                             -- Tooltip: the injury one comes from its payload (tags/objects); ours is a plain
@@ -1427,10 +1447,26 @@ function M.start(runtime, actions, logger, config)
             local set_ok, err = pcall(function() vm[field] = value end)
             if not set_ok then errors[#errors + 1] = field .. " " .. tostring(err) end
         end
+        -- Start from the game's Lethargy brush (size, draw type, tint), then draw our texture as a plain
+        -- brush: type None, so the soft pointer (Lethargy's) isn't loaded over it.
         local b_ok, b_err = pcall(function() vm.TagBrush = lethargy.TagBrush end)
         if not b_ok then errors[#errors + 1] = "TagBrush " .. tostring(b_err) end
-        log("STATUS UI | %s tag view model created | name reads back '%s'%s", title,
-            tostring(text((call(vm, "GetDisplayName")))), #errors > 0 and (" | " .. table.concat(errors, " | ")) or "")
+        local level = tier[1] >= 5 and 3 or tier[1] >= 3 and 2 or 1
+        local icon = fatigue_icon(level)
+        if icon then
+            for field, value in pairs({ ResourceObject = icon, BrushType = 0 }) do
+                local ok, err = pcall(function() vm.TagBrush[field] = value end)
+                if not ok then errors[#errors + 1] = "TagBrush." .. field .. " " .. tostring(err) end
+            end
+            pcall(function() vm.TagBrush.WeakResourceObject = nil end)
+        else
+            errors[#errors + 1] = "icon T_OffDuty_Fatigue_" .. level .. " not loadable"
+        end
+        log("STATUS UI | %s tag view model created | name reads back '%s' | icon %s (type %s)%s", title,
+            tostring(text((call(vm, "GetDisplayName")))),
+            full_name(select(2, pcall(function() return vm.TagBrush.ResourceObject end))),
+            tostring(select(2, pcall(function() return vm.TagBrush.BrushType end))),
+            #errors > 0 and (" | " .. table.concat(errors, " | ")) or "")
         tier_tag_vms[title] = vm
         return vm
     end

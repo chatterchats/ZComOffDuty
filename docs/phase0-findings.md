@@ -449,3 +449,12 @@ their own names, descriptions (rich text works) and the Lethargy icon. The post-
 `BitReactorTagUIDataViewModel` and setting its FText fields from `FText()` both work. Timed passes were
 never needed. Tier descriptions are per tier (shared view model), so per-operator details such as
 fatigue points belong in the squad-select tooltip.
+
+### Health-bar icons and custom icons (2026-10-09)
+
+The status icons beside the tactical health bar come from lists filtered on `br.UI.Effect.CoreCondition`
+(GE_Injured and Backup Available carry it); adding it to the tier effects shows them there (verified).
+The HUD portraits at the bottom of the screen show injuries only. Off Duty draws its own tier icons
+(`unreal/scripts/draw_icons.py`: white Zzz glyphs, one to three Z's), imported as uncompressed UI textures
+(TC_EditorIcon, no mips) and cooked into OffDuty_P. Lua sets them as a plain brush (type None,
+ResourceObject = texture) on the tier view models, and on the squad-select banner and portrait markers.
