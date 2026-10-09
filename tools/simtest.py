@@ -1,0 +1,294 @@
+#!/usr/bin/env python3
+"""Off Duty simulation tests: the game's own AI plays the squad, with and without fatigue tiers.
+
+Drives "ZC Unlocked - Sandbox Mode" (ue4ss/Mods/ZCSandbox) through its command file: append
+`#<id> <command>` to cmd.txt, read `<id> <status> <verb> | <text>` from reply.txt (see its AUTOMATION.txt).
+Everything runs in the sandbox's own forked campaign; the sandbox refuses changes anywhere else.
+
+Each run: `campaign reset` (the baseline Den: no injuries or fatigue carried between runs), launch the
+mission with a fixed squad and enemy spawn set, apply the condition's tier to every squad member
+(`ge`: Off Duty's tier effect plus the game's accuracy stacks), `ai on` + `speed`, then poll until one
+side is gone or the turn cap is reached. Results go to dist/simtest/<time>.csv with a raw transcript.
+
+    tools/simtest.py info                          sandbox status, roster, units, missions, spawn sets
+    tools/simtest.py send "<command>"              one raw command (prints the reply)
+    tools/simtest.py run --mission SK_X --enemies SS_Y --squad "A,B,C,D" \\
+        --conditions baseline,tired,exhausted,spent --runs 5 --turn-cap 15 --speed 4
+
+Keep Off Duty's own loop out of the way during runs: set "Fatigue per mission" to 0 in MXM (the harness
+applies tiers itself), or pass --neutralise to write that into Off Duty's MXM values for the session.
+"""
+import argparse
+import csv
+import os
+import re
+import sys
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+GAME = Path(os.environ.get("SWZC_GAME_WIN64", "/run/media/chats/e0057d4a-fe46-43eb-a837-db51979c500f/Games/"
+                           "STAR WARS Zero Company (2026)/Star Wars Zero Company/SWZeroCompany/Binaries/Win64"))
+SANDBOX = GAME / "ue4ss" / "Mods" / "ZCSandbox"
+OFFDUTY_LOG = ROOT / "src" / "OffDuty" / "off_duty.log"
+MXM_VALUES = ROOT / "src" / "OffDuty" / "MXM" / "values.lua"
+
+EFFECTS = "/Game/OffDuty/Effects/"
+ACCURACY = ("/Game/Game/GameData/Progression/NextMissionGameplayEffects/"
+            "GE_Lose_NextMission_RangedAccuracy.GE_Lose_NextMission_RangedAccuracy_C")
+# Condition -> (Off Duty tier effect, accuracy stacks). Mirrors src/OffDuty/Scripts/rules.lua.
+CONDITIONS = {
+    "baseline": (None, 0),
+    "tired": ("GE_OffDuty_Tired", 1),
+    "exhausted": ("GE_OffDuty_Exhausted", 2),
+    "spent": ("GE_OffDuty_Spent", 3),
+}
+
+
+class SandboxError(RuntimeError):
+    pass
+
+
+class Sandbox:
+    """cmd.txt / reply.txt client. Ids are unique per process (prefix + counter)."""
+
+    def __init__(self, folder=SANDBOX, transcript=None):
+        self.cmd = Path(folder) / "cmd.txt"
+        self.reply = Path(folder) / "reply.txt"
+        self.prefix = "st%d" % (os.getpid() % 100000)
+        self.counter = 0
+        self.transcript = transcript
+
+    def hello(self):
+        try:
+            first = self.reply.read_text(errors="replace").splitlines()[0]
+        except (OSError, IndexError):
+            return None
+        return first if first.startswith("hello ok session") else None
+
+    def log(self, text):
+        if self.transcript:
+            self.transcript.write(text + "\n")
+            self.transcript.flush()
+
+    def send(self, line, timeout=None):
+        """Send one command; return (status, text). Waits for the reply carrying our id."""
+        self.counter += 1
+        rid = "%sn%d" % (self.prefix, self.counter)
+        if timeout is None:
+            m = re.search(r"\btimeout=(\d+)", line)
+            timeout = (int(m.group(1)) / 1000 if m else 30) + 10
+        with open(self.cmd, "a", newline="\r\n") as f:
+            f.write("#%s %s\n" % (rid, line))
+        self.log("> " + line)
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            try:
+                for raw in self.reply.read_text(errors="replace").splitlines():
+                    if raw.startswith(rid + " "):
+                        rest = raw[len(rid) + 1:]
+                        status = rest.split(" ", 1)[0]
+                        text = rest.split("|", 1)[1].strip() if "|" in rest else rest
+                        self.log("< %s %s" % (status, text))
+                        return status, text
+            except OSError:
+                pass
+            time.sleep(0.25)
+        self.log("< timeout")
+        raise SandboxError("no reply to %r within %ds" % (line, timeout))
+
+    def ok(self, line, timeout=None):
+        status, text = self.send(line, timeout)
+        if status != "ok":
+            raise SandboxError("%s: %s | %s" % (line, status, text))
+        return text
+
+
+def open_transcript(name):
+    out = ROOT / "dist" / "simtest"
+    out.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return out, stamp, open(out / ("%s-%s.log" % (stamp, name)), "w")
+
+
+def require_session(sb):
+    hello = sb.hello()
+    if not hello:
+        sys.exit("No sandbox session: is the game running with ZCSandbox? (no hello line in %s)" % sb.reply)
+    return hello
+
+
+# ---- reading the game (formats confirmed against `info` output) ----------------------------------------
+
+def count_foes(text):
+    """`foes` lists the living enemies as e1 e2 ...; 0 when none."""
+    return len(set(re.findall(r"\be(\d+)\b", text)))
+
+
+def squad_alive(sb, size):
+    """Living squad members: units with Health > 0 (via `stats <n> Health`)."""
+    alive = 0
+    for n in range(1, size + 1):
+        status, text = sb.send("stats %d Health" % n)
+        if status != "ok":
+            continue
+        m = re.search(r"Health\D+([\d.]+)", text)
+        if m and float(m.group(1)) > 0:
+            alive += 1
+    return alive
+
+
+def current_turn(text):
+    m = re.search(r"\bturn\D*(\d+)", text, re.I)
+    return int(m.group(1)) if m else None
+
+
+def ap_losses_since(offset):
+    try:
+        with open(OFFDUTY_LOG, errors="replace") as f:
+            f.seek(offset)
+            return sum(1 for line in f if "AP loss |" in line)
+    except OSError:
+        return 0
+
+
+def log_size():
+    try:
+        return OFFDUTY_LOG.stat().st_size
+    except OSError:
+        return 0
+
+
+# ---- commands --------------------------------------------------------------------------------------------
+
+def cmd_info(args):
+    out, stamp, transcript = open_transcript("info")
+    sb = Sandbox(transcript=transcript)
+    print(require_session(sb))
+    for line in ["status", "campaign status", "roster", "units", "missions " + (args.filter or ""),
+                 "spawnsets " + (args.filter or "")]:
+        status, text = sb.send(line.strip())
+        print("\n### %s -> %s\n%s" % (line, status, text))
+    print("\n(transcript: %s)" % transcript.name)
+
+
+def cmd_send(args):
+    sb = Sandbox()
+    require_session(sb)
+    status, text = sb.send(args.line, args.timeout)
+    print(status, "|", text)
+    return 0 if status == "ok" else 1
+
+
+def neutralise_offduty():
+    """Off Duty's fatigue gain 0 for the session (the harness applies tiers itself). Returns the old file."""
+    old = MXM_VALUES.read_text() if MXM_VALUES.exists() else None
+    MXM_VALUES.parent.mkdir(parents=True, exist_ok=True)
+    MXM_VALUES.write_text("return {\n    fatigue_per_mission = 0,\n}\n")
+    return old
+
+
+def apply_condition(sb, condition, size):
+    effect, stacks = CONDITIONS[condition]
+    for n in range(1, size + 1):
+        if effect:
+            sb.ok("ge %d %s%s.%s_C wait=1" % (n, EFFECTS, effect, effect), timeout=60)
+        for _ in range(stacks):
+            sb.ok("ge %d %s wait=1" % (n, ACCURACY), timeout=60)
+
+
+def one_run(sb, args, condition, run_index):
+    squad = [s.strip() for s in args.squad.split(",") if s.strip()]
+    sb.ok("campaign reset", timeout=300)
+    sb.ok("wait phase=hub settled=1 timeout=240000")
+    sb.ok('mission launch %s squad="%s" enemies=%s' % (args.mission, ",".join(squad), args.enemies), timeout=120)
+    sb.ok("wait phase=mission settled=1 timeout=300000")
+    apply_condition(sb, condition, len(squad))
+    sb.ok("speed %s" % args.speed)
+    sb.ok("ai camera off")
+    sb.ok("ai on")
+    start, log_offset = time.time(), log_size()
+    result, turn, foes, alive = "timeout", None, None, None
+    while time.time() - start < args.wall_cap:
+        time.sleep(args.poll)
+        status, text = sb.send("foes")
+        foes = count_foes(text) if status == "ok" else foes
+        alive = squad_alive(sb, len(squad))
+        status, text = sb.send("turn")
+        turn = current_turn(text) if status == "ok" else turn
+        if foes == 0:
+            result = "win"; break
+        if alive == 0:
+            result = "loss"; break
+        if turn is not None and turn > args.turn_cap:
+            result = "turn cap"; break
+    row = {
+        "condition": condition, "run": run_index, "mission": args.mission, "enemies": args.enemies,
+        "result": result, "turn": turn, "foes_left": foes, "squad_alive": alive, "squad_size": len(squad),
+        "ap_losses": ap_losses_since(log_offset), "seconds": round(time.time() - start),
+    }
+    sb.send("ai off")
+    sb.send("speed 1")
+    return row
+
+
+def cmd_run(args):
+    for c in args.conditions.split(","):
+        if c not in CONDITIONS:
+            sys.exit("unknown condition %r (have %s)" % (c, ", ".join(CONDITIONS)))
+    out, stamp, transcript = open_transcript("run")
+    sb = Sandbox(transcript=transcript)
+    print(require_session(sb))
+    old_values = neutralise_offduty() if args.neutralise else None
+    csv_path = out / ("%s-results.csv" % stamp)
+    try:
+        with open(csv_path, "w", newline="") as f:
+            writer = None
+            for run_index in range(1, args.runs + 1):
+                for condition in args.conditions.split(","):
+                    print("run %d/%d | %s ..." % (run_index, args.runs, condition), flush=True)
+                    try:
+                        row = one_run(sb, args, condition, run_index)
+                    except SandboxError as error:
+                        print("  ERROR: %s" % error)
+                        row = {"condition": condition, "run": run_index, "result": "error: %s" % error}
+                    print("  %s" % row)
+                    if writer is None:
+                        writer = csv.DictWriter(f, fieldnames=list(row.keys()) + ["error"], extrasaction="ignore")
+                        writer.writeheader()
+                    writer.writerow(row)
+                    f.flush()
+    finally:
+        if args.neutralise:
+            if old_values is None:
+                MXM_VALUES.unlink(missing_ok=True)
+            else:
+                MXM_VALUES.write_text(old_values)
+    print("results: %s\ntranscript: %s" % (csv_path, transcript.name))
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = parser.add_subparsers(dest="command", required=True)
+    p = sub.add_parser("info"); p.add_argument("filter", nargs="?", default="")
+    p.set_defaults(func=cmd_info)
+    p = sub.add_parser("send"); p.add_argument("line"); p.add_argument("--timeout", type=float, default=None)
+    p.set_defaults(func=cmd_send)
+    p = sub.add_parser("run")
+    p.add_argument("--mission", required=True); p.add_argument("--enemies", required=True)
+    p.add_argument("--squad", required=True, help="comma-separated roster names")
+    p.add_argument("--conditions", default="baseline,tired,exhausted,spent")
+    p.add_argument("--runs", type=int, default=3)
+    p.add_argument("--turn-cap", type=int, default=15)
+    p.add_argument("--wall-cap", type=float, default=1800, help="seconds per mission before giving up")
+    p.add_argument("--poll", type=float, default=5.0)
+    p.add_argument("--speed", default="4")
+    p.add_argument("--neutralise", action="store_true", help="set Off Duty's fatigue gain to 0 during the runs")
+    p.set_defaults(func=cmd_run)
+    args = parser.parse_args()
+    return args.func(args) or 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
