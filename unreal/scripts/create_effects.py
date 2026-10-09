@@ -36,6 +36,9 @@ EFFECT_DIR = PLUGIN_ROOT + "/OffDuty/Effects"  # -> /Game/OffDuty/Effects after 
 
 PERSISTS = "BitReactor.GameplayEffect.Persists"
 PENALTY_TAGS = ["BitReactor.AbilityEffect.Strike.TemporaryPenalty", "BitReactor.GameplayEffect.StatusEffect.Negative"]
+# Tier effects also show beside the health bar and on the HUD portraits: those status lists take effects
+# tagged br.UI.Effect.CoreCondition (GE_Injured and Backup Available carry it).
+TIER_TAGS = PENALTY_TAGS + ["br.UI.Effect.CoreCondition"]
 HEALTH = ("BitReactorHealthSet", "MaxHealth")
 MOVEMENT = ("BitReactorCombatSet", "MovementPerAP")
 ACTION_POINTS = ("BitReactorCombatSet", "ActionPoints")
@@ -64,14 +67,14 @@ EFFECTS = [
     {
         "name": "GE_OffDuty_Tired",
         "defaults": NEXT_MISSION_PENALTY,
-        "asset_tags": PENALTY_TAGS,
+        "asset_tags": TIER_TAGS,
         "modifiers": [],
         "ui": ("Tired", "Worn down from back-to-back deployments. <Bold>-5%</> Chance-To-Hit."),
     },
     {
         "name": "GE_OffDuty_Exhausted",
         "defaults": NEXT_MISSION_PENALTY,
-        "asset_tags": PENALTY_TAGS,
+        "asset_tags": TIER_TAGS,
         "modifiers": [(HEALTH, "MultiplyAdditive", 0.95)],
         "ui": ("Exhausted", "Pushed too hard for too long. <Bold>-10%%</> Chance-To-Hit, <Bold>-5%%</> %s, "
                             "<Bold>5%%</> chance each turn to lose <Bold>1 AP</>." % MAX_HEALTH),
@@ -79,7 +82,7 @@ EFFECTS = [
     {
         "name": "GE_OffDuty_Spent",
         "defaults": NEXT_MISSION_PENALTY,
-        "asset_tags": PENALTY_TAGS,
+        "asset_tags": TIER_TAGS,
         "modifiers": [(HEALTH, "MultiplyAdditive", 0.9), (MOVEMENT, "MultiplyAdditive", 0.95)],
         "ui": ("Spent", "Running on empty. <Bold>-15%%</> Chance-To-Hit, <Bold>-10%%</> %s, <Bold>-5%%</> "
                         "Movement, <Bold>10%%</> chance each turn to lose <Bold>1 AP</>." % MAX_HEALTH),
