@@ -98,6 +98,26 @@ eq(kara.effects[Game.FATIGUE], 7, "Kara capped at 7")
 eq(kabb.effects[Game.DEPLOYED], 1, "Kabb marked deployed")
 eq(rex.effects[Game.FATIGUE], 0, "guest untouched"); eq(rex.effects[Game.DEPLOYED], nil, "guest not marked")
 
+-- At mission load the roster can't be read yet: processing waits for it.
+local unreadable = 2
+local roster_ids = g.roster_ids
+g.roster_ids = function(...)
+    if unreadable > 0 then unreadable = unreadable - 1; return {} end
+    return roster_ids(...)
+end
+local late = operator("Tel-Rea", "V", 1)
+roster[#roster + 1] = late
+mission_start(nil, late)
+eq(late.effects[Game.FATIGUE], 3, "processed once the roster answers")
+eq(late.effects.GE_OffDuty_Tired, 1, "late: tier applied")
+unreadable = 99
+local never = operator("Luco2", "L2", 1)
+roster[#roster + 1] = never
+mission_start(nil, never)
+eq(never.effects[Game.FATIGUE], 1, "roster never readable: untouched")
+assert(logs[#logs]:find("roster still unreadable after 6 tries", 1, true), logs[#logs])
+g.roster_ids = roster_ids
+
 -- A second call in the same turn (e.g. a reload) changes nothing.
 mission_start(nil, kabb)
 eq(kabb.effects[Game.FATIGUE], 5, "no double gain"); eq(kabb.effects[ACCURACY], 2, "no double penalty")

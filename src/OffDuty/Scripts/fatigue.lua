@@ -33,16 +33,44 @@ function M.new(ctx)
 
     -- Mission start ---------------------------------------------------------------------------------
 
+    local process_mission_start
+
+    -- The hook fires while the mission map loads, before the roster can be read (verified: every
+    -- operator came back "not on the roster"). Retry briefly until the roster answers.
+    local ROSTER_RETRY_MS = { 250, 500, 1000, 2000, 4000 }
     local function on_mission_start(_, character)
         local actor = g.unwrap(character)
         if not g.is_actor(actor) then return end
         local name = g.character_name(actor) or g.full_name(actor)
         local id = g.character_id(actor)
-        local wco = g.world_context()
-        if not id or not wco or not g.roster_ids(wco)[id] then
-            log("Mission start | %s | not on the roster (guest unit); no fatigue", name)
-            return
+        if not id then log("WARNING: mission start | %s | no character ID; skipped", name); return end
+        local attempt = 0
+        local function try()
+            attempt = attempt + 1
+            local wco = g.world_context()
+            local ids = wco and g.roster_ids(wco) or {}
+            if next(ids) == nil then
+                local delay = ROSTER_RETRY_MS[attempt]
+                if delay then
+                    actions:schedule_after("mission_start", delay, g.safe("mission start retry", try), actor)
+                else
+                    log("WARNING: mission start | %s | roster still unreadable after %d tries; no fatigue this mission",
+                        name, attempt)
+                end
+                return
+            end
+            if not ids[id] then
+                log("Mission start | %s | not on the roster (guest unit); no fatigue", name)
+                return
+            end
+            if attempt > 1 then log("Mission start | %s | roster readable after %d tries", name, attempt) end
+            process_mission_start(actor, name)
         end
+        try()
+    end
+
+    function process_mission_start(actor, name)
+        if not g.valid(actor) then return end
         local asc = g.asc(actor)
         local fatigue_class, deployed_class = g.effect_class(Game.FATIGUE), g.effect_class(Game.DEPLOYED)
         if not asc or not fatigue_class or not deployed_class then
