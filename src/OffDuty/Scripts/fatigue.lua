@@ -120,15 +120,17 @@ function M.new(ctx)
         end
         local ready_note = attempt > 1 and string.format(" (ready after %d tries)", attempt) or ""
 
-        local marked = g.effect_count(asc, deployed_class) > 0
-        if from_save or marked then
-            -- A tactical save loaded (or a second call): fatigue is already counted. Restore the tier: the
-            -- saved tier effect if the save kept it, else the tier this mission started at.
-            if from_save and not marked then
+        local marker = g.effect_count(asc, deployed_class)
+        if from_save or marker > 0 then
+            -- A tactical save loaded (or a second call): fatigue is already counted. Tier effects aren't saved
+            -- (saving them crashed loads), so restore the tier the mission started at: recorded in the
+            -- marker's stack count (1 + level); older markers (1 stack) fall back to fatigue - gain.
+            if from_save and marker == 0 then
                 log("Mission resumed | %s | save has no deployed marker (saved before Off Duty counted it); no gain", name)
             end
             local tier = tier_effect_present(asc)
-                or Rules.tier(math.max(fatigue - s.gain, 0), s.preset)
+            if not tier and marker >= 2 then tier = Rules.tier_by_level(marker - 1) end
+            if not tier and marker <= 1 then tier = Rules.tier(math.max(fatigue - s.gain, 0), s.preset) end
             local summary = tier and apply_tier(asc, tier, name) or "rested"
             log("Mission resumed | %s | fatigue %d unchanged | %s%s", name, fatigue, summary, ready_note)
             return
@@ -137,7 +139,7 @@ function M.new(ctx)
         actions:cancel_group("ap_loss", "mission start") -- a new mission session
         local tier = Rules.tier(fatigue, s.preset)
         local summary = tier and apply_tier(asc, tier, name) or "rested"
-        g.apply_effect(asc, deployed_class, 1)
+        g.set_effect_count(asc, deployed_class, 1 + (tier and tier.level or 0)) -- records the starting tier
         if g.effect_count(asc, deployed_class) < 1 then
             log("WARNING: mission start | %s | deployed marker not applied; turn-end recovery may count them", name)
         end

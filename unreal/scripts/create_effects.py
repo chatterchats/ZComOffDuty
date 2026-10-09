@@ -11,13 +11,13 @@ Effects (all UBitReactorGameplayEffect Blueprints):
 - GE_OffDuty_Fatigue: the fatigue counter, one stack per point. Infinite, survives saves and missions.
   The hub save only keeps character effects tagged BitReactor.GameplayEffect.Persists, so it has that
   asset tag. No modifiers: it does nothing on its own.
-- GE_OffDuty_Deployed: a saved marker (Persists, no modifiers) for operators who deployed this strategy turn.
+- GE_OffDuty_Deployed: a saved marker (Persists, no modifiers) for operators who deployed this strategy turn;
+  its stack count is 1 + the tier level the mission started at.
 - GE_OffDuty_LoseAP: instant ActionPoints -1, applied by Off Duty when a fatigued operator's
   turn-start roll hits (a turn is 3 AP; the game refills them at the next turn start).
 - GE_OffDuty_Tired / GE_OffDuty_Exhausted / GE_OffDuty_Spent: next-mission penalties, queued with
   UBrunoGameStatics::AddNextMissionCharacterEffect like the game's GE_Lose_NextMission_* effects and
-  copying their pattern (bTerminateWithCombat, TemporaryPenalty + StatusEffect.Negative tags), but saved in
-  tactical saves so an in-mission save keeps them.
+  copying their pattern (bTerminateWithCombat, not saved, TemporaryPenalty + StatusEffect.Negative tags).
   Percentages use MultiplyAdditive, which the engine multiplies by the stack count, so these never stack
   (limit 1): one effect per tier instead. Tired has no modifiers of its own (its accuracy is the game's
   effect); it exists so the tier shows in mission.
@@ -58,9 +58,10 @@ COMMON = {
     "stack_period_reset_policy": unreal.GameplayEffectStackingPeriodPolicy.NEVER_RESET,
     "stack_expiration_policy": unreal.GameplayEffectStackingExpirationPolicy.CLEAR_ENTIRE_STACK,
 }
-# Saved in tactical saves (bIncludeInSaveData) so loading an in-mission save keeps the tier; it still ends with
-# combat, and the hub save drops it (no Persists tag). Loading a tactical save doesn't re-apply it otherwise.
-NEXT_MISSION_PENALTY = dict(COMMON, stack_limit_count=1, include_in_save_data=True, terminate_with_combat=True)
+# Not saved: with bIncludeInSaveData on these, loading an in-mission save crashed the game (every time, in
+# SWZeroCompany.exe, with or without Off Duty's Lua). Off Duty re-applies the tier on a loaded save instead,
+# from the tier recorded in GE_OffDuty_Deployed's stack count.
+NEXT_MISSION_PENALTY = dict(COMMON, stack_limit_count=1, include_in_save_data=False, terminate_with_combat=True)
 
 EFFECTS = [
     {
@@ -71,9 +72,11 @@ EFFECTS = [
     },
     {
         # "Deployed this strategy turn": set at mission start, cleared at turn end, so recovery skips
-        # operators who played (saved, like the fatigue counter, so a reload can't lose it).
+        # operators who played (saved, like the fatigue counter, so a reload can't lose it). Its stack count
+        # records the tier the mission started at (1 rested, 2 Tired, 3 Exhausted, 4 Spent), so a loaded
+        # in-mission save gets the right tier back.
         "name": "GE_OffDuty_Deployed",
-        "defaults": dict(COMMON, stack_limit_count=1, include_in_save_data=True, terminate_with_combat=False),
+        "defaults": dict(COMMON, stack_limit_count=4, include_in_save_data=True, terminate_with_combat=False),
         "asset_tags": [PERSISTS],
         "modifiers": [],
     },

@@ -101,7 +101,8 @@ eq(kabb.effects.GE_OffDuty_Exhausted, 1, "Kabb exhausted effect"); eq(kabb.effec
 eq(kabb.effects[Game.FATIGUE], 5, "Kabb fatigue +2")
 eq(kara.effects.GE_OffDuty_Spent, 1, "Kara spent effect"); eq(kara.effects[ACCURACY], 3, "Kara accuracy")
 eq(kara.effects[Game.FATIGUE], 7, "Kara capped at 7")
-eq(kabb.effects[Game.DEPLOYED], 1, "Kabb marked deployed")
+eq(kabb.effects[Game.DEPLOYED], 3, "Kabb marked deployed, tier Exhausted recorded (1 + 2)")
+eq(tesh.effects[Game.DEPLOYED], 2, "Tesh marker records Tired")
 eq(rex.effects[Game.FATIGUE], 0, "guest untouched"); eq(rex.effects[Game.DEPLOYED], nil, "guest not marked")
 
 -- At mission load the roster can't be read yet: processing waits for it.
@@ -138,13 +139,14 @@ g.loading_from_save = function()
     load_checks = load_checks + 1
     if load_checks < 4 then return true end
     -- the save's effects are restored by the time loading reports done
-    restored.effects[Game.FATIGUE] = 5; restored.effects[Game.DEPLOYED] = 1; restored.effects.GE_OffDuty_Exhausted = 1
+    -- tier effects aren't saved; the marker records the starting tier (Spent: 1 + 3)
+    restored.effects[Game.FATIGUE] = 5; restored.effects[Game.DEPLOYED] = 4
     return false
 end
 mission_start(nil, restored)
 eq(restored.effects[Game.FATIGUE], 5, "loaded save: no gain")
-eq(restored.effects.GE_OffDuty_Exhausted, 1, "loaded save: saved tier kept")
-eq(restored.effects[ACCURACY], 2, "loaded save: accuracy topped up to the tier")
+eq(restored.effects.GE_OffDuty_Spent, 1, "loaded save: tier restored from the marker")
+eq(restored.effects[ACCURACY], 3, "loaded save: accuracy re-applied for the tier")
 assert(logs[#logs]:find("Mission resumed", 1, true), logs[#logs])
 g.loading_from_save = function() return false end
 -- An older save without the tier effect: fall back to the tier this mission started at (fatigue - gain).

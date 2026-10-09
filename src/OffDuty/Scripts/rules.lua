@@ -42,6 +42,11 @@ for _, tier in ipairs(M.TIERS) do by_id[tier.id] = tier end
 
 function M.tier_by_id(id) return by_id[id] end
 
+function M.tier_by_level(level)
+    for _, tier in ipairs(M.TIERS) do if tier.level == level then return tier end end
+    return nil
+end
+
 function M.preset(name)
     return M.PRESETS[name] or M.PRESETS[M.DEFAULT_PRESET]
 end

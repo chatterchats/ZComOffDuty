@@ -502,3 +502,7 @@ the imported texture and `BrushType` to None; never write `WeakResourceObject`.
   Off Duty now checks `UBitReactorGameInstance::IsLoadingFromSaveGame` / `AGameGameplayMaster::IsLoadingFromSave`
   and `UBitReactorAbilityScriptingFunctions::WasLoadedFromSave(actor)`, waits until no save is loading
   (plus 500 ms), and never adds fatigue on a loaded save.
+- **Correction 2:** saving the tier effects (`bIncludeInSaveData = true`) made every in-mission save load crash
+  (four identical crashes at `SWZeroCompany.exe+0x958c3da`, null+0xa68, including one where Off Duty's Lua did
+  nothing). Reverted: tier effects aren't saved. The deployed marker's stack count records the tier the
+  mission started at (1 + level), and Off Duty re-applies that tier when a tactical save loads.
