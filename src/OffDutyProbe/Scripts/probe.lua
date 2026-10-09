@@ -1229,8 +1229,6 @@ function M.start(runtime, actions, logger, config)
         return tonumber((call(asc, "GetGameplayEffectCount", class, nil, true))) or 0, err
     end
 
-    local squad_tiers_queued = {}
-    local queue_tier -- defined below; the test squad queues tiers through it
     local function apply_test_squad()
         local wco = world_context()
         if not wco or not roster_statics() then log("SQUAD | no world context (load a campaign first)"); return end
@@ -1255,15 +1253,6 @@ function M.start(runtime, actions, logger, config)
                         log("SQUAD | %s | fatigue %d (wanted %d) | injuries %d (wanted %d)%s%s", name,
                             f, entry.fatigue or 0, i, entry.injuries or 0,
                             f_err and (" | fatigue error " .. f_err) or "", i_err and (" | injury error " .. i_err) or "")
-                        -- Queue the matching tier penalty for the next mission (1/3/5 = Tired/Exhausted/Spent),
-                        -- once per game session: the queue stacks, so repeats would add accuracy stacks.
-                        local level = f >= 5 and 3 or f >= 3 and 2 or f >= 1 and 1 or nil
-                        if level and member.id and not squad_tiers_queued[member.id] then
-                            squad_tiers_queued[member.id] = true
-                            queue_tier(level, member.id)
-                        elseif level then
-                            log("SQUAD | %s | tier already queued this session (restart the game to queue again)", name)
-                        end
                     end
                 end
             end
@@ -1273,7 +1262,7 @@ function M.start(runtime, actions, logger, config)
         end
     end
 
-    function queue_tier(level, only_id)
+    local function queue_tier(level, only_id)
         -- only_id: queue for that one roster character ID string instead of everyone.
         local tier = TIERS[level]
         local wco = world_context()
@@ -1394,7 +1383,49 @@ function M.start(runtime, actions, logger, config)
         local ok, err = install(path)
         if not ok then log("Native hook failed | %s | %s", path, tostring(err)) end
     end
+    -- Mission start: the game calls ApplyNextMissionEffectsToCharacter for each deployed operator.
+    -- Read their fatigue and apply the matching tier directly (no hub-side queue to go stale).
+    local MISSION_START_HOOK = "/Script/Bruno.BrunoGameStatics:ApplyNextMissionEffectsToCharacter"
+    local function tier_level(fatigue)
+        return fatigue >= 5 and 3 or fatigue >= 3 and 2 or fatigue >= 1 and 1 or nil
+    end
+
+    local function apply_tier_at_mission_start(_, character)
+        if not config.auto_tier then return end
+        local actor = unwrap(character)
+        if not is_actor(actor) then return end
+        local name = character_name(actor) or full_name(actor)
+        local asc = (call(ability_library(), "GetAbilitySystemComponent", actor))
+        local fatigue_class = load_class(FATIGUE_EFFECT)
+        if not valid(asc) or not fatigue_class then return end
+        local fatigue = tonumber((call(asc, "GetGameplayEffectCount", fatigue_class, nil, true))) or 0
+        local level = tier_level(fatigue)
+        if not level then log("MISSION TIER | %s | fatigue %d | rested", name, fatigue); return end
+        local tier = TIERS[level]
+        local effect = load_class("/Game/OffDuty/Effects/" .. tier.effect .. "." .. tier.effect .. "_C")
+        local accuracy = load_class(class_path(NEXT_MISSION_EFFECTS, "GE_Lose_NextMission_RangedAccuracy"))
+        if not effect or not accuracy then log("MISSION TIER | %s | effect classes not loadable", name); return end
+        if (tonumber((call(asc, "GetGameplayEffectCount", effect, nil, true))) or 0) > 0 then
+            log("MISSION TIER | %s | %s already applied", name, tier.name); return
+        end
+        local err
+        for _ = 1, tier.accuracy_stacks do
+            _, err = call(asc, "BP_ApplyGameplayEffectToSelf", accuracy, 1.0, (call(asc, "MakeEffectContext")))
+        end
+        local _, effect_err = call(asc, "BP_ApplyGameplayEffectToSelf", effect, 1.0, (call(asc, "MakeEffectContext")))
+        log("MISSION TIER | %s | fatigue %d | %s | accuracy stacks %s | %s %s%s%s", name, fatigue, tier.name,
+            tostring((call(asc, "GetGameplayEffectCount", accuracy, nil, true))), tier.effect,
+            tostring((call(asc, "GetGameplayEffectCount", effect, nil, true))),
+            err and (" | accuracy error " .. err) or "", effect_err and (" | effect error " .. effect_err) or "")
+    end
+
     install_blueprint_hooks("startup")
+    do
+        local ok, err = pcall(function()
+            runtime:register_hook(MISSION_START_HOOK, function() end, apply_tier_at_mission_start)
+        end)
+        log("Mission-start tier hook %s%s", ok and "installed" or "FAILED", ok and "" or (" | " .. tostring(err)))
+    end
     do
         local ok, err = pcall(function() runtime:register_hook(TURN_HOOK, function() end, on_team_turn_started) end)
         log("AP-loss hook %s | %s%s", ok and "installed" or "FAILED", TURN_HOOK, ok and "" or (" | " .. tostring(err)))

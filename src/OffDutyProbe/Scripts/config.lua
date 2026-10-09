@@ -20,6 +20,10 @@ return {
     -- Applied after this delay so the game's own turn-start AP refill happens first.
     ap_loss_delay_ms = 250,
 
+    -- At mission start, apply each deployed operator's tier (from their fatigue: 1 Tired, 3 Exhausted,
+    -- 5 Spent) directly. Don't also queue tiers with Ctrl+Shift+1/2/3, or penalties double up.
+    auto_tier = true,
+
     -- Ctrl+Shift+F sets these exact counts (case-insensitive name substring); press again to reset
     -- to them. Defaults cover each tier (1 Tired, 3 Exhausted, 5/7 Spent) and 0/1/2 injuries.
     -- Never more than 2 injuries: a third kills the operator. The probe caps it at 2 regardless.
