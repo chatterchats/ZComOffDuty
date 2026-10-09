@@ -17,16 +17,16 @@ M.TIERS = {
         effect = "GE_OffDuty_Spent", accuracy_stacks = 3, ap_loss = 0.10,
         colour = "ColorBank.UI.AccentRed1",
         intro = "Running on empty.",
-        penalties = { "<Bold>-15%</> Chance-To-Hit", "<Bold>-10%</> Max Health", "<Bold>-5%</> Movement",
-                      "<Bold>10%</> chance each turn to lose <Bold>1 AP</>" },
+        penalties = { "<Bold>-15%</> Chance-To-Hit", "<Bold>-10%</> Max Health", "<Bold>-5%</> Movement" },
+        ap_penalty = "<Bold>10%</> chance each turn to lose <Bold>1 AP</>",
     },
     {
         id = "exhausted", level = 2, name = "Exhausted", label = "EXHAUSTED",
         effect = "GE_OffDuty_Exhausted", accuracy_stacks = 2, ap_loss = 0.05,
         colour = "ColorBank.UI.AccentYellow", -- renders orange in game
         intro = "Pushed too hard for too long.",
-        penalties = { "<Bold>-10%</> Chance-To-Hit", "<Bold>-5%</> Max Health",
-                      "<Bold>5%</> chance each turn to lose <Bold>1 AP</>" },
+        penalties = { "<Bold>-10%</> Chance-To-Hit", "<Bold>-5%</> Max Health" },
+        ap_penalty = "<Bold>5%</> chance each turn to lose <Bold>1 AP</>",
     },
     {
         id = "tired", level = 1, name = "Tired", label = "TIRED",
@@ -101,10 +101,18 @@ function M.turns_to_rest(points, settings)
     return math.ceil(points / s.rest)
 end
 
--- In-mission debuff description (shared per tier, so no per-operator numbers).
-function M.status_description(tier)
-    local lines = { tier.intro }
+-- A tier's penalty lines under these settings (the AP-loss line only while AP loss is on).
+function M.penalties(tier, settings)
+    local lines = {}
     for _, penalty in ipairs(tier.penalties) do lines[#lines + 1] = penalty end
+    if tier.ap_penalty and M.normalise(settings).ap_loss then lines[#lines + 1] = tier.ap_penalty end
+    return lines
+end
+
+-- In-mission debuff description (shared per tier, so no per-operator numbers).
+function M.status_description(tier, settings)
+    local lines = { tier.intro }
+    for _, penalty in ipairs(M.penalties(tier, settings)) do lines[#lines + 1] = penalty end
     lines[#lines + 1] = "Rest off duty to recover."
     return table.concat(lines, "\n")
 end
@@ -119,7 +127,7 @@ function M.tooltip(tier, points, settings)
         "",
         "Next mission:",
     }
-    for _, penalty in ipairs(tier.penalties) do lines[#lines + 1] = "  " .. penalty end
+    for _, penalty in ipairs(M.penalties(tier, settings)) do lines[#lines + 1] = "  " .. penalty end
     local turns = M.turns_to_rest(points, settings)
     if turns then
         lines[#lines + 1] = ""

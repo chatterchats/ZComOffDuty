@@ -398,7 +398,7 @@ function M.new(ctx)
         local by_name, by_id = fatigue_by_operator() -- one roster scan (or a cached one) for every widget
         local s = Rules.normalise(ctx.settings())
         local view = { by_name = by_name, by_id = by_id,
-                       settings = string.format("%s/%d/%d", s.preset, s.gain, s.rest) }
+                       settings = string.format("%s/%d/%d/%s", s.preset, s.gain, s.rest, tostring(s.ap_loss)) }
         local refreshers = { slot = refresh_slot, tile = refresh_tile }
         local function run(kind, widget)
             if not g.live(widget) then return end

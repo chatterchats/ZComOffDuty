@@ -45,7 +45,7 @@ function M.new(ctx)
             if not set_ok then errors[#errors + 1] = field .. ": " .. tostring(err) end
         end
         set("DisplayName", FText(tier.name))
-        set("TagDescription", FText(Rules.status_description(tier)))
+        set("TagDescription", FText(Rules.status_description(tier, ctx.settings())))
         local donor = (g.call(g.cdo(TAG_VM_CDO), "FindOrCreateTagUIDataViewModel", g.world_context(),
             { TagName = FName(BRUSH_DONOR) }))
         if g.valid(donor) then
