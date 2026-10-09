@@ -213,14 +213,35 @@ function M.start(runtime, actions, logger, config)
     end
 
     -- An object (e.g. a texture) by path: already in memory, else loaded through the engine.
+    local load_object_failures = {}
     local function load_object(path)
         local ok, found = pcall(StaticFindObject, path)
         if ok and valid(found) then return found end
         engine_load_class("/Script/Engine.Texture2D") -- initialises kismet_system
-        if not kismet_system then return nil end
-        local soft_path = (call(kismet_system, "MakeSoftObjectPath", path))
-        local soft_ref = soft_path and (call(kismet_system, "Conv_SoftObjPathToSoftObjRef", soft_path)) or nil
-        local object = soft_ref and (call(kismet_system, "LoadAsset_Blocking", soft_ref)) or nil
+        local steps = {}
+        local function step(name, value, err)
+            steps[#steps + 1] = string.format("%s -> %s%s", name, value == nil and "nil" or type(value),
+                err and (" (" .. err .. ")") or "")
+            return value
+        end
+        local object
+        if kismet_system then
+            local soft_path = step("MakeSoftObjectPath", call(kismet_system, "MakeSoftObjectPath", path))
+            local soft_ref = soft_path ~= nil
+                and step("Conv_SoftObjPathToSoftObjRef", call(kismet_system, "Conv_SoftObjPathToSoftObjRef", soft_path)) or nil
+            object = soft_ref ~= nil and step("LoadAsset_Blocking", call(kismet_system, "LoadAsset_Blocking", soft_ref)) or nil
+            if not valid(object) then
+                local after_ok, after = pcall(StaticFindObject, path)
+                object = after_ok and valid(after) and after or nil
+                steps[#steps + 1] = "StaticFindObject after load -> " .. (object and "found" or "nil")
+            end
+        else
+            steps[#steps + 1] = "KismetSystemLibrary unavailable"
+        end
+        if not valid(object) and not load_object_failures[path] then
+            load_object_failures[path] = true
+            log("LOAD | %s not loadable | %s", path, table.concat(steps, " | "))
+        end
         return valid(object) and object or nil
     end
 
