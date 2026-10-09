@@ -1506,15 +1506,27 @@ function M.start(runtime, actions, logger, config)
         local b_ok, b_err = pcall(function() vm.TagBrush = lethargy.TagBrush end)
         if not b_ok then errors[#errors + 1] = "TagBrush " .. tostring(b_err) end
         local level = tier[1] >= 5 and 3 or tier[1] >= 3 and 2 or 1
-        local icon = config.status_icon ~= false and fatigue_icon(level) or nil
-        if icon then
-            local r_ok, r_err = pcall(function() vm.TagBrush.ResourceObject = icon end)
-            if not r_ok then errors[#errors + 1] = "TagBrush.ResourceObject " .. tostring(r_err) end
-            local w_ok, w_err = pcall(function() vm.TagBrush.WeakResourceObject = icon end)
-            if not w_ok then errors[#errors + 1] = "TagBrush.WeakResourceObject (left as Lethargy) " .. tostring(w_err) end
-        elseif config.status_icon ~= false then
-            errors[#errors + 1] = "icon T_OffDuty_Fatigue_" .. level .. " not loadable"
+        -- Crash bisect (config.status_icon = "bisect"): each tier stops at a different step, logging before
+        -- each one, so the last STEP line before a crash names it. Tired: import only. Exhausted: import +
+        -- ResourceObject. Spent: import + ResourceObject + WeakResourceObject.
+        local mode = config.status_icon
+        if mode ~= false then
+            local depth = mode == "bisect" and level or 3
+            log("STEP | %s | importing icon (inside the status list hook)", title)
+            local icon = fatigue_icon(level)
+            log("STEP | %s | import %s", title, icon and "ok" or "failed")
+            if icon and depth >= 2 then
+                log("STEP | %s | writing TagBrush.ResourceObject", title)
+                local r_ok, r_err = pcall(function() vm.TagBrush.ResourceObject = icon end)
+                log("STEP | %s | ResourceObject written: %s", title, r_ok and "ok" or tostring(r_err))
+            end
+            if icon and depth >= 3 then
+                log("STEP | %s | writing TagBrush.WeakResourceObject", title)
+                local w_ok, w_err = pcall(function() vm.TagBrush.WeakResourceObject = icon end)
+                log("STEP | %s | WeakResourceObject written: %s", title, w_ok and "ok" or tostring(w_err))
+            end
         end
+        log("STEP | %s | brush done", title)
         local created_before = tier_tag_vms[title] ~= nil
         tier_tag_vms[title] = true -- logged once per tier; never holds the object
         if created_before then return vm end
@@ -1522,10 +1534,7 @@ function M.start(runtime, actions, logger, config)
             tostring(text((call(vm, "GetDisplayName")))),
             full_name(select(2, pcall(function() return vm.TagBrush.ResourceObject end))),
             tostring(select(2, pcall(function() return vm.TagBrush.BrushType end))),
-            tostring(select(2, pcall(function()
-                local soft = vm.TagBrush.WeakResourceObject
-                return type(soft) == "userdata" and (pcall(function() return soft:ToString() end) and soft:ToString()) or soft
-            end))),
+            "not read",
             #errors > 0 and (" | " .. table.concat(errors, " | ")) or "")
         return vm
     end

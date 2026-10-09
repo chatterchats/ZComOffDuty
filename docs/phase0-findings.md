@@ -469,3 +469,10 @@ PF_B8G8R8A8, 64 KB) and are in the container, but `LoadAsset_Blocking` on
 control load of `GE_OffDuty_Tired_C` through the same loader works: a texture cooked on Linux doesn't
 load in the Windows game (data-only Blueprints do). Icons now ship as PNGs in the Lua mod (`icons/`) and
 are loaded with `KismetRenderingLibrary.ImportFileAsTexture2D`; the plugin cooks no textures.
+
+Icon crash (2026-10-09): with the PNG imported, starting the first turn crashed twice (null+0x70, then a
+garbage address) before the probe logged the tag view model it was building. `tools/minidump.py` on the
+dumps (`Saved/Crashes/UECC-*/UEMinidump.dmp` in the Proton prefix) puts both inside UE4SS.dll (one in
+memcpy called from it), so a Lua operation crashed, not the game's UI. Suspect: UE4SS 3.0.1 writing a
+field inside a struct property (`vm.TagBrush.ResourceObject = texture`); whole-struct copies and
+object-property writes on UObjects have worked. Bisect run pending (config.status_icon = "bisect").
