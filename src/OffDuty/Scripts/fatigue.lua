@@ -53,24 +53,41 @@ function M.new(ctx)
             log("Mission start | %s | already counted this turn", name)
             return
         end
+        actions:cancel_group("ap_loss", "mission start") -- a new mission session
         local s = current_settings()
         local before = g.effect_count(asc, fatigue_class)
         local tier = Rules.tier(before, s.preset)
+        local penalty = "rested"
         if tier then
             local accuracy, effect = g.load_class(Game.ACCURACY), g.effect_class(tier.effect)
-            local err = accuracy and g.apply_effect(asc, accuracy, tier.accuracy_stacks) or "accuracy effect unavailable"
-            if effect and not err then err = g.apply_effect(asc, effect, 1) end
-            if err then log("WARNING: mission start | %s | %s penalty | %s", name, tier.name, err) end
+            -- apply_effect returns nil on success, so no `x and apply() or "error"` shortcuts here.
+            local err
+            if not accuracy then err = "accuracy effect unavailable"
+            else err = g.apply_effect(asc, accuracy, tier.accuracy_stacks) end
+            if not err then
+                if not effect then err = tier.effect .. " unavailable"
+                else err = g.apply_effect(asc, effect, 1) end
+            end
+            -- Game state is authoritative: re-read what actually applied.
+            penalty = string.format("%s (%s %d, accuracy stacks %d)", tier.name, tier.effect,
+                g.effect_count(asc, effect), g.effect_count(asc, accuracy))
+            if err or g.effect_count(asc, effect) < 1 then
+                log("WARNING: mission start | %s | %s penalty not applied | %s", name, tier.name, tostring(err))
+            end
         end
         g.apply_effect(asc, deployed_class, 1)
+        if g.effect_count(asc, deployed_class) < 1 then
+            log("WARNING: mission start | %s | deployed marker not applied; turn-end recovery may count them", name)
+        end
         local after = g.set_effect_count(asc, fatigue_class, Rules.after_mission(before, s))
-        log("Mission start | %s | fatigue %d -> %d | %s", name, before, after, tier and tier.name or "rested")
+        log("Mission start | %s | fatigue %d -> %d | %s", name, before, after, penalty)
         if ctx.on_mission_start then ctx.on_mission_start() end
     end
 
     -- Strategy turn end -----------------------------------------------------------------------------
 
     local function on_end_turn()
+        actions:cancel_group("ap_loss", "strategy turn end")
         local wco = g.world_context()
         local fatigue_class, deployed_class = g.effect_class(Game.FATIGUE), g.effect_class(Game.DEPLOYED)
         if not wco or not fatigue_class or not deployed_class then
@@ -116,7 +133,8 @@ function M.new(ctx)
         local name = g.character_name(owner) or g.full_name(owner)
         actions:schedule_after("ap_loss", AP_LOSS_DELAY_MS, function()
             local class = g.effect_class(Game.LOSE_AP)
-            local err = class and g.apply_effect(asc, class, 1) or "GE_OffDuty_LoseAP unavailable"
+            local err = "GE_OffDuty_LoseAP unavailable"
+            if class then err = g.apply_effect(asc, class, 1) end
             log("AP loss | %s | %s%s", name, tier.name, err and (" | " .. err) or "")
         end, asc, owner)
     end
@@ -125,7 +143,8 @@ function M.new(ctx)
         pcall(function() math.randomseed(os.time()) end)
         for path, callback in pairs({ [MISSION_START] = on_mission_start, [END_TURN] = on_end_turn,
                                       [TEAM_TURN] = on_team_turn }) do
-            local ok, err = pcall(function() ctx.runtime:register_hook(path, function() end, callback) end)
+            local wrapped = g.safe(path:match(":(.+)$"), callback)
+            local ok, err = pcall(function() ctx.runtime:register_hook(path, function() end, wrapped) end)
             log("%s | %s%s", ok and "Hooked" or "ERROR: hook failed", path, ok and "" or (" | " .. tostring(err)))
         end
     end

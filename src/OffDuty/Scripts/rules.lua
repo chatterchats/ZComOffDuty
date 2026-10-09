@@ -51,13 +51,18 @@ local function whole(value, default, low, high)
     return math.max(low, math.min(high, value))
 end
 
--- Settings come from MXM (or a hand-edited values.lua): clamp everything.
+-- Settings come from MXM (or a hand-edited values.lua): clamp everything. Idempotent: an already
+-- normalised table (gain/rest keys) passes through unchanged.
 function M.normalise(settings)
     settings = settings or {}
+    local gain = settings.fatigue_per_mission
+    if gain == nil then gain = settings.gain end
+    local rest = settings.recovery_per_turn
+    if rest == nil then rest = settings.rest end
     return {
         preset = M.PRESETS[settings.preset] and settings.preset or M.DEFAULT_PRESET,
-        gain = whole(settings.fatigue_per_mission, 2, 0, 7),
-        rest = whole(settings.recovery_per_turn, 1, 0, 7),
+        gain = whole(gain, 2, 0, 7),
+        rest = whole(rest, 1, 0, 7),
         ap_loss = settings.ap_loss ~= false,
     }
 end

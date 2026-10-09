@@ -76,6 +76,9 @@ function M.new(ctx)
         end
     end
 
+    -- A deliberate exception to "defer invasive work out of event callbacks": the view model must be
+    -- attached before this read returns. Attaching later doesn't notify widgets already bound to the
+    -- status, which then stay blank (verified in the probe). Re-entry is guarded by `busy`.
     local function on_list_read(context)
         if busy then return end
         local list = g.unwrap(context)
@@ -87,7 +90,8 @@ function M.new(ctx)
     end
 
     function self:install()
-        local ok, err = pcall(function() ctx.runtime:register_hook(STATUS_LIST, function() end, on_list_read) end)
+        local wrapped = g.safe("status list read", on_list_read)
+        local ok, err = pcall(function() ctx.runtime:register_hook(STATUS_LIST, function() end, wrapped) end)
         log("%s | %s%s", ok and "Hooked" or "ERROR: hook failed", STATUS_LIST, ok and "" or (" | " .. tostring(err)))
     end
 

@@ -35,6 +35,8 @@ end
 
 local function start()
     local log = function(...) logger:log(...) end
+    -- MXM's client library (unmodified, as its author requires) polls its values file with LoopAsync:
+    -- file reads only, no UObjects. A hot reload starts another poll; restart the game to drop them.
     local Settings = require("MXM")
     local game = require("game").new(log)
     local ctx = {

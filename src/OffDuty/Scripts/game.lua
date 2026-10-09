@@ -18,6 +18,15 @@ M.MAX_SAFE_INJURIES = 2 -- a third injury kills; Off Duty never adds injuries
 function M.new(log)
     local g = {}
 
+    -- Wraps a hook callback so a Lua error is logged to off_duty.log (the runtime guard only stops
+    -- callbacks from a retired instance; it doesn't catch errors).
+    function g.safe(name, callback)
+        return function(...)
+            local ok, err = pcall(callback, ...)
+            if not ok then log("ERROR: %s | %s", name, tostring(err)) end
+        end
+    end
+
     function g.unwrap(value)
         if value == nil then return nil end
         local ok, inner = pcall(function() return value:get() end)

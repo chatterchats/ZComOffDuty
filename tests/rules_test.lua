@@ -36,6 +36,12 @@ eq(rules.after_rest(5, { recovery_per_turn = 2 }), 3, "custom rest")
 local s = rules.normalise({ preset = "x", fatigue_per_mission = 99, recovery_per_turn = -4, ap_loss = false })
 eq(s.preset, "hard", "bad preset"); eq(s.gain, 7, "gain clamp"); eq(s.rest, 0, "rest clamp"); eq(s.ap_loss, false, "ap_loss off")
 eq(rules.normalise({}).ap_loss, true, "ap_loss default on")
+-- Idempotent: callers pass normalised settings back in.
+local custom = rules.normalise({ preset = "standard", fatigue_per_mission = 3, recovery_per_turn = 2, ap_loss = false })
+local again = rules.normalise(custom)
+eq(again.preset, "standard", "renormalise preset"); eq(again.gain, 3, "renormalise gain")
+eq(again.rest, 2, "renormalise rest"); eq(again.ap_loss, false, "renormalise ap_loss")
+eq(rules.after_mission(0, custom), 3, "after_mission with normalised settings")
 
 eq(rules.turns_to_rest(7, {}), 7, "turns to rest")
 eq(rules.turns_to_rest(5, { recovery_per_turn = 2 }), 3, "turns to rest rounds up")
