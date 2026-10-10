@@ -402,6 +402,13 @@ def one_run(sb, args, condition, run_index, enemies):
     sb.ok('mission launch %s squad="%s" enemies=%s' % (args.mission, ",".join(squad), enemies), timeout=120)
     log_offset = log_size()
     sb.ok("wait phase=mission settled=1 timeout=300000")
+    # Under CPU load (several instances) the squad can still be spawning when the mission reads as settled.
+    for _ in range(30):
+        status, text = sb.send("units")
+        m = re.search(r"(\d+) units?\b", text) if status == "ok" else None
+        if m and int(m.group(1)) >= len(squad):
+            break
+        time.sleep(2)
     apply_condition(sb, condition, len(squad))
     start_health = squad_health(sb)
     status, text = sb.send("foes")
