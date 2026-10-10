@@ -267,49 +267,67 @@ def one_run(sb, args, condition, run_index):
     removed = 0
     sb.ok("speed %s" % args.speed)
     sb.ok("ai camera off")
-    sb.ok("ai on")
     start = time.time()
     result, foes, health = "timeout", start_foes, start_health
     living = set(seen)
+
     def ended():
         state = mission_status(sb)
         return {"Failed": "loss", "Succeeded": "win"}.get(state)
 
+    def give_turn_to_ai():
+        # `ai on` plays the current player turn; `ai off` straight after takes effect from the NEXT player turn,
+        # which then waits for input: a guaranteed safe moment for the harness at every round start.
+        sb.ok("ai on")
+        if args.no_reinforcements:
+            sb.ok("ai off")
+
+    def check_enemies():
+        """Read the enemies; with --no-reinforcements, remove arrivals (call only on a paused player turn)."""
+        nonlocal foes, seen, living, removed
+        status, text = sb.send("foes")
+        if status != "ok":
+            return
+        entries = foe_entries(text)
+        if args.no_reinforcements:
+            for actor in [a for _, a, _ in entries if a not in starting]:
+                k_status, _ = sb.send("kill %s wait=1 timeout=60000" % actor, timeout=80)
+                if k_status == "ok":
+                    removed += 1
+            entries = [e for e in entries if e[1] in starting]
+        foes = len(entries) if args.no_reinforcements else count_foes(text)
+        seen |= {actor for _, actor, _ in entries}
+        living = {actor for _, actor, _ in entries}
+
+    give_turn_to_ai()
+    rounds_seen = log_lines_since(log_offset, "Round ")
+    last_poll = 0.0
     while time.time() - start < args.wall_cap:
-        time.sleep(args.poll)
+        time.sleep(1.0)
+        rounds = log_lines_since(log_offset, "Round ")
+        new_round = rounds > rounds_seen
+        if not new_round and time.time() - last_poll < args.poll:
+            continue
+        last_poll = time.time()
         outcome = ended()
         if outcome:
             result = outcome; break
         # Only read the squad and enemies while the mission is live (afterwards they read as restored).
-        status, text = sb.send("foes")
-        if status == "ok":
-            entries = foe_entries(text)
-            arrivals = [actor for _, actor, _ in entries if actor not in starting]
-            if args.no_reinforcements and arrivals:
-                # With the AI playing both sides there are almost no "safe moments" for `kill`. Hand the squad
-                # back (ai off): the next player turn waits for input, a safe moment; remove the arrivals then,
-                # and give the turn back to the AI.
-                sb.send("ai off")
-                for actor in arrivals:
-                    k_status, _ = sb.send("kill %s wait=1 timeout=120000" % actor, timeout=140)
-                    if k_status == "ok":
-                        removed += 1
-                sb.send("ai on")
-                status, text = sb.send("foes")
-                entries = foe_entries(text) if status == "ok" else entries
-                entries = [e for e in entries if e[1] in starting]
-            foes = len(entries) if args.no_reinforcements else count_foes(text)
-            seen |= {actor for _, actor, _ in entries}
-            living = {actor for _, actor, _ in entries}
+        if new_round or not args.no_reinforcements:
+            check_enemies()
         reading = squad_health(sb)
-        outcome = ended()  # after the mission ends, units read as restored: keep the last live reading
+        outcome = ended()
         if outcome:
             result = outcome; break
         health = reading or health
         if foes == 0:
             result = "win"; break
-        if log_lines_since(log_offset, "Round ") > args.turn_cap:
+        if rounds > args.turn_cap:
             result = "turn cap"; break
+        if new_round:
+            rounds_seen = rounds
+            if args.no_reinforcements:
+                give_turn_to_ai()  # the paused turn goes to the AI; the next one pauses again
     row = {
         "condition": condition, "run": run_index, "mission": args.mission, "enemies": args.enemies,
         "result": result, "rounds": log_lines_since(log_offset, "Round "),
