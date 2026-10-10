@@ -284,13 +284,19 @@ def one_run(sb, args, condition, run_index):
         status, text = sb.send("foes")
         if status == "ok":
             entries = foe_entries(text)
-            if args.no_reinforcements:
-                # Short timeout: while the AI plays, safe moments are brief. Not removed now = tried next poll.
-                for _, actor, _ in entries:
-                    if actor not in starting:
-                        k_status, _ = sb.send("kill %s wait=1 timeout=5000" % actor, timeout=15)
-                        if k_status == "ok":
-                            removed += 1
+            arrivals = [actor for _, actor, _ in entries if actor not in starting]
+            if args.no_reinforcements and arrivals:
+                # With the AI playing both sides there are almost no "safe moments" for `kill`. Hand the squad
+                # back (ai off): the next player turn waits for input, a safe moment; remove the arrivals then,
+                # and give the turn back to the AI.
+                sb.send("ai off")
+                for actor in arrivals:
+                    k_status, _ = sb.send("kill %s wait=1 timeout=120000" % actor, timeout=140)
+                    if k_status == "ok":
+                        removed += 1
+                sb.send("ai on")
+                status, text = sb.send("foes")
+                entries = foe_entries(text) if status == "ok" else entries
                 entries = [e for e in entries if e[1] in starting]
             foes = len(entries) if args.no_reinforcements else count_foes(text)
             seen |= {actor for _, actor, _ in entries}
