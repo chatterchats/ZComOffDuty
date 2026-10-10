@@ -200,13 +200,34 @@ def cmd_send(args):
     return 0 if status == "ok" else 1
 
 
+MXM_BACKUP = MXM_VALUES.with_name("values.lua.simtest-backup")
+NO_VALUES = "-- simtest: there was no values.lua\n"
+
+
 def neutralise_offduty():
-    """Off Duty's fatigue gain 0 for the session (the harness applies tiers itself). Returns the old file."""
-    old = MXM_VALUES.read_text() if MXM_VALUES.exists() else None
+    """Off Duty's fatigue gain 0 for the session (the harness applies tiers itself). The player's own settings
+    are kept in a backup file on disk, so an interrupted run can't lose them (an existing backup is kept)."""
+    if not MXM_BACKUP.exists():
+        MXM_BACKUP.write_text(MXM_VALUES.read_text() if MXM_VALUES.exists() else NO_VALUES)
     MXM_VALUES.parent.mkdir(parents=True, exist_ok=True)
     # No fatigue gain between runs (the harness applies tiers itself); AP loss on (it's part of the test).
     MXM_VALUES.write_text("return {\n    fatigue_per_mission = 0,\n    ap_loss = true,\n}\n")
-    return old
+
+
+def restore_offduty():
+    if not MXM_BACKUP.exists():
+        return False
+    saved = MXM_BACKUP.read_text()
+    if saved == NO_VALUES:
+        MXM_VALUES.unlink(missing_ok=True)
+    else:
+        MXM_VALUES.write_text(saved)
+    MXM_BACKUP.unlink()
+    return True
+
+
+def cmd_restore_settings(args):
+    print("restored Off Duty's settings" if restore_offduty() else "no simtest backup: nothing to restore")
 
 
 def apply_condition(sb, condition, size):
@@ -283,7 +304,8 @@ def cmd_run(args):
     out, stamp, transcript = open_transcript("run")
     sb = Sandbox(transcript=transcript)
     print(require_session(sb))
-    old_values = neutralise_offduty() if args.neutralise else None
+    if args.neutralise:
+        neutralise_offduty()
     csv_path = out / ("%s-results.csv" % stamp)
     try:
         with open(csv_path, "w", newline="") as f:
@@ -304,10 +326,7 @@ def cmd_run(args):
                     f.flush()
     finally:
         if args.neutralise:
-            if old_values is None:
-                MXM_VALUES.unlink(missing_ok=True)
-            else:
-                MXM_VALUES.write_text(old_values)
+            restore_offduty()
     print("results: %s\ntranscript: %s" % (csv_path, transcript.name))
 
 
@@ -346,6 +365,8 @@ def main():
     p.set_defaults(func=cmd_info)
     p = sub.add_parser("send"); p.add_argument("line"); p.add_argument("--timeout", type=float, default=None)
     p.set_defaults(func=cmd_send)
+    p = sub.add_parser("restore-settings", help="put Off Duty's MXM settings back after an interrupted run")
+    p.set_defaults(func=cmd_restore_settings)
     p = sub.add_parser("report"); p.add_argument("files", nargs="*")
     p.set_defaults(func=cmd_report)
     p = sub.add_parser("run")

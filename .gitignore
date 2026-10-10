@@ -15,3 +15,4 @@ Thumbs.db
 /unreal/OffDuty/Binaries/
 # Written by the MXM settings menu at runtime (the mod is symlinked into the game)
 /src/*/MXM/values.lua
+/src/*/MXM/values.lua.simtest-backup
