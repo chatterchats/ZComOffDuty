@@ -126,16 +126,21 @@ function M.status_description(tier, settings)
     return table.concat(lines, "\n")
 end
 
--- Squad-select tooltip for one operator.
-function M.tooltip(tier, points, settings)
+-- Squad-select tooltip for one operator. `tier` is the tier they deploy at; for a required operator that
+-- comes from half their fatigue (M.mission_points), and the tooltip says so.
+function M.tooltip(tier, points, settings, required)
     local s = M.normalise(settings)
     local cap = M.preset(s.preset).cap
     local lines = {
         string.format("Fatigue <Bold>%d</> of %d. Each mission adds %d; each turn off duty removes %d.",
             points, cap, s.gain, s.rest),
-        "",
-        "Next mission:",
     }
+    if required then
+        lines[#lines + 1] = string.format("<Bold>Required:</> fatigue counts as half for this mission (%d instead of %d).",
+            M.mission_points(points, true), points)
+    end
+    lines[#lines + 1] = ""
+    lines[#lines + 1] = "Next mission:"
     for _, penalty in ipairs(M.penalties(tier, settings)) do lines[#lines + 1] = "  " .. penalty end
     local turns = M.turns_to_rest(points, settings)
     if turns then

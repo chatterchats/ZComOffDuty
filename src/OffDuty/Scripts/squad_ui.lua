@@ -154,12 +154,12 @@ function M.new(ctx)
         return { R = 0.98, G = 0.45, B = 0.07, A = 1.0 }
     end
 
-    local function set_tooltip(box, tier, points)
+    local function set_tooltip(box, tier, points, required)
         if not g.valid(box) then return end
         g.call(box, "SetTooltipPayloadTags", {})
         g.call(box, "SetTooltipPayloadObjects", {})
         g.call(box, "SetTooltipPayloadEntries", {
-            { HeaderText = FText(tier.label), BodyText = FText(Rules.tooltip(tier, points, ctx.settings())) } })
+            { HeaderText = FText(tier.label), BodyText = FText(Rules.tooltip(tier, points, ctx.settings(), required)) } })
         g.call(box, "SetDisplayTooltop", true)
     end
 
@@ -183,6 +183,33 @@ function M.new(ctx)
     -- Fatigue can't change while squad select is open: reuse the last scan (plain values) for a moment.
     local FATIGUE_CACHE_S = 2
     local fatigue_cache = nil
+
+    -- The selected mission's required operators (character id -> true): the game's list for the current
+    -- mission or, if that's empty, any squad slot locked to an operator (BrunoMissionSquadSlotViewModel.
+    -- RequiredCharacterID). The fallback is an engine-wide FindAllOf (what made this screen lag before), so
+    -- the answer is kept for a while: it only changes with the mission.
+    local REQUIRED_CACHE_S = 15
+    local required_cache = nil
+    local function required_operators(wco)
+        if required_cache and os.time() - required_cache.at <= REQUIRED_CACHE_S then return required_cache.ids end
+        local ids, source = {}, "mission list"
+        for id in pairs(g.required_ids(wco)) do ids[id] = true end
+        if next(ids) == nil then
+            source = "locked squad slots"
+            local ok, slots = pcall(FindAllOf, "BrunoMissionSquadSlotViewModel")
+            for _, slot in ipairs(ok and type(slots) == "table" and slots or {}) do
+                local id = g.live(slot) and g.guid_string(g.read(slot, "RequiredCharacterID")) or nil
+                if id and id ~= "00000000-00000000-00000000-00000000" then ids[id] = true end
+            end
+        end
+        local count = 0
+        for _ in pairs(ids) do count = count + 1 end
+        if count > 0 then note(nil, string.format("required operators: %d (from %s)", count, source)) end
+        required_cache = { at = os.time(), ids = ids }
+        return ids
+    end
+
+    -- Returns { [NAME] = entry }, { [id] = entry } with entry = { points, required }.
     local function fatigue_by_operator()
         if fatigue_cache and os.time() - fatigue_cache.at <= FATIGUE_CACHE_S then
             return fatigue_cache.by_name, fatigue_cache.by_id
@@ -191,21 +218,24 @@ function M.new(ctx)
         local wco = g.world_context()
         local class = g.effect_class(Game.FATIGUE)
         if not wco or not class then return by_name, by_id end
+        local required = required_operators(wco)
         for _, member in ipairs(g.roster(wco)) do
             local asc = member.actor and g.asc(member.actor)
             if asc then
-                local points = g.effect_count(asc, class)
+                local entry = { points = g.effect_count(asc, class), required = member.id ~= nil and required[member.id] == true }
                 local name = g.character_name(member.actor)
-                if name then by_name[name:upper()] = points end
-                if member.id then by_id[member.id] = points end
+                if name then by_name[name:upper()] = entry end
+                if member.id then by_id[member.id] = entry end
             end
         end
         fatigue_cache = { at = os.time(), by_name = by_name, by_id = by_id }
         return by_name, by_id
     end
 
-    local function current_tier(points)
-        return points and Rules.tier(points, Rules.normalise(ctx.settings()).preset) or nil
+    -- The tier an operator deploys at: a required operator's comes from half their fatigue.
+    local function current_tier(entry)
+        if not entry then return nil end
+        return Rules.tier(Rules.mission_points(entry.points, entry.required), Rules.normalise(ctx.settings()).preset)
     end
 
     -- Squad slots ---------------------------------------------------------------------------------------
@@ -232,9 +262,11 @@ function M.new(ctx)
         if not g.valid(parent) then warn_once("slot_parent", "slot has no injury banner parent") return end
         local full_name = g.read(slot, "FullName")
         local name = g.plain(g.text(full_name and (g.call(full_name, "GetText"))) or ""):upper()
-        local points = name ~= "" and view.by_name[name] or nil
-        local tier = current_tier(points)
-        local signature = string.format("%s|%s|%s|%s", name, tostring(points), tier and tier.id or "-", view.settings)
+        local entry = name ~= "" and view.by_name[name] or nil
+        local points, required = entry and entry.points, entry and entry.required
+        local tier = current_tier(entry)
+        local signature = string.format("%s|%s|%s|%s|%s", name, tostring(points), tostring(required),
+            tier and tier.id or "-", view.settings)
         if unchanged(slot, signature, parent) then return end
         if not tier then
             remove_copies(parent, native)
@@ -254,11 +286,11 @@ function M.new(ctx)
         if icon then g.call(parts.Injury_1, "SetBrushFromTexture", icon, false) end
         g.call(parts.Sizer, "SetWidthOverride", BANNER_SIZE[1])
         g.call(parts.Sizer, "SetHeightOverride", BANNER_SIZE[2])
-        set_tooltip(tooltip_box(parts), tier, points)
+        set_tooltip(tooltip_box(parts), tier, points, required)
         g.call(banner, "SetVisibility", SELF_HIT_TEST_INVISIBLE)
         remember(slot, signature, parent)
-        note(slot, string.format("slot '%s' | fatigue %d | %s banner %s", name, points, tier.name,
-            created and "created" or "updated"))
+        note(slot, string.format("slot '%s' | fatigue %d%s | %s banner %s", name, points, required and " (required: half)" or "",
+            tier.name, created and "created" or "updated"))
 
         local colour = colour_of(tier)
         tint_later(banner, function()
@@ -283,9 +315,11 @@ function M.new(ctx)
         local list_library = g.cdo("/Script/UMG.Default__UserObjectListEntryLibrary")
         local item = (g.call(list_library, "GetListItemObject", tile))
         local id = item and g.guid_string((g.call(item, "GetCharacterID"))) or nil
-        local points = id and view.by_id[id] or nil
-        local tier = current_tier(points)
-        local signature = string.format("%s|%s|%s|%s", tostring(id), tostring(points), tier and tier.id or "-", view.settings)
+        local entry = id and view.by_id[id] or nil
+        local points, required = entry and entry.points, entry and entry.required
+        local tier = current_tier(entry)
+        local signature = string.format("%s|%s|%s|%s|%s", tostring(id), tostring(points), tostring(required),
+            tier and tier.id or "-", view.settings)
         if unchanged(tile, signature, parent) then return end
         if not tier then
             remove_copies(parent, native)
@@ -305,7 +339,7 @@ function M.new(ctx)
         g.call(parts.Injury_1, "SetVisibility", SELF_HIT_TEST_INVISIBLE)
         local icon = icons.texture(tier.level)
         if icon then g.call(parts.Injury_1, "SetBrushFromTexture", icon, false) end
-        set_tooltip(tooltip_box(parts), tier, points)
+        set_tooltip(tooltip_box(parts), tier, points, required)
         g.call(marker, "SetVisibility", SELF_HIT_TEST_INVISIBLE)
         remember(tile, signature, parent)
         note(tile, string.format("tile %s | fatigue %d | %s marker %s", tostring(id), points, tier.name,

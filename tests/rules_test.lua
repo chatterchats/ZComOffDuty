@@ -69,4 +69,9 @@ eq(rules.tier_by_id("spent").accuracy_stacks, 4, "Spent -20% hit is 4 stacks")
 -- Required operators go in at half their fatigue, rounded down.
 eq(rules.mission_points(5, true), 2, "required: half of 5"); eq(rules.mission_points(5, false), 5, "not required: full")
 eq(rules.mission_points(1, true), 0, "required: half of 1 rounds down")
+-- The squad-select tooltip says when a required operator's fatigue counts as half.
+local req = rules.tooltip(rules.tier_by_id("tired"), 5, {}, true)
+assert(req:find("<Bold>Required:</> fatigue counts as half for this mission (2 instead of 5).", 1, true), req)
+assert(req:find("Fatigue <Bold>5</> of 7", 1, true), "required tooltip keeps the real fatigue")
+assert(not rules.tooltip(rules.tier_by_id("tired"), 5, {}):find("Required", 1, true), "no required line otherwise")
 print("rules ok")
