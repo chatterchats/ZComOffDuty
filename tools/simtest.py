@@ -44,6 +44,9 @@ CONDITIONS = {
     "tired": ("GE_OffDuty_Tired", 1),
     "exhausted": ("GE_OffDuty_Exhausted", 2),
     "spent": ("GE_OffDuty_Spent", 3),
+    # Diagnostics: one half of the Tired tier each (tiered runs crashed under the sandbox's AI).
+    "tier_effect_only": ("GE_OffDuty_Tired", 0),
+    "accuracy_only": (None, 1),
 }
 
 
