@@ -344,7 +344,15 @@ def one_run(sb, args, condition, run_index, enemies):
     # (trimming enemies, applying tiers) happens on the player's turn, a "safe moment" for the sandbox.
     sb.send("ai off")
     sb.send("speed 1")
-    sb.ok("campaign reset", timeout=300)
+    # Right after a mission that ended on the turn cap the game can still be saving ("a save is being
+    # written or read"): retry for a minute before giving up on the run.
+    for attempt in range(7):
+        status, text = sb.send("campaign reset", timeout=300)
+        if status == "ok" or "a save is being written" not in text:
+            break
+        time.sleep(10)
+    if status != "ok":
+        raise SandboxError("campaign reset: %s | %s" % (status, text))
     sb.ok("wait phase=hub settled=1 timeout=240000")
     sb.ok('mission launch %s squad="%s" enemies=%s' % (args.mission, ",".join(squad), enemies), timeout=120)
     log_offset = log_size()
