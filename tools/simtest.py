@@ -17,6 +17,10 @@ side is gone or the turn cap is reached. Results go to dist/simtest/<time>.csv w
         --conditions baseline,tired,exhausted,spent --runs 5 --turn-cap 15 --speed 4 \\
         --keep 10 --no-reinforcements --free-first-slot --neutralise
 
+Speed: 6 is the fastest safe setting (about 7 s per round). At 8 the freed first-slot operator's actor was
+destroyed at the start of every Coil fight (5 of 5), so the run was a 3-operator fight; the `vanished`
+column flags any operator whose actor disappears mid-mission.
+
 --free-first-slot matters: the player controller possesses the first squad member, so without it the
 game's AI barely ever acts with that unit. Freed, each squad turn waits about 10 s at its end (the
 sandbox logs "the squad's turn stood still" and cancels the plan that never reported back); harmless.
@@ -292,6 +296,12 @@ def stop_reinforcements(sb):
     return stopped
 
 
+def hero_actors(sb):
+    """Names of the squad's live character actors (Char_Hero_*), or None if unreadable."""
+    status, text = sb.send("actors /Script/Engine.Character 100")
+    return set(re.findall(r"Char_Hero_\w+", text)) if status == "ok" else None
+
+
 def quoted_path(text):
     found = re.search(r"'([^']+)'", text)
     return found.group(1) if found else None
@@ -355,6 +365,8 @@ def one_run(sb, args, condition, run_index, enemies):
     starting = set(seen)  # the fight's own enemies; anyone else is a reinforcement
     waves_stopped = stop_reinforcements(sb) if args.no_reinforcements else 0
     first_slot = free_first_slot(sb) if args.free_first_slot else "player"
+    heroes = hero_actors(sb) or set()
+    vanished = set()
     print("  setup: %d foes, %d encounters stopped, first slot %s" % (start_foes, waves_stopped, first_slot), flush=True)
     sb.ok("speed %s" % args.speed)
     sb.ok("ai camera off")
@@ -394,6 +406,11 @@ def one_run(sb, args, condition, run_index, enemies):
             result = outcome; break
         # Only read the squad and enemies while the mission is live (afterwards they read as restored).
         check_enemies()
+        # A downed operator keeps its actor; one that disappears (seen at speed 8: the freed first slot
+        # against Coil) makes the run invalid.
+        live = hero_actors(sb)
+        if live is not None and mission_status(sb) == "Active":
+            vanished |= heroes - live
         reading = squad_health(sb)
         outcome = ended()
         if outcome:
@@ -410,7 +427,7 @@ def one_run(sb, args, condition, run_index, enemies):
         "result": result, "rounds": log_lines_since(log_offset, "Round "),
         "foes_start": start_foes, "foes_left": foes, "foes_seen": len(seen),
         "kills": len(seen - living) if result != "win" else len(seen),
-        "waves_stopped": waves_stopped, "first_slot": first_slot, "arrivals": len(seen - starting),
+        "waves_stopped": waves_stopped, "first_slot": first_slot, "vanished": " ".join(sorted(vanished)), "arrivals": len(seen - starting),
         "squad_size": len(squad), "squad_alive": len(squad) - downed_since(log_offset)[0],
         "downed_end": downed_since(log_offset)[0], "downed_ever": downed_since(log_offset)[1],
         "health_start": round(sum(start_health)), "health_end": round(sum(max(h, 0) for h in health)),
