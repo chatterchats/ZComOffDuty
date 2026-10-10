@@ -184,45 +184,15 @@ function M.new(ctx)
     local FATIGUE_CACHE_S = 2
     local fatigue_cache = nil
 
-    -- Required operators come from the mission the squad screen is showing: each squad slot widget's own
-    -- slot view model (MDViewModel assignment) -> its mission view model -> RequiredSlotVMs. Scanning every
-    -- BrunoMissionSquadSlotViewModel instead picked up other available missions' locked slots, so an
-    -- operator stayed REQUIRED after switching to a mission that doesn't need them. In a mission the game's
-    -- list for the current mission is used. Plain id strings only; nothing here holds UObjects.
-    local SLOT_VM_NAMES = { "Default", "SquadSlot", "Slot", "SlotVM" }
-    local slot_vm_name = nil -- the assignment name that worked (a string)
-    local function slot_view_model(widget)
-        local library = g.cdo("/Script/MDViewModel.Default__MDViewModelFunctionLibrary")
-        local ok, class = pcall(StaticFindObject, "/Script/Bruno.BrunoMissionSquadSlotViewModel")
-        if not library or not ok or not g.valid(class) then return nil end
-        for _, name in ipairs(slot_vm_name and { slot_vm_name } or SLOT_VM_NAMES) do
-            local vm = (g.call(library, "GetViewModel", widget, class, FName(name)))
-            if g.valid(vm) then
-                if not slot_vm_name then slot_vm_name = name; note(nil, "slot view model assignment: " .. name) end
-                return vm
-            end
-        end
-        warn_once("slot_vm", "squad slot has no BrunoMissionSquadSlotViewModel under %s; required operators unknown",
-            table.concat(SLOT_VM_NAMES, "/"))
-        return nil
+    -- A squad slot's operator is required when the slot shows its LockedIcon: the game's own lock beside a
+    -- required operator's name, so it always matches the mission on screen. (Scanning the game's
+    -- BrunoMissionSquadSlotViewModel objects picked up other available missions' locked slots, and the hub
+    -- has no "current mission" list until launch.)
+    local function slot_locked(slot)
+        local lock = g.read(slot, "LockedIcon")
+        return g.valid(lock) and (g.call(lock, "IsVisible")) == true
     end
-
-    local function mission_required(slot_widget)
-        local ids = {}
-        local vm = slot_widget and slot_view_model(slot_widget) or nil
-        local mission = vm and (g.call(vm, "GetMissionViewModel")) or nil
-        if g.valid(mission) then
-            for _, slot in ipairs(g.to_list(g.read(mission, "RequiredSlotVMs"))) do
-                local id = g.valid(slot) and g.guid_string(g.read(slot, "RequiredCharacterID")) or nil
-                if id and id ~= "00000000-00000000-00000000-00000000" then ids[id] = true end
-            end
-            return ids
-        end
-        local wco = g.world_context()
-        for id in pairs(wco and g.required_ids(wco) or {}) do ids[id] = true end
-        return ids
-    end
-    local last_required = {} -- from the latest slot refresh; portrait tiles use it
+    local last_required = {} -- character id -> true, from slot refreshes; portrait tiles use it
 
     -- Returns { [NAME] = entry }, { [id] = entry } with entry = { points, id }.
     local function fatigue_by_operator()
@@ -282,9 +252,9 @@ function M.new(ctx)
         local full_name = g.read(slot, "FullName")
         local name = g.plain(g.text(full_name and (g.call(full_name, "GetText"))) or ""):upper()
         local entry = name ~= "" and view.by_name[name] or nil
-        local required_ids = mission_required(slot)
-        last_required = required_ids
-        local points, required = entry and entry.points, entry ~= nil and entry.id ~= nil and required_ids[entry.id] == true
+        local required = entry ~= nil and slot_locked(slot)
+        if entry and entry.id then last_required[entry.id] = required or nil end
+        local points = entry and entry.points
         local tier = current_tier(entry, required, true)
         local signature = string.format("%s|%s|%s|%s|%s", name, tostring(points), tostring(required),
             tier and tier.id or "-", view.settings)
@@ -462,7 +432,7 @@ function M.new(ctx)
             if not ok then warn_once("refresh_" .. kind, "%s refresh failed | %s", kind, tostring(err)) end
         end
         if full then
-            -- Slots first: they read the mission's required operators, which the portrait tiles reuse.
+            -- Slots first: their lock icons say who's required, which the portrait tiles reuse.
             for _, pair in ipairs({ { "WBP_CharacterSlot_C", "slot" }, { "WBP_RosterTile_C", "tile" } }) do
                 local class_name, kind = pair[1], pair[2]
                 local ok, found = pcall(FindAllOf, class_name)
