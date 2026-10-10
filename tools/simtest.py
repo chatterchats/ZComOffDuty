@@ -17,9 +17,11 @@ side is gone or the turn cap is reached. Results go to dist/simtest/<time>.csv w
         --conditions baseline,tired,exhausted,spent --runs 5 --turn-cap 15 --speed 4 \\
         --keep 10 --no-reinforcements --free-first-slot --neutralise
 
-Speed: 6 runs about 7 s per round. The `vanished` column flags any operator whose actor disappears
-mid-mission: before free_first_slot pinned the unit in place, the possession swap dropped it through the
-floor and it was sometimes destroyed (more often at higher speeds); 0 of 4 at speed 6 since the fix.
+Speed: use 4. Above 4 the freed first-slot operator sometimes sits at 0 health without going down (still a
+target; 16 of 116 runs at speed 6, 0 of 257 at 4), sometimes idles, and at 12 fights stall. Checks per run:
+`vanished` (an operator's actor disappeared mid-mission; the possession swap used to drop the unit through
+the floor until free_first_slot pinned it), `zero_hp` (listed at 0 health for 3+ polls) and `slot1_moves`
+(how often the freed unit moved; 0 = idle).
 
 --free-first-slot matters: the player controller possesses the first squad member, so without it the
 game's AI barely ever acts with that unit. Freed, each squad turn waits about 10 s at its end (the
@@ -153,13 +155,19 @@ def foe_entries(text):
 
 def squad_health(sb):
     """[health per squad unit] from `units` (count) and `stats <n> Health` ('...HealthSet.Health=88')."""
+    return [h for _, h in squad_readings(sb)]
+
+
+def squad_readings(sb):
+    """[(name, health)] for every unit `units` lists (downed operators drop out of that list)."""
     status, text = sb.send("units")
-    m = re.search(r"(\d+) units", text) if status == "ok" else None
+    m = re.search(r"(\d+) units?\b", text) if status == "ok" else None  # "1 unit" when one is left
     healths = []
     for n in range(1, (int(m.group(1)) if m else 0) + 1):
         status, text = sb.send("stats %d Health" % n)
         h = re.search(r"HealthSet\.Health=([\d.]+)", text) if status == "ok" else None
-        healths.append(float(h.group(1)) if h else 0.0)
+        who = re.match(r"([^:]+):", text) if status == "ok" else None
+        healths.append((who.group(1) if who else str(n), float(h.group(1)) if h else 0.0))
     return healths
 
 
@@ -353,6 +361,7 @@ def free_first_slot(sb):
     now = re.search(r"Z=([-\d.]+)", text) if status == "ok" else None
     if not now or float(now.group(1)) < float(where.group(1)) - 300:
         return "fell %s" % name
+    sb.freed_unit = unit
     return "freed %s" % name
 
 
@@ -393,6 +402,10 @@ def one_run(sb, args, condition, run_index, enemies):
     first_slot = free_first_slot(sb) if args.free_first_slot else "player"
     heroes = hero_actors(sb) or set()
     vanished = set()
+    zero_hp = {}  # name -> polls spent listed (not downed) at 0 health
+    freed = getattr(sb, "freed_unit", None) if first_slot.startswith("freed") else None
+    sb.freed_unit = None
+    slot_positions = []
     print("  setup: %d foes, %d encounters stopped, first slot %s" % (start_foes, waves_stopped, first_slot), flush=True)
     sb.ok("speed %s" % args.speed)
     sb.ok("ai camera off")
@@ -437,7 +450,18 @@ def one_run(sb, args, condition, run_index, enemies):
         live = hero_actors(sb)
         if live is not None and mission_status(sb) == "Active":
             vanished |= heroes - live
-        reading = squad_health(sb)
+        readings = squad_readings(sb)
+        reading = [h for _, h in readings]
+        for name, h in readings:
+            if h <= 0:
+                zero_hp[name] = zero_hp.get(name, 0) + 1
+        if freed:
+            status, text = sb.send("call %s K2_GetActorLocation" % freed)
+            spot = re.search(r"X=([-\d.]+),Y=([-\d.]+)", text) if status == "ok" else None
+            if spot:
+                spot = (round(float(spot.group(1)) / 50), round(float(spot.group(2)) / 50))
+                if not slot_positions or slot_positions[-1] != spot:
+                    slot_positions.append(spot)
         outcome = ended()
         if outcome:
             result = outcome; break
@@ -454,6 +478,10 @@ def one_run(sb, args, condition, run_index, enemies):
         "foes_start": start_foes, "foes_left": foes, "foes_seen": len(seen),
         "kills": len(seen - living) if result != "win" else len(seen),
         "waves_stopped": waves_stopped, "first_slot": first_slot, "vanished": " ".join(sorted(vanished)), "arrivals": len(seen - starting),
+        # Operators stuck at 0 health without going down (3+ polls), and how often the freed first-slot unit
+        # moved (0 = it sat idle): both seen above speed 4.
+        "zero_hp": " ".join("%s:%d" % (n, c) for n, c in sorted(zero_hp.items()) if c >= 3),
+        "slot1_moves": max(0, len(slot_positions) - 1) if freed else "",
         "squad_size": len(squad), "squad_alive": len(squad) - downed_since(log_offset)[0],
         "downed_end": downed_since(log_offset)[0], "downed_ever": downed_since(log_offset)[1],
         "health_start": round(sum(start_health)), "health_end": round(sum(max(h, 0) for h in health)),
