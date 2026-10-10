@@ -79,7 +79,10 @@ class Sandbox:
         if timeout is None:
             m = re.search(r"\btimeout=(\d+)", line)
             timeout = (int(m.group(1)) / 1000 if m else 30) + 10
-        with open(self.cmd, "a", newline="\r\n") as f:
+        # Replace cmd.txt with just this line. Under Proton the sandbox sees every write from Linux as the file
+        # being replaced and re-reads it "from the top": with appends that replayed the whole history (old
+        # launches, long waits) on every command. A one-line file means the top is only this command.
+        with open(self.cmd, "w", newline="\r\n") as f:
             f.write("#%s %s\n" % (rid, line))
         self.log("> " + line)
         deadline = time.time() + timeout
