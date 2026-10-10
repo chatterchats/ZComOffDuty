@@ -232,10 +232,13 @@ function M.new(ctx)
         return by_name, by_id
     end
 
-    -- The tier an operator deploys at: a required operator's comes from half their fatigue.
+    -- The tier an operator deploys at: a required operator's comes from half their fatigue. A required
+    -- operator with fatigue whose half leaves them rested shows the REQUIRED banner instead of nothing.
     local function current_tier(entry)
         if not entry then return nil end
-        return Rules.tier(Rules.mission_points(entry.points, entry.required), Rules.normalise(ctx.settings()).preset)
+        local tier = Rules.tier(Rules.mission_points(entry.points, entry.required), Rules.normalise(ctx.settings()).preset)
+        if not tier and entry.required and (entry.points or 0) > 0 then return Rules.REQUIRED_RESTED end
+        return tier
     end
 
     -- Squad slots ---------------------------------------------------------------------------------------

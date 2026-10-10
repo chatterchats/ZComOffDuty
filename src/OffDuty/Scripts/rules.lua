@@ -37,6 +37,14 @@ M.TIERS = {
     },
 }
 
+-- Squad select only: a required operator whose half fatigue leaves them rested still gets a banner, so the
+-- tooltip can say why there's no penalty. Not a tier (no effect, never applied in mission).
+M.REQUIRED_RESTED = {
+    id = "required", level = 1, name = "Required", label = "REQUIRED",
+    colour = { R = 0.62, G = 0.72, B = 0.82, A = 1.0 },
+    penalties = {},
+}
+
 local by_id = {}
 for _, tier in ipairs(M.TIERS) do by_id[tier.id] = tier end
 
@@ -140,8 +148,13 @@ function M.tooltip(tier, points, settings, required)
             M.mission_points(points, true), points)
     end
     lines[#lines + 1] = ""
-    lines[#lines + 1] = "Next mission:"
-    for _, penalty in ipairs(M.penalties(tier, settings)) do lines[#lines + 1] = "  " .. penalty end
+    local penalties = M.penalties(tier, settings)
+    if #penalties == 0 then
+        lines[#lines + 1] = "Next mission: no penalty."
+    else
+        lines[#lines + 1] = "Next mission:"
+        for _, penalty in ipairs(penalties) do lines[#lines + 1] = "  " .. penalty end
+    end
     local turns = M.turns_to_rest(points, settings)
     if turns then
         lines[#lines + 1] = ""
