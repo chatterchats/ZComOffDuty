@@ -35,8 +35,8 @@ return {
         -- under both presets (Hard 1/3/5, Standard 2/4/6). Tesh is Spent so his story mission shows the
         -- required halving: 6 counts as 3 there (Tired on Standard, Exhausted on Hard).
         { name = "Cly Kullervo", fatigue = 0 },
-        { name = "Kabb Uppercut", fatigue = 2 },
-        { name = "Tel-Rea Vokoss", fatigue = 4 },
+        { name = "Tel-Rea Vokoss", fatigue = 2 },
+        { name = "Kabb Uppercut", fatigue = 4 },
         { name = "Tesh Hawks", fatigue = 6 },
         -- Simtest squad (tools/simtest.py), for the sandbox Den before `campaign baseline`:
         -- { name = "Jacira Ako", fatigue = 0, injuries = 0 }, { name = "Kabb", fatigue = 0, injuries = 0 },
