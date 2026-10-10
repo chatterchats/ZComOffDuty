@@ -574,6 +574,12 @@ def _fleet_worker(instance, args, job_queue, row_queue):
 
 
 def cmd_run(args):
+    instances_wanted = [int(n) for n in args.instances.split(",")] if args.instances else [INSTANCE]
+    if args.neutralise and 1 in instances_wanted and not args.allow_main_settings:
+        # Instance 1 is the player's own game: its values.lua is their real settings. The in-game menu can
+        # re-save it while neutralised, after which there's nothing right to restore (it happened).
+        sys.exit("--neutralise would change the main game's Off Duty settings (instance 1); run sims on the "
+                 "copies (--instance 2 / --instances 2,3) or pass --allow-main-settings")
     for c in args.conditions.split(","):
         if c not in CONDITIONS:
             sys.exit("unknown condition %r (have %s)" % (c, ", ".join(CONDITIONS)))
@@ -702,6 +708,8 @@ def main():
                    help="comma-separated game instances sharing this batch (e.g. 1,2); each takes the next run")
     p.add_argument("--free-first-slot", action="store_true",
                    help="give the first squad member to its AI planner (the player controller holds it otherwise)")
+    p.add_argument("--allow-main-settings", action="store_true",
+                   help="let --neutralise change instance 1's (the player's own) Off Duty settings")
     p.add_argument("--neutralise", action="store_true", help="set Off Duty's fatigue gain to 0 during the runs")
     p.set_defaults(func=cmd_run)
     args = parser.parse_args()

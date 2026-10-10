@@ -31,6 +31,10 @@ Run every command from the repo root. Use `python3 -I -u`.
 - The game leaks memory over many missions (3.3 GB at start, 7.4 GB after a day of sims); with two instances that
   ran the machine out of RAM and the harness was killed. Restart each game every few hours (between batches),
   and check `free -g` before starting a long batch (keep 6+ GB available).
+- Run sims on the copies (`--instance 2`, `--instances 2,3`), not the main game: `--neutralise` on instance 1
+  rewrites the player's own Off Duty settings, and the in-game menu once re-saved them with gain 0, leaving
+  real campaigns with no fatigue. The harness now refuses instance 1 with --neutralise unless
+  `--allow-main-settings` is passed.
 - `campaign reset` is retried for a minute when the game is still saving after a turn-cap mission.
 
 ## What's being tested
