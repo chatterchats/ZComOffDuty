@@ -1,46 +1,71 @@
 Tired of sending the same four operators on every mission? With [b]Off Duty[/b], operators [b]get tired from back-to-back deployments[/b] and [b]recover while they're off duty[/b], so the rest of your company gets a chance to shine.
-[b]Off Duty is in development.[/b] This page describes the planned first release; details and numbers will change with playtesting.
 
-[heading]Features[/heading]
+[heading]How It Works[/heading]
 [list]
-[*][b]Fatigue from deployment, not damage[/b]: every mission an operator goes on wears them down. Long missions and going down add more. Even a flawless squad needs a rest eventually.[/*]
-[*][b]Rest brings them back[/b]: each cycle an operator sits out, they recover.[/*]
-[*][b]Your call, always[/b]: a Tired operator takes a small penalty next mission. An Exhausted one takes a bigger penalty, and pushing them anyway means a longer recovery afterwards. You're never locked out of deploying anyone.[/*]
-[*][b]Story-safe[/b]: operators the story needs can always deploy, so no campaign can get stuck.[/*]
-[*][b]No surprises[/b]: squad select shows the exact penalty, and what pushing will cost, before you commit.[/*]
+[*][b]Every mission adds fatigue[/b] to each operator who deploys (2 by default).[/*]
+[*][b]Every strategy turn off duty removes some[/b] (1 by default). Operators away on an operation neither gain nor recover.[/*]
+[*][b]Your call, always[/b]: fatigue sets a tier for the next mission, but you can always deploy anyone. A tired operator just fights worse.[/*]
+[*][b]Story-safe[/b]: when a mission can't launch without someone, they go in at the tier for [b]half[/b] their fatigue. Their fatigue itself isn't changed.[/*]
+[*][b]No surprises[/b]: every squad slot shows a banner (RESTED, REQUIRED, TIRED, EXHAUSTED or SPENT). Hover it for the fatigue, the exact penalties and how long until they're rested. Roster portraits mark anyone tired or required.[/*]
+[*][b]Visible in the mission[/b]: the tier shows as a debuff under the health bar and in the Inspect panel, and the hit chance penalty appears in the hit breakdown as "Penalty from Operation".[/*]
 [*][b]Separate from injuries[/b]: the game's own injuries work exactly as before.[/*]
 [/list]
+
+[heading]Tiers[/heading]
+[list]
+[*][b]Tired[/b] (Hard 1–2, Standard 2–3): −5% hit chance, −5% max health[/*]
+[*][b]Exhausted[/b] (Hard 3–4, Standard 4–5): −10% hit chance, −10% max health, 10% chance each turn to lose 1 AP[/*]
+[*][b]Spent[/b] (Hard 5–7, Standard 6): −20% hit chance, −20% max health, −10% movement, 15% chance each turn to lose 1 AP[/*]
+[/list]
+Numbers were tuned with AI-vs-AI simulations of hundreds of missions.
+
+[heading]Settings[/heading]
+With the Mixamoo Mod Config Manager installed, Off Duty has an in-game settings page:
+[list]
+[*][b]Preset[/b]: Hard (tiers at 1 / 3 / 5, cap 7) or Standard (2 / 4 / 6, cap 6)[/*]
+[*][b]Fatigue per mission[/b]: 0–4[/*]
+[*][b]Recovery per turn off duty[/b]: 0–3[/*]
+[*][b]AP loss[/b]: on or off[/*]
+[/list]
+Without it, Off Duty uses the defaults (Hard, 2, 1, AP loss on).
 
 [heading]Requirements[/heading]
 [list]
 [*][b]Star Wars Zero Company[/b][/*]
 [*][url=https://www.nexusmods.com/starwarszerocompany/mods/9]UE4SS for Star Wars Zero Company[/url][/*]
+[*]Optional: Mixamoo Mod Config Manager, for the settings page[/*]
 [/list]
 
 [heading]Installation[/heading]
+The download has two parts, and [b]both are needed[/b]: [b]OffDuty[/b] (the mod) and [b]OffDuty_Assets[/b] (its gameplay effects and status tags).
+
 [b]Mod manager[/b]
-Off Duty includes metadata for the community mod managers:
+Both parts carry metadata for the community mod managers:
 [list]
-[*][url=https://www.nexusmods.com/starwarszerocompany/mods/29]ZCOM Mod Manager[/url][/*]
-[*][url=https://www.nexusmods.com/starwarszerocompany/mods/121]Zero Company Mod Command[/url][/*]
+[*][url=https://www.nexusmods.com/starwarszerocompany/mods/29]Zero Mod Manager[/url]: choose [b]Install all components[/b].[/*]
+[*][url=https://www.nexusmods.com/starwarszerocompany/mods/121]Zero Company Mod Command[/url]: it adds Off Duty and Off Duty — Assets as two entries.[/*]
 [/list]
-Install the downloaded ZIP through either one and make sure Off Duty is enabled.
+Make sure both are enabled.
 
 [b]Manual installation[/b]
-Make sure UE4SS is installed and working, close the game, then extract the [b]OffDuty[/b] folder into:
-[code]SWZeroCompany/Binaries/Win64/ue4ss/Mods/[/code]
-The finished installation should contain:
-[code]ue4ss/Mods/OffDuty/Scripts/main.lua[/code]
+Make sure UE4SS is installed and working, and close the game.
+[list=1]
+[*]Extract the [b]OffDuty[/b] folder into:
+[code]SWZeroCompany/Binaries/Win64/ue4ss/Mods/[/code][/*]
+[*]Copy the three files inside [b]OffDuty_Assets[/b] ([b]OffDuty_P.pak[/b], [b]OffDuty_P.ucas[/b], [b]OffDuty_P.utoc[/b]) into (create [b]~mods[/b] if it's missing):
+[code]SWZeroCompany/Content/Paks/~mods/[/code][/*]
+[/list]
 The package includes [b]enabled.txt[/b]. If your UE4SS setup doesn't pick it up, add this line to [b]ue4ss/Mods/mods.txt[/b]:
 [code]OffDuty : 1[/code]
-[b]Updating:[/b] close the game first, then install the new ZIP the same way (by hand, copy the new [b]OffDuty[/b] folder over the old one).
+[b]Updating:[/b] close the game first, then install the new ZIP the same way.
 
 [b]Uninstalling[/b]
-Switch Off Duty off or remove it in your mod manager, or delete the [b]OffDuty[/b] folder.
+Switch both parts off or remove them in your mod manager, or delete the [b]OffDuty[/b] folder and the three [b]OffDuty_P[/b] files. Saves stay loadable; operators simply stop tiring.
 
 [heading]Known Issues[/heading]
 [list]
 [*]Restart the game after installing or updating Off Duty. Don't use UE4SS's "Reload All Mods"; it can crash or freeze the game.[/*]
+[*]Guest units who aren't on your roster (such as Rex) don't gain fatigue.[/*]
 [/list]
 
 [heading]Troubleshooting[/heading]

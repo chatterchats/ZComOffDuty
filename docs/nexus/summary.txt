@@ -1,1 +1,1 @@
-Operators get tired from back-to-back deployments and recover while they're off duty. Tired operators can still deploy, at a cost, so the whole company matters, not just your best four.
+Operators tire from back-to-back deployments and recover off duty. Tired, Exhausted and Spent tiers cost accuracy, health and more, but anyone can still deploy. Squad select shows it all.
