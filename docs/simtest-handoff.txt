@@ -160,8 +160,6 @@ Calibration reference (10 enemies, first slot freed, waves stopped):
 - batch 4 run 1: baseline won in 8 rounds, 2 downed, 61% health lost.
 
 ## Afterwards
-1. Restore the user's mod settings:
-   python3 -I tools/simtest.py restore-settings
-2. Tell the human to check their Off Duty settings in the in-game mod menu. Their real settings are the
-   Standard preset with AP loss off. An earlier backup was lost, so the restored file may not match;
-   they may need to set those by hand.
+1. Restore the copies' settings: `python3 -I tools/simtest.py --instance N restore-settings` per copy used.
+2. The main game (instance 1) holds the human's real settings: Standard preset, +2 per mission, -1 per turn
+   off, AP loss ON (2026-10-10). Never neutralise it; if it ever reads fatigue_per_mission = 0, tell them.
