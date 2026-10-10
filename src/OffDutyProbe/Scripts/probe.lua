@@ -1316,13 +1316,18 @@ function M.start(runtime, actions, logger, config)
                     if valid(asc) then
                         done[entry.name] = true
                         local f, f_err = set_effect_count(asc, fatigue, entry.fatigue or 0)
-                        local wanted_injuries = math.min(entry.injuries or 0, MAX_SAFE_INJURIES)
-                        if (entry.injuries or 0) > MAX_SAFE_INJURIES then
-                            log("SQUAD | %s | injuries capped at %d (3 injuries kills)", name, MAX_SAFE_INJURIES)
+                        -- Injuries only when the entry names a count (left out: untouched, so a real campaign's
+                        -- wounded aren't healed by a screenshot setup).
+                        local i, i_err = "untouched", nil
+                        if entry.injuries ~= nil then
+                            local wanted_injuries = math.min(entry.injuries, MAX_SAFE_INJURIES)
+                            if entry.injuries > MAX_SAFE_INJURIES then
+                                log("SQUAD | %s | injuries capped at %d (3 injuries kills)", name, MAX_SAFE_INJURIES)
+                            end
+                            i, i_err = set_effect_count(asc, injured, wanted_injuries)
                         end
-                        local i, i_err = set_effect_count(asc, injured, wanted_injuries)
-                        log("SQUAD | %s | fatigue %d (wanted %d) | injuries %d (wanted %d)%s%s", name,
-                            f, entry.fatigue or 0, i, entry.injuries or 0,
+                        log("SQUAD | %s | fatigue %d (wanted %d) | injuries %s (wanted %s)%s%s", name,
+                            f, entry.fatigue or 0, tostring(i), tostring(entry.injuries),
                             f_err and (" | fatigue error " .. f_err) or "", i_err and (" | injury error " .. i_err) or "")
                     end
                 end

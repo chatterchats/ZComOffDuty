@@ -28,15 +28,18 @@ return {
     status_icon = true,
 
     -- Ctrl+Shift+F sets these exact counts (case-insensitive name substring); press again to reset
-    -- to them. Defaults cover each tier (1 Tired, 3 Exhausted, 5/7 Spent) and 0/1/2 injuries.
+    -- to them. `injuries` is optional: leave it out and injuries are untouched.
     -- Never more than 2 injuries: a third kills the operator. The probe caps it at 2 regardless.
     test_squad = {
-        -- Simtest squad (tools/simtest.py): clean baseline, no fatigue and no injuries. Press Ctrl+Shift+F in the
-        -- sandbox Den, then `campaign baseline` saves it as the baseline every run resets to.
-        { name = "Tesh", fatigue = 0, injuries = 0 },
-        { name = "Kabb", fatigue = 0, injuries = 0 },
-        { name = "Luco", fatigue = 0, injuries = 0 },
-        { name = "Jae", fatigue = 0, injuries = 0 },
+        -- Screenshot squad: one operator per tier. 0 / 2 / 4 / 6 are Rested / Tired / Exhausted / Spent
+        -- under both presets (Hard 1/3/5, Standard 2/4/6).
+        { name = "Tesh Hawks", fatigue = 0 },
+        { name = "Kabb Uppercut", fatigue = 2 },
+        { name = "Tel-Rea Vokoss", fatigue = 4 },
+        { name = "Cly Kullervo", fatigue = 6 },
+        -- Simtest squad (tools/simtest.py), for the sandbox Den before `campaign baseline`:
+        -- { name = "Jacira Ako", fatigue = 0, injuries = 0 }, { name = "Kabb", fatigue = 0, injuries = 0 },
+        -- { name = "Luco", fatigue = 0, injuries = 0 }, { name = "Jae", fatigue = 0, injuries = 0 },
     },
 
     -- High-frequency hooks (roster tiles) log their first N calls, then every Nth.
