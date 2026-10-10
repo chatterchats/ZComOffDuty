@@ -328,7 +328,7 @@ def free_first_slot(sb):
     return "freed %s" % unit.rsplit(".", 1)[1] if "AIC_Planner" in text else "possess failed"
 
 
-def one_run(sb, args, condition, run_index):
+def one_run(sb, args, condition, run_index, enemies):
     squad = [s.strip() for s in args.squad.split(",") if s.strip()]
     # `ai on` and `speed` persist across missions: start every run with the squad in our hands, so setup
     # (trimming enemies, applying tiers) happens on the player's turn, a "safe moment" for the sandbox.
@@ -336,7 +336,7 @@ def one_run(sb, args, condition, run_index):
     sb.send("speed 1")
     sb.ok("campaign reset", timeout=300)
     sb.ok("wait phase=hub settled=1 timeout=240000")
-    sb.ok('mission launch %s squad="%s" enemies=%s' % (args.mission, ",".join(squad), args.enemies), timeout=120)
+    sb.ok('mission launch %s squad="%s" enemies=%s' % (args.mission, ",".join(squad), enemies), timeout=120)
     log_offset = log_size()
     sb.ok("wait phase=mission settled=1 timeout=300000")
     apply_condition(sb, condition, len(squad))
@@ -406,7 +406,7 @@ def one_run(sb, args, condition, run_index):
         if new_round:
             rounds_seen = rounds
     row = {
-        "condition": condition, "run": run_index, "mission": args.mission, "enemies": args.enemies,
+        "condition": condition, "run": run_index, "mission": args.mission, "enemies": enemies,
         "result": result, "rounds": log_lines_since(log_offset, "Round "),
         "foes_start": start_foes, "foes_left": foes, "foes_seen": len(seen),
         "kills": len(seen - living) if result != "win" else len(seen),
@@ -429,29 +429,41 @@ def cmd_run(args):
     if args.neutralise:
         neutralise_offduty()
     csv_path = out / ("%s-results.csv" % stamp)
-    try:
+    spawn_sets = [e.strip() for e in args.enemies.split(",") if e.strip()]
+    rows = []
+
+    def save():
+        # Rewritten after every run with every column seen so far, so an error row first can't drop columns.
+        fields = []
+        for row in rows:
+            fields += [k for k in row if k not in fields]
         with open(csv_path, "w", newline="") as f:
-            writer = None
-            for run_index in range(1, args.runs + 1):
+            writer = csv.DictWriter(f, fieldnames=fields)
+            writer.writeheader()
+            writer.writerows(rows)
+
+    try:
+        # One full pass over every spawn set and condition per run index, so an interrupted batch still
+        # covers everything once.
+        for run_index in range(1, args.runs + 1):
+            for enemies in spawn_sets:
                 for condition in args.conditions.split(","):
-                    print("run %d/%d | %s ..." % (run_index, args.runs, condition), flush=True)
+                    print("run %d/%d | %s | %s ..." % (run_index, args.runs, enemies, condition), flush=True)
                     try:
-                        row = one_run(sb, args, condition, run_index)
+                        row = one_run(sb, args, condition, run_index, enemies)
                     except SandboxError as error:
                         print("  ERROR: %s" % error)
-                        row = {"condition": condition, "run": run_index, "result": "error: %s" % error}
+                        row = {"condition": condition, "run": run_index, "enemies": enemies,
+                               "result": "error: %s" % error}
                     finally:
                         for line in ("ai off", "speed 1"):
                             try:
                                 sb.send(line)
                             except SandboxError:
                                 pass
-                    print("  %s" % row)
-                    if writer is None:
-                        writer = csv.DictWriter(f, fieldnames=list(row.keys()) + ["error"], extrasaction="ignore")
-                        writer.writeheader()
-                    writer.writerow(row)
-                    f.flush()
+                    print("  %s" % row, flush=True)
+                    rows.append(row)
+                    save()
     finally:
         if args.neutralise:
             restore_offduty()
@@ -459,7 +471,9 @@ def cmd_run(args):
 
 
 def cmd_report(args):
-    """Per-condition summary of one or more results CSVs (default: every file in dist/simtest)."""
+    """Per-group summary of one or more results CSVs (default: every file in dist/simtest).
+
+    --by condition (default), enemies, or enemies,condition."""
     files = [Path(f) for f in args.files] or sorted((ROOT / "dist" / "simtest").glob("*-results.csv"))
     rows = []
     for path in files:
@@ -472,18 +486,29 @@ def cmd_report(args):
         values = [float(v) for v in values if v not in (None, "")]
         return sum(values) / len(values) if values else float("nan")
 
-    print("%-10s %4s %6s %7s %6s %7s %8s %9s %7s" % ("condition", "runs", "win %", "rounds", "kills", "downed",
-                                                        "alive", "hp lost%", "AP lost"))
-    order = [c for c in CONDITIONS if any(r["condition"] == c for r in rows)]
-    for condition in order:
-        group = [r for r in rows if r["condition"] == condition]
+    keys = [k.strip() for k in args.by.split(",")]
+    conditions = list(CONDITIONS)
+    groups = {}
+    for r in rows:
+        groups.setdefault(tuple(r.get(k, "") for k in keys), []).append(r)
+
+    def order(key):
+        return tuple(conditions.index(v) if k == "condition" and v in conditions else v for k, v in zip(keys, key))
+
+    width = max([len(" ".join(key)) for key in groups] + [10])
+    print("%-*s %4s %6s %7s %6s %6s %7s %8s %9s %7s %6s" % (width, "/".join(keys), "runs", "win %", "rounds", "foes",
+                                                          "kills", "downed", "alive", "hp lost%", "AP lost", "min"))
+    for key in sorted(groups, key=order):
+        group = groups[key]
         wins = sum(1 for r in group if r["result"] == "win")
         lost = [1 - float(r["health_end"]) / float(r["health_start"]) for r in group
                 if r.get("health_start") not in (None, "", "0")]
-        print("%-10s %4d %5.0f%% %7.1f %6.1f %7.2f %8.2f %8.0f%% %7.1f" % (
-            condition, len(group), 100.0 * wins / len(group), mean(r.get("rounds") for r in group),
-            mean(r.get("kills") for r in group), mean(r.get("downed_ever") for r in group),
-            mean(r.get("squad_alive") for r in group), 100.0 * mean(lost), mean(r.get("ap_losses") for r in group)))
+        print("%-*s %4d %5.0f%% %7.1f %6.1f %6.1f %7.2f %8.2f %8.0f%% %7.1f %6.1f" % (
+            width, " ".join(key), len(group), 100.0 * wins / len(group), mean(r.get("rounds") for r in group),
+            mean(r.get("foes_start") for r in group), mean(r.get("kills") for r in group),
+            mean(r.get("downed_ever") for r in group), mean(r.get("squad_alive") for r in group),
+            100.0 * mean(lost), mean(r.get("ap_losses") for r in group),
+            mean(r.get("seconds") for r in group) / 60.0))
 
 
 def main():
@@ -496,9 +521,11 @@ def main():
     p = sub.add_parser("restore-settings", help="put Off Duty's MXM settings back after an interrupted run")
     p.set_defaults(func=cmd_restore_settings)
     p = sub.add_parser("report"); p.add_argument("files", nargs="*")
+    p.add_argument("--by", default="condition", help="group by: condition, enemies, or enemies,condition")
     p.set_defaults(func=cmd_report)
     p = sub.add_parser("run")
-    p.add_argument("--mission", required=True); p.add_argument("--enemies", required=True)
+    p.add_argument("--mission", required=True)
+    p.add_argument("--enemies", required=True, help="spawn set, or a comma-separated list (one pass over all per run)")
     p.add_argument("--squad", required=True, help="comma-separated roster names")
     p.add_argument("--conditions", default="baseline,tired,exhausted,spent")
     p.add_argument("--runs", type=int, default=3)
