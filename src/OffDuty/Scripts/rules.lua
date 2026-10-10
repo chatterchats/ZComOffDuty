@@ -14,26 +14,26 @@ M.DEFAULT_PRESET = "hard"
 M.TIERS = {
     {
         id = "spent", level = 3, name = "Spent", label = "SPENT",
-        effect = "GE_OffDuty_Spent", accuracy_stacks = 3, ap_loss = 0.10,
+        effect = "GE_OffDuty_Spent", accuracy_stacks = 4, ap_loss = 0.15,
         colour = "ColorBank.UI.AccentRed1",
         intro = "Running on empty.",
-        penalties = { "<Bold>-15%</> Chance-To-Hit", "<Bold>-10%</> Max Health", "<Bold>-5%</> Movement" },
-        ap_penalty = "<Bold>10%</> chance each turn to lose <Bold>1 AP</>",
+        penalties = { "<Bold>-20%</> Chance-To-Hit", "<Bold>-20%</> Max Health", "<Bold>-10%</> Movement" },
+        ap_penalty = "<Bold>15%</> chance each turn to lose <Bold>1 AP</>",
     },
     {
         id = "exhausted", level = 2, name = "Exhausted", label = "EXHAUSTED",
-        effect = "GE_OffDuty_Exhausted", accuracy_stacks = 2, ap_loss = 0.05,
+        effect = "GE_OffDuty_Exhausted", accuracy_stacks = 2, ap_loss = 0.10,
         colour = "ColorBank.UI.AccentYellow", -- renders orange in game
         intro = "Pushed too hard for too long.",
-        penalties = { "<Bold>-10%</> Chance-To-Hit", "<Bold>-5%</> Max Health" },
-        ap_penalty = "<Bold>5%</> chance each turn to lose <Bold>1 AP</>",
+        penalties = { "<Bold>-10%</> Chance-To-Hit", "<Bold>-10%</> Max Health" },
+        ap_penalty = "<Bold>10%</> chance each turn to lose <Bold>1 AP</>",
     },
     {
         id = "tired", level = 1, name = "Tired", label = "TIRED",
         effect = "GE_OffDuty_Tired", accuracy_stacks = 1, ap_loss = 0,
         colour = { R = 0.98, G = 0.75, B = 0.07, A = 1.0 }, -- the palette has no true yellow
         intro = "Worn down from back-to-back deployments.",
-        penalties = { "<Bold>-5%</> Chance-To-Hit" },
+        penalties = { "<Bold>-5%</> Chance-To-Hit", "<Bold>-5%</> Max Health" },
     },
 }
 
@@ -80,6 +80,15 @@ function M.tier(points, preset_name)
         if points >= preset[tier.id] then return tier end
     end
     return nil
+end
+
+-- Fatigue that sets a deployed operator's tier: a mission's required operators (story missions that
+-- can't launch without them) go in at half their fatigue, rounded down. Their real fatigue doesn't change
+-- and the mission still adds the usual gain.
+function M.mission_points(points, required)
+    points = tonumber(points) or 0
+    if required then return math.floor(points / 2) end
+    return points
 end
 
 function M.after_mission(points, settings)

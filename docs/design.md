@@ -18,16 +18,20 @@
   - Hard preset Tired at 1, Exhausted at 3, Spent at 5. Cap of 7.
   - Standard preset: 2 / 4 / 6, cap 6.
 
-| Tier      | Next-mission penalty                               |
-| --------- | -------------------------------------------------- |
-| Ready     | none                                               |
-| Tired     | −5% hit chance (HC)                                |
-| Exhausted | −10% HC, −5% max HP, 5% chance/turn -1 AP          |
-| Spent     | −15% HC, −10% MHP, 10% chance/turn -1 AP, −5% Move |
+| Tier      | Next-mission penalty                                  |
+| --------- | ----------------------------------------------------- |
+| Ready     | none                                                  |
+| Tired     | −5% hit chance (HC), −5% max HP                       |
+| Exhausted | −10% HC, −10% max HP, 10% chance/turn -1 AP           |
+| Spent     | −20% HC, −20% max HP, 15% chance/turn -1 AP, −10% Move |
 
 A turn is 3 AP (moving, shooting, abilities); see penalty-theorycraft.md §8.
+Retuned 2026-10-10 after AI-vs-AI sims (Outlaw 1, 4x, ~26 runs per tier): with the first numbers only
+Spent moved the win rate (77% → 50%); Tired and Exhausted were inside the noise.
 
 - Push-through: any tier can deploy; story-required operators are never blocked.
+- Required operators (the mission can't launch without them) go in at the tier for half their fatigue,
+  rounded down. Their fatigue itself is unchanged and the mission adds the usual gain.
 - Droids use the same system ("needs maintenance" wording).
 - Squad select should show the tier and penalty before you commit.
 

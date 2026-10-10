@@ -2,8 +2,9 @@
 --
 --   Mission start (ApplyNextMissionEffectsToCharacter, once per deployed operator, also on a tactical save
 --   load), processed once the mission is ready:
---     new mission: apply the tier their current fatigue puts them in (accuracy stacks + tier effect),
---       mark them deployed this turn (GE_OffDuty_Deployed, saved), add the mission's fatigue (capped);
+--     new mission: apply the tier their current fatigue puts them in (accuracy stacks + tier effect;
+--       a mission's required operators go in at half their fatigue, rounded down), mark them deployed
+--       this turn (GE_OffDuty_Deployed, saved), add the mission's fatigue (capped);
 --     loaded save (marker present): fatigue is already counted; restore the tier only.
 --   Strategy turn end (EndStrategyTurn): every roster operator who isn't away and wasn't deployed
 --     recovers; the deployed marker is cleared. Away operators (operations) are frozen.
@@ -79,7 +80,11 @@ function M.new(ctx)
                 actions:schedule_after("mission_start", SAVE_SETTLE_MS, g.safe("mission start settle", try), actor)
                 return
             end
-            process_mission_start(actor, name, attempt, from_save)
+            local required = g.required_ids(wco)[id]
+            if required ~= nil and not required then
+                log("Mission start | %s | listed for this mission but not required (non-blocking); normal tier", name)
+            end
+            process_mission_start(actor, name, attempt, from_save, required == true)
         end
         try()
     end
@@ -106,7 +111,7 @@ function M.new(ctx)
         return summary
     end
 
-    function process_mission_start(actor, name, attempt, from_save)
+    function process_mission_start(actor, name, attempt, from_save, required)
         if not g.valid(actor) then return end
         local asc = g.asc(actor)
         local fatigue_class, deployed_class = g.effect_class(Game.FATIGUE), g.effect_class(Game.DEPLOYED)
@@ -141,8 +146,10 @@ function M.new(ctx)
 
         actions:cancel_group("ap_loss", "mission start") -- a new mission session
         self.reset_rounds()
-        local tier = Rules.tier(fatigue, s.preset)
+        local points = Rules.mission_points(fatigue, required)
+        local tier = Rules.tier(points, s.preset)
         local summary = tier and apply_tier(asc, tier, name) or "rested"
+        if required then summary = string.format("required: tier from half fatigue (%d) | %s", points, summary) end
         g.set_effect_count(asc, deployed_class, 1 + (tier and tier.level or 0)) -- records the starting tier
         if g.effect_count(asc, deployed_class) < 1 then
             log("WARNING: mission start | %s | deployed marker not applied; turn-end recovery may count them", name)

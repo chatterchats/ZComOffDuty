@@ -21,6 +21,7 @@ local function operator(name, id, fatigue, extra)
 end
 
 local roster, logs, hooks, scheduled = {}, {}, {}, 0
+local required = {} -- the current mission's required operators: id -> blocking
 mission_ready = true
 loading_save = false
 local settings = {}
@@ -44,6 +45,7 @@ local g = {
         for _, op in ipairs(roster) do ids[op.id] = true end
         return ids
     end,
+    required_ids = function() return required end,
     asc = function(actor) return actor end,
     effect_class = function(name) return name end,
     load_class = function(path) return path end,
@@ -100,11 +102,29 @@ eq(tesh.effects.GE_OffDuty_Tired, 1, "Tesh tired effect"); eq(tesh.effects[ACCUR
 eq(tesh.effects[Game.FATIGUE], 3, "Tesh fatigue +2")
 eq(kabb.effects.GE_OffDuty_Exhausted, 1, "Kabb exhausted effect"); eq(kabb.effects[ACCURACY], 2, "Kabb accuracy")
 eq(kabb.effects[Game.FATIGUE], 5, "Kabb fatigue +2")
-eq(kara.effects.GE_OffDuty_Spent, 1, "Kara spent effect"); eq(kara.effects[ACCURACY], 3, "Kara accuracy")
+eq(kara.effects.GE_OffDuty_Spent, 1, "Kara spent effect"); eq(kara.effects[ACCURACY], 4, "Kara accuracy")
 eq(kara.effects[Game.FATIGUE], 7, "Kara capped at 7")
 eq(kabb.effects[Game.DEPLOYED], 3, "Kabb marked deployed, tier Exhausted recorded (1 + 2)")
 eq(tesh.effects[Game.DEPLOYED], 2, "Tesh marker records Tired")
 eq(rex.effects[Game.FATIGUE], 0, "guest untouched"); eq(rex.effects[Game.DEPLOYED], nil, "guest not marked")
+
+-- Required operators go in at half their fatigue (rounded down); fatigue itself still gains as usual.
+-- Non-blocking entries are only suggestions: normal tier.
+local hero = operator("Hawks", "H", 5)      -- Spent at 5; half is 2: Tired
+local forced = operator("Cly", "C", 3)      -- Exhausted at 3; half is 1: Tired
+local rested = operator("Tel", "E", 1)      -- Tired at 1; half is 0: rested
+local suggested = operator("Xel", "XL", 3)  -- listed but non-blocking: stays Exhausted
+roster[#roster + 1], roster[#roster + 2], roster[#roster + 3], roster[#roster + 4] = hero, forced, rested, suggested
+required = { H = true, C = true, E = true, XL = false }
+for _, op in ipairs({ hero, forced, rested, suggested }) do mission_start(nil, op) end
+eq(hero.effects.GE_OffDuty_Tired, 1, "required Spent operator goes in Tired"); eq(hero.effects.GE_OffDuty_Spent, nil, "no Spent effect")
+eq(hero.effects[ACCURACY], 1, "required: Tired accuracy only"); eq(hero.effects[Game.FATIGUE], 7, "required: fatigue still +2 (capped)")
+eq(hero.effects[Game.DEPLOYED], 2, "required: marker records the tier they went in at")
+eq(forced.effects.GE_OffDuty_Tired, 1, "required Exhausted operator goes in Tired"); eq(forced.effects[Game.FATIGUE], 5, "required: +2")
+eq(rested.effects.GE_OffDuty_Tired, nil, "required Tired operator goes in rested"); eq(rested.effects[ACCURACY], nil, "no accuracy loss")
+eq(suggested.effects.GE_OffDuty_Exhausted, 1, "non-blocking listing keeps the normal tier")
+assert(table.concat(logs, "\n"):find("Hawks | fatigue 5 -> 7 | required: tier from half fatigue (2)", 1, true), "required logged")
+required = {}
 
 -- At mission load the roster can't be read yet: processing waits for it.
 local unreadable = 2
@@ -147,7 +167,7 @@ end
 mission_start(nil, restored)
 eq(restored.effects[Game.FATIGUE], 5, "loaded save: no gain")
 eq(restored.effects.GE_OffDuty_Spent, 1, "loaded save: tier restored from the marker")
-eq(restored.effects[ACCURACY], 3, "loaded save: accuracy re-applied for the tier")
+eq(restored.effects[ACCURACY], 4, "loaded save: accuracy re-applied for the tier")
 assert(logs[#logs]:find("Mission resumed", 1, true), logs[#logs])
 g.loading_from_save = function() return false end
 -- An older save without the tier effect: fall back to the tier this mission started at (fatigue - gain).
@@ -204,13 +224,13 @@ local spent = operator("BR-1", "B", 0, { effects = { GE_OffDuty_Spent = 1 } })
 local exhausted = operator("Kabb2", "K2", 0, { effects = { GE_OffDuty_Exhausted = 1 } })
 local enemy = operator("Trooper", "X", 0, { effects = { GE_OffDuty_Spent = 1 }, player = false })
 
-math.random = function() return 0.05 end -- below Spent's 10%, at Exhausted's 5%
+math.random = function() return 0.10 end -- below Spent's 15%, at Exhausted's 10%
 team_turn(spent, PRE_PLAYER)
 eq(spent.effects[Game.LOSE_AP], nil, "WorldTeam_PrePlayer doesn't roll")
 team_turn(spent, PLAYER)
-eq(spent.effects[Game.LOSE_AP], 1, "Spent loses AP at 5% < 10%")
+eq(spent.effects[Game.LOSE_AP], 1, "Spent loses AP at 10% < 15%")
 team_turn(exhausted, PLAYER)
-eq(exhausted.effects[Game.LOSE_AP], nil, "Exhausted safe at 5% (needs < 5%)")
+eq(exhausted.effects[Game.LOSE_AP], nil, "Exhausted safe at 10% (needs < 10%)")
 team_turn(enemy, PLAYER)
 eq(enemy.effects[Game.LOSE_AP], nil, "non-player units never roll")
 team_turn(tesh, PLAYER)

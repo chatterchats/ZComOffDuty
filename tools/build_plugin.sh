@@ -88,4 +88,5 @@ if $install; then
     mkdir -p "$target" && rm -f "$target"/OffDuty_P.* "$target"/OffDutyTags_P.pak \
         && cp "$out"/OffDuty_P.* "$out"/OffDutyTags_P.pak "$target/"
     echo "Installed: $target/OffDuty_P.{pak,ucas,utoc} and OffDutyTags_P.pak"
+    "$repo/tools/sync_instances.sh" # the simtest game copies, if any
 fi

@@ -19,11 +19,10 @@ Effects (all UBitReactorGameplayEffect Blueprints):
   UBrunoGameStatics::AddNextMissionCharacterEffect like the game's GE_Lose_NextMission_* effects and
   copying their pattern (bTerminateWithCombat, not saved, TemporaryPenalty + StatusEffect.Negative tags).
   Percentages use MultiplyAdditive, which the engine multiplies by the stack count, so these never stack
-  (limit 1): one effect per tier instead. Tired's accuracy is the game's effect, so its only modifier is a
-  no-op (MaxHealth MultiplyAdditive 1.0); it exists so the tier shows in mission. It needs that modifier:
-  a native routine that walks a character's status effects reads each one's first modifier without checking
-  there is one (SWZeroCompany.exe+0x97042b6), so a status effect with no modifiers crashes the game once
-  AI logic runs for the character (seen with sandbox AI driving the squad).
+  (limit 1): one effect per tier instead. Every tier effect needs at least one modifier: a native routine
+  that walks a character's status effects reads each one's first modifier without checking there is one
+  (SWZeroCompany.exe+0x97042b6), so a status effect with no modifiers crashes the game once AI logic runs
+  for the character (seen with sandbox AI driving the squad).
   Each carries BRG_StatusEffectUIData, the component GE_Injured uses, so the tactical Inspect panel lists
   it under Debuffs. The list takes a status's name, description and icon from its StatusEffectTag's tag
   UI data, so each tier has its own tag (OffDuty.Status.<Tier>, Config/Tags/OffDutyTags.ini) whose text
@@ -87,24 +86,25 @@ EFFECTS = [
         "name": "GE_OffDuty_Tired",
         "defaults": NEXT_MISSION_PENALTY,
         "asset_tags": TIER_TAGS,
-        "modifiers": [(HEALTH, "MultiplyAdditive", 1.0)],  # no-op; see the module docstring
-        "ui": ("Tired", "Worn down from back-to-back deployments. <Bold>-5%</> Chance-To-Hit."),
+        "modifiers": [(HEALTH, "MultiplyAdditive", 0.95)],
+        "ui": ("Tired", "Worn down from back-to-back deployments. <Bold>-5%%</> Chance-To-Hit, "
+                        "<Bold>-5%%</> %s." % MAX_HEALTH),
     },
     {
         "name": "GE_OffDuty_Exhausted",
         "defaults": NEXT_MISSION_PENALTY,
         "asset_tags": TIER_TAGS,
-        "modifiers": [(HEALTH, "MultiplyAdditive", 0.95)],
-        "ui": ("Exhausted", "Pushed too hard for too long. <Bold>-10%%</> Chance-To-Hit, <Bold>-5%%</> %s, "
-                            "<Bold>5%%</> chance each turn to lose <Bold>1 AP</>." % MAX_HEALTH),
+        "modifiers": [(HEALTH, "MultiplyAdditive", 0.9)],
+        "ui": ("Exhausted", "Pushed too hard for too long. <Bold>-10%%</> Chance-To-Hit, <Bold>-10%%</> %s, "
+                            "<Bold>10%%</> chance each turn to lose <Bold>1 AP</>." % MAX_HEALTH),
     },
     {
         "name": "GE_OffDuty_Spent",
         "defaults": NEXT_MISSION_PENALTY,
         "asset_tags": TIER_TAGS,
-        "modifiers": [(HEALTH, "MultiplyAdditive", 0.9), (MOVEMENT, "MultiplyAdditive", 0.95)],
-        "ui": ("Spent", "Running on empty. <Bold>-15%%</> Chance-To-Hit, <Bold>-10%%</> %s, <Bold>-5%%</> "
-                        "Movement, <Bold>10%%</> chance each turn to lose <Bold>1 AP</>." % MAX_HEALTH),
+        "modifiers": [(HEALTH, "MultiplyAdditive", 0.8), (MOVEMENT, "MultiplyAdditive", 0.9)],
+        "ui": ("Spent", "Running on empty. <Bold>-20%%</> Chance-To-Hit, <Bold>-20%%</> %s, <Bold>-10%%</> "
+                        "Movement, <Bold>15%%</> chance each turn to lose <Bold>1 AP</>." % MAX_HEALTH),
     },
     {
         "name": "GE_OffDuty_LoseAP",

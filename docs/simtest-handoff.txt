@@ -1,0 +1,163 @@
+# Off Duty simtest handoff (for Codex)
+
+## Goal
+Run the AI-vs-AI batches for the Zero Company mod "Off Duty" and report results per condition.
+The game is Windows-only and runs under Proton. A human starts and restarts the game; you drive it
+via the ZC Sandbox mod's file protocol, which `tools/simtest.py` wraps.
+
+Repo: /run/media/chats/e0057d4a-fe46-43eb-a837-db51979c500f/ZComMods/ZComOffDuty
+Run every command from the repo root. Use `python3 -I -u`.
+
+## Current state (2026-10-09, 22:40)
+- Batch 4 (`dist/simtest/batch4.out`, 10 enemies, all the flags below) was stopped by hand after its
+  first round of 4 runs, one per condition, all valid; its CSV is `dist/simtest/20261010T023226Z-results.csv`
+  (the newest before yours). Count those 4 runs in your totals. Still check nothing is running before you
+  start (`pgrep -af "simtest.py run"`); never run two harnesses.
+- Batch 3 and earlier (11 enemies, old reinforcement handling, first slot idle) are NOT comparable;
+  ignore them in reports. Pass the batch 4+ CSVs to `report` explicitly (see "Report back").
+
+## Since the overnight run (2026-10-10)
+- Speed: stay at 4. Above it the slot-1 operator can get stuck at 0 HP without going down or sit idle (new columns `zero_hp`, `slot1_moves`; both must be clean: zero_hp empty, slot1_moves > 0).
+- The first-slot handover used to drop the operator through the floor (MOVE_Falling) until the AI's first
+  move snapped it back; past the kill depth the engine destroyed it. Fixed in b2de1fa (the harness puts the
+  unit back and sets it to walking). Runs before that fix with `vanished` set are invalid.
+- New CSV columns: `vanished` (squad actors that disappeared mid-mission; must be empty) and first_slot
+  can read `fell <unit>` (the fix didn't hold: exclude the run).
+- `--enemies` takes a comma-separated list; `report --by enemies` or `--by enemies,condition` groups by set.
+- Several game copies can run at once: `Instance 2`/`Instance 3` under the games folder (own prefix, sandbox and
+  Off Duty copy; Lutris entries "SWZC Instance N"). `--instances 1,2` shares one batch across them (one CSV,
+  `instance` column); `--instance N` before the subcommand targets a single copy. Two at once is the limit on
+  this CPU: with three, setups failed and a slot-1 operator got stuck at 0 HP.
+- The game leaks memory over many missions (3.3 GB at start, 7.4 GB after a day of sims); with two instances that
+  ran the machine out of RAM and the harness was killed. Restart each game every few hours (between batches),
+  and check `free -g` before starting a long batch (keep 6+ GB available).
+- `campaign reset` is retried for a minute when the game is still saving after a turn-cap mission.
+
+## What's being tested
+Off Duty adds operator fatigue tiers:
+- Tired: −5% hit.
+- Exhausted: −10% hit, −5% max HP, 5% chance per turn to lose 1 AP.
+- Spent: −15% hit, −10% max HP, −5% movement, 10% chance per turn to lose 1 AP.
+We compare squad outcomes against a baseline with no tier.
+
+Conditions are `baseline`, `tired`, `exhausted` and `spent`. There are also two diagnostic ones,
+`tier_effect_only` and `accuracy_only`, which aren't needed now.
+
+## Hard rules
+1. Only touch the game while the human says it is running and sitting at the MAIN MENU.
+   If it crashes, stop and ask them to restart it. Never try to launch or kill the game yourself.
+2. Never install or rebuild paks (`tools/build_plugin.sh`) while the game is running. You shouldn't need
+   to rebuild at all.
+3. Never give an operator 3 injuries: a 3rd injury kills them permanently. Don't use the sandbox to add
+   injuries.
+4. Don't edit mod code to make tests pass. Report problems instead.
+5. Commits, if asked: author `chatterchats <57570001+chatterchats@users.noreply.github.com>`. Never commit
+   `src/*/MXM/values.lua` or its `.simtest-backup` (both are gitignored).
+6. Only one harness may run at a time. It talks to the game through one `cmd.txt`/`reply.txt` pair.
+
+## Procedure
+1. The human confirms the game is at the main menu.
+2. Load the sandbox baseline campaign:
+   python3 -I tools/simtest.py send "campaign load baseline" --timeout 300
+   python3 -I tools/simtest.py send "wait phase=hub settled=1 timeout=240000" --timeout 260
+   Both should print `ok | ...`.
+3. Run the batch (5 runs × 4 conditions, interleaved; about 1 hour, ~2-3 min per run):
+   python3 -I -u tools/simtest.py run --mission SK_Mapuzo_015 --enemies SS_Separatist_Threat_01 \
+     --squad "Jacira Ako,Kabb Uppercut,Luco Bronc,Jae Mordant" \
+     --conditions baseline,tired,exhausted,spent --runs 5 --turn-cap 25 --poll 3 --speed 4 \
+     --keep 10 --no-reinforcements --free-first-slot --neutralise > dist/simtest/batchN.out 2>&1
+   Use a new N each time so you don't overwrite earlier output (batch4 is taken).
+4. Watch `dist/simtest/batchN.out`. Each run prints `run i/5 | <condition> ...`, a `setup:` line, then
+   its result dict.
+5. When it finishes:
+   python3 -I tools/simtest.py report dist/simtest/<batch 4+ results>.csv ...
+   Results are in `dist/simtest/*-results.csv` and transcripts in `dist/simtest/*-run.log`.
+
+## What the flags do
+- `--keep 10`: kills enemies by actor name until 10 remain, strongest first (B1s are kept last).
+  10 is the agreed size: 11 was too much for Exhausted/Spent; 9 was too easy.
+- `--no-reinforcements`: at setup, calls the game's `StopAllReinforcementWaves` on every encounter actor
+  (found through the mission actor's `OrderedEncounterArray`). No more mid-mission kills. Any enemy that
+  still shows up is counted in `arrivals`, not removed.
+- `--free-first-slot`: REQUIRED. The game's player controller possesses the first squad member, which then
+  has no AI controller, so the AI almost never acts with that unit (this is why Tesh, Cly and Jacira all
+  "did nothing" in slot 1). The harness gives the player controller a hidden `BP_PreviewActor` pawn and
+  has the unit's own `AIC_Planner` possess it again. Verified by the human watching: Jacira acted every round.
+- `--neutralise`: sets Off Duty's fatigue gain to 0 (and AP loss on) so the harness controls the tier.
+  It writes `src/OffDuty/MXM/values.lua` and backs up the original to `values.lua.simtest-backup`.
+- Each run starts and ends with `ai off` and `speed 1`. `ai on` would otherwise persist across missions.
+  The AI gets the squad once per run, right after setup, and keeps it for the whole mission.
+
+## Expected noise (not a problem)
+- The sandbox log (`ue4ss/Mods/ZCSandbox/dlls/ZCSandbox.log`) prints "the squad's turn stood still for
+  10 s - the plans that never ended were cancelled" about once per squad turn with `--free-first-slot`.
+  It costs ~10 s per round and nothing else. Only report it if a turn stalls repeatedly without
+  finishing, or the run times out.
+- Round 1 is taken over mid-turn (setup has to happen on the player's turn first); later rounds are
+  planned by the AI from the start.
+- `foes_left` can read 1 on a win (the last enemy's death lands after the read). Trust `result`, which
+  comes from the mission's `MissionStatus`.
+
+## Stopping a batch safely
+Kill the python process by PID (don't `pkill -f` a pattern that also matches your own shell command):
+  pgrep -f "tools/simtest.py run"   then   kill <pid>
+Then put the game back and restore settings:
+  python3 -I tools/simtest.py send "ai off"; python3 -I tools/simtest.py send "speed 1"
+  python3 -I tools/simtest.py restore-settings
+
+## Crash handling
+Crash dumps are in:
+  /run/media/chats/e0057d4a-fe46-43eb-a837-db51979c500f/Games/STAR WARS Zero Company (2026)/prefix/drive_c/users/steamuser/AppData/Local/SWZeroCompany/Saved/Crashes/UECC-*/UEMinidump.dmp
+If the reply times out or a new UECC folder appears:
+1. Analyse the newest dump:
+   python3 -I tools/minidump.py "<newest UECC dir>/UEMinidump.dmp"
+2. Record the exception address (e.g. `SWZeroCompany.exe+0x...`), which run and condition crashed, and
+   roughly how long into the run.
+3. Ask the human to restart the game, then go back to step 2 of the procedure. Don't resume
+   automatically; start a fresh batch file or rerun only the missing runs with `--runs`/`--conditions`.
+Known: `SWZeroCompany.exe+0x97042b6` was a crash caused by GE_OffDuty_Tired having no modifiers (a native
+routine reads every matching status effect's first modifier unchecked). Fixed in commit e2f219e; batch 3
+ran tiered missions without it. If it appears again, that's important; report it immediately.
+
+## Sandbox gotchas
+- Replies are cut at about 900 characters.
+- Under Proton every write looks like a file replacement, so the harness rewrites `cmd.txt` with one
+  command per write. Don't hand-edit `cmd.txt` while a run is going.
+- Enemy e-numbers renumber after each kill; the harness kills by actor name for this reason.
+- `ai off` takes effect from the next player turn; `ai on` during a player turn takes that turn over.
+- The squad health total excludes downed operators. Operators downed at any point are counted from Off
+  Duty's `Squad | <name> downed/revived` log lines.
+- Generic targets for get/set/call: `@pc` (player controller), `@world`, `@last`, or a full object path.
+  Mission actors live under `/Game/Game/Maps/Skirmish/<map>/<map>_Root.<map>_Root:PersistentLevel.<name>`.
+
+## Sanity checks on every run (flag any run that fails these)
+- `first_slot` reads `freed Char_...` and `vanished` is empty. Anything else (`fell ...`, `pc pawn ...`, `no planner ...`, `possess failed`)
+  means slot 1 was idle: exclude the run and report it.
+- `waves_stopped` >= 1 and `arrivals` == 0. Arrivals mean reinforcements got through: report them.
+- `foes_start` == 10.
+- `health_start`: baseline/tired should match (291 with this squad); exhausted ~5% lower, spent ~10%
+  lower (the max HP penalty). A mismatch means the tier wasn't applied.
+- `ap_losses`: 0 for baseline and tired; occasional for exhausted (5%/turn/operator) and spent (10%).
+  Losses in baseline/tired, or none at all across 5 spent runs, is suspicious: report it.
+- `result` is win/loss/turn cap. `error: ...` or `timeout` rows: report them with the transcript lines.
+
+## Report back
+Per condition (batch 4 and later only): runs, win %, average rounds, kills, `downed_end`, `downed_ever`,
+% squad health lost (1 - health_end / health_start), AP losses. Also give the spread (min-max) for
+rounds and % health lost, since 5 runs is a small sample. List any runs excluded by the sanity checks,
+any crashes (address, run, condition), timeouts and anything odd.
+What I'm looking for: a clear, increasing cost from baseline -> tired -> exhausted -> spent (more rounds,
+more health lost, more downs, eventually losses at spent). If tired is indistinguishable from baseline
+or the tiers overlap heavily, say so; suggest 5 more runs per condition rather than drawing conclusions.
+Keep the raw CSV paths in the report so the numbers can be rechecked.
+
+Calibration reference (10 enemies, first slot freed, waves stopped):
+- check run: baseline won in 10 rounds, 1 downed, 46% health lost.
+- batch 4 run 1: baseline won in 8 rounds, 2 downed, 61% health lost.
+
+## Afterwards
+1. Restore the user's mod settings:
+   python3 -I tools/simtest.py restore-settings
+2. Tell the human to check their Off Duty settings in the in-game mod menu. Their real settings are the
+   Standard preset with AP loss off. An earlier backup was lost, so the restored file may not match;
+   they may need to set those by hand.

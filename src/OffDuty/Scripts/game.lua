@@ -288,6 +288,19 @@ function M.new(log)
         return members
     end
 
+    -- The current mission's required operators: { [character id] = blocking }, where blocking means the
+    -- mission can't launch without them (UBrunoStrategyStatics::GetRequiredCharactersForCurrentMission).
+    function g.required_ids(wco)
+        local ids = {}
+        local statics = g.cdo("/Script/Bruno.Default__BrunoStrategyStatics")
+        for _, entry in ipairs(g.to_list((g.call(statics, "GetRequiredCharactersForCurrentMission", wco)))) do
+            local ok, guid, blocking = pcall(function() return entry.CharacterID, entry.bBlockingRequirement end)
+            local id = ok and g.guid_string(guid) or nil
+            if id then ids[id] = blocking == true end
+        end
+        return ids
+    end
+
     function g.roster_ids(wco)
         local ids = {}
         for _, member in ipairs(g.roster(wco)) do if member.id then ids[member.id] = true end end

@@ -63,5 +63,10 @@ assert(rules.tooltip(spent, 6, {}):find("lose <Bold>1 AP", 1, true), "AP line wh
 assert(not rules.tooltip(spent, 6, { ap_loss = false }):find("AP", 1, true), "no AP line when off")
 assert(rules.status_description(spent, {}):find("1 AP", 1, true), "status AP line when on")
 assert(not rules.status_description(spent, { ap_loss = false }):find("AP", 1, true), "status no AP line when off")
-eq(#rules.penalties(rules.tier_by_id("tired"), {}), 1, "Tired has no AP line")
+eq(#rules.penalties(rules.tier_by_id("tired"), {}), 2, "Tired: hit and health, no AP line")
+eq(#rules.penalties(rules.tier_by_id("spent"), {}), 4, "Spent: hit, health, movement, AP")
+eq(rules.tier_by_id("spent").accuracy_stacks, 4, "Spent -20% hit is 4 stacks")
+-- Required operators go in at half their fatigue, rounded down.
+eq(rules.mission_points(5, true), 2, "required: half of 5"); eq(rules.mission_points(5, false), 5, "not required: full")
+eq(rules.mission_points(1, true), 0, "required: half of 1 rounds down")
 print("rules ok")
