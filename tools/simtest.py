@@ -14,7 +14,12 @@ side is gone or the turn cap is reached. Results go to dist/simtest/<time>.csv w
     tools/simtest.py send "<command>"              one raw command (prints the reply)
     tools/simtest.py report [results.csv ...]       per-condition summary (default: all of dist/simtest)
     tools/simtest.py run --mission SK_X --enemies SS_Y --squad "A,B,C,D" \\
-        --conditions baseline,tired,exhausted,spent --runs 5 --turn-cap 15 --speed 4
+        --conditions baseline,tired,exhausted,spent --runs 5 --turn-cap 15 --speed 4 \\
+        --keep 10 --no-reinforcements --free-first-slot --neutralise
+
+--free-first-slot matters: the player controller possesses the first squad member, so without it the
+game's AI barely ever acts with that unit. Freed, each squad turn waits about 10 s at its end (the
+sandbox logs "the squad's turn stood still" and cancels the plan that never reported back); harmless.
 
 Keep Off Duty's own loop out of the way during runs: set "Fatigue per mission" to 0 in MXM (the harness
 applies tiers itself), or pass --neutralise to write that into Off Duty's MXM values for the session.
@@ -287,6 +292,42 @@ def stop_reinforcements(sb):
     return stopped
 
 
+def quoted_path(text):
+    found = re.search(r"'([^']+)'", text)
+    return found.group(1) if found else None
+
+
+def free_first_slot(sb):
+    """Give the first squad member back to its AI planner. Returns a short status for the log.
+
+    The player controller possesses the first squad member, and that unit keeps no AI controller, so the
+    game's AI barely ever acts with it. Its AIC_Planner is still there (its Pawn still names the unit):
+    the player controller takes one of the level's hidden BP_PreviewActor pawns instead (with no pawn
+    at all the squad's turn stalls), and the planner possesses the unit again."""
+    status, text = sb.send("get @pc Pawn")
+    unit = quoted_path(text) if status == "ok" else None
+    if not unit or ".Char_Hero_" not in unit:
+        return "pc pawn %s" % (unit or "none")
+    level = unit.rsplit(".", 1)[0]
+    status, text = sb.send("actors /Game/Game/Core/AI/AIC_Planner.AIC_Planner_C 200")
+    planners = re.findall(r"AIC_Planner_C_\w+", text) if status == "ok" else []
+    planner = None
+    for name in planners:
+        status, text = sb.send("get %s.%s Pawn" % (level, name))
+        if status == "ok" and quoted_path(text) == unit:
+            planner = "%s.%s" % (level, name); break
+    if not planner:
+        return "no planner for %s" % unit.rsplit(".", 1)[1]
+    status, text = sb.send("actors /Game/Game/Core/Blueprints/BP_PreviewActor.BP_PreviewActor_C 10")
+    spare = re.search(r"BP_PreviewActor_C_\d+", text) if status == "ok" else None
+    if not spare:
+        return "no spare pawn"
+    sb.ok("call @pc Possess InPawn=%s.%s" % (level, spare.group(0)))
+    sb.ok("call %s Possess InPawn=%s" % (planner, unit))
+    status, text = sb.send("get %s Controller" % unit)
+    return "freed %s" % unit.rsplit(".", 1)[1] if "AIC_Planner" in text else "possess failed"
+
+
 def one_run(sb, args, condition, run_index):
     squad = [s.strip() for s in args.squad.split(",") if s.strip()]
     # `ai on` and `speed` persist across missions: start every run with the squad in our hands, so setup
@@ -313,6 +354,8 @@ def one_run(sb, args, condition, run_index):
     seen = {actor for _, actor, _ in foe_entries(text)}
     starting = set(seen)  # the fight's own enemies; anyone else is a reinforcement
     waves_stopped = stop_reinforcements(sb) if args.no_reinforcements else 0
+    first_slot = free_first_slot(sb) if args.free_first_slot else "player"
+    print("  setup: %d foes, %d encounters stopped, first slot %s" % (start_foes, waves_stopped, first_slot), flush=True)
     sb.ok("speed %s" % args.speed)
     sb.ok("ai camera off")
     start = time.time()
@@ -367,7 +410,7 @@ def one_run(sb, args, condition, run_index):
         "result": result, "rounds": log_lines_since(log_offset, "Round "),
         "foes_start": start_foes, "foes_left": foes, "foes_seen": len(seen),
         "kills": len(seen - living) if result != "win" else len(seen),
-        "waves_stopped": waves_stopped, "arrivals": len(seen - starting),
+        "waves_stopped": waves_stopped, "first_slot": first_slot, "arrivals": len(seen - starting),
         "squad_size": len(squad), "squad_alive": len(squad) - downed_since(log_offset)[0],
         "downed_end": downed_since(log_offset)[0], "downed_ever": downed_since(log_offset)[1],
         "health_start": round(sum(start_health)), "health_end": round(sum(max(h, 0) for h in health)),
@@ -466,6 +509,8 @@ def main():
     p.add_argument("--keep", type=int, default=None, help="enemies to keep at the start (the rest are removed)")
     p.add_argument("--no-reinforcements", action="store_true",
                    help="stop the mission's reinforcement waves at the start (same-sized fight every run)")
+    p.add_argument("--free-first-slot", action="store_true",
+                   help="give the first squad member to its AI planner (the player controller holds it otherwise)")
     p.add_argument("--neutralise", action="store_true", help="set Off Duty's fatigue gain to 0 during the runs")
     p.set_defaults(func=cmd_run)
     args = parser.parse_args()
