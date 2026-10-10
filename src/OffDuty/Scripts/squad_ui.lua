@@ -184,32 +184,47 @@ function M.new(ctx)
     local FATIGUE_CACHE_S = 2
     local fatigue_cache = nil
 
-    -- The selected mission's required operators (character id -> true): the game's list for the current
-    -- mission or, if that's empty, any squad slot locked to an operator (BrunoMissionSquadSlotViewModel.
-    -- RequiredCharacterID). The fallback is an engine-wide FindAllOf (what made this screen lag before), so
-    -- the answer is kept for a while: it only changes with the mission.
-    local REQUIRED_CACHE_S = 15
-    local required_cache = nil
-    local function required_operators(wco)
-        if required_cache and os.time() - required_cache.at <= REQUIRED_CACHE_S then return required_cache.ids end
-        local ids, source = {}, "mission list"
-        for id in pairs(g.required_ids(wco)) do ids[id] = true end
-        if next(ids) == nil then
-            source = "locked squad slots"
-            local ok, slots = pcall(FindAllOf, "BrunoMissionSquadSlotViewModel")
-            for _, slot in ipairs(ok and type(slots) == "table" and slots or {}) do
-                local id = g.live(slot) and g.guid_string(g.read(slot, "RequiredCharacterID")) or nil
-                if id and id ~= "00000000-00000000-00000000-00000000" then ids[id] = true end
+    -- Required operators come from the mission the squad screen is showing: each squad slot widget's own
+    -- slot view model (MDViewModel assignment) -> its mission view model -> RequiredSlotVMs. Scanning every
+    -- BrunoMissionSquadSlotViewModel instead picked up other available missions' locked slots, so an
+    -- operator stayed REQUIRED after switching to a mission that doesn't need them. In a mission the game's
+    -- list for the current mission is used. Plain id strings only; nothing here holds UObjects.
+    local SLOT_VM_NAMES = { "Default", "SquadSlot", "Slot", "SlotVM" }
+    local slot_vm_name = nil -- the assignment name that worked (a string)
+    local function slot_view_model(widget)
+        local library = g.cdo("/Script/MDViewModel.Default__MDViewModelFunctionLibrary")
+        local ok, class = pcall(StaticFindObject, "/Script/Bruno.BrunoMissionSquadSlotViewModel")
+        if not library or not ok or not g.valid(class) then return nil end
+        for _, name in ipairs(slot_vm_name and { slot_vm_name } or SLOT_VM_NAMES) do
+            local vm = (g.call(library, "GetViewModel", widget, class, FName(name)))
+            if g.valid(vm) then
+                if not slot_vm_name then slot_vm_name = name; note(nil, "slot view model assignment: " .. name) end
+                return vm
             end
         end
-        local count = 0
-        for _ in pairs(ids) do count = count + 1 end
-        if count > 0 then note(nil, string.format("required operators: %d (from %s)", count, source)) end
-        required_cache = { at = os.time(), ids = ids }
-        return ids
+        warn_once("slot_vm", "squad slot has no BrunoMissionSquadSlotViewModel under %s; required operators unknown",
+            table.concat(SLOT_VM_NAMES, "/"))
+        return nil
     end
 
-    -- Returns { [NAME] = entry }, { [id] = entry } with entry = { points, required }.
+    local function mission_required(slot_widget)
+        local ids = {}
+        local vm = slot_widget and slot_view_model(slot_widget) or nil
+        local mission = vm and (g.call(vm, "GetMissionViewModel")) or nil
+        if g.valid(mission) then
+            for _, slot in ipairs(g.to_list(g.read(mission, "RequiredSlotVMs"))) do
+                local id = g.valid(slot) and g.guid_string(g.read(slot, "RequiredCharacterID")) or nil
+                if id and id ~= "00000000-00000000-00000000-00000000" then ids[id] = true end
+            end
+            return ids
+        end
+        local wco = g.world_context()
+        for id in pairs(wco and g.required_ids(wco) or {}) do ids[id] = true end
+        return ids
+    end
+    local last_required = {} -- from the latest slot refresh; portrait tiles use it
+
+    -- Returns { [NAME] = entry }, { [id] = entry } with entry = { points, id }.
     local function fatigue_by_operator()
         if fatigue_cache and os.time() - fatigue_cache.at <= FATIGUE_CACHE_S then
             return fatigue_cache.by_name, fatigue_cache.by_id
@@ -218,11 +233,10 @@ function M.new(ctx)
         local wco = g.world_context()
         local class = g.effect_class(Game.FATIGUE)
         if not wco or not class then return by_name, by_id end
-        local required = required_operators(wco)
         for _, member in ipairs(g.roster(wco)) do
             local asc = member.actor and g.asc(member.actor)
             if asc then
-                local entry = { points = g.effect_count(asc, class), required = member.id ~= nil and required[member.id] == true }
+                local entry = { points = g.effect_count(asc, class), id = member.id }
                 local name = g.character_name(member.actor)
                 if name then by_name[name:upper()] = entry end
                 if member.id then by_id[member.id] = entry end
@@ -235,10 +249,10 @@ function M.new(ctx)
     -- The tier an operator deploys at: a required operator's comes from half their fatigue. A required
     -- operator left without a tier shows REQUIRED (it takes priority over RESTED).
     -- Squad slots (banner = true) show RESTED for everyone else; portrait tiles show nothing for them.
-    local function current_tier(entry, banner)
+    local function current_tier(entry, required, banner)
         if not entry then return nil end
-        local tier = Rules.tier(Rules.mission_points(entry.points, entry.required), Rules.normalise(ctx.settings()).preset)
-        if not tier and entry.required then return Rules.REQUIRED_RESTED end
+        local tier = Rules.tier(Rules.mission_points(entry.points, required), Rules.normalise(ctx.settings()).preset)
+        if not tier and required then return Rules.REQUIRED_RESTED end
         if not tier and banner then return Rules.RESTED end
         return tier
     end
@@ -268,8 +282,10 @@ function M.new(ctx)
         local full_name = g.read(slot, "FullName")
         local name = g.plain(g.text(full_name and (g.call(full_name, "GetText"))) or ""):upper()
         local entry = name ~= "" and view.by_name[name] or nil
-        local points, required = entry and entry.points, entry and entry.required
-        local tier = current_tier(entry, true)
+        local required_ids = mission_required(slot)
+        last_required = required_ids
+        local points, required = entry and entry.points, entry ~= nil and entry.id ~= nil and required_ids[entry.id] == true
+        local tier = current_tier(entry, required, true)
         local signature = string.format("%s|%s|%s|%s|%s", name, tostring(points), tostring(required),
             tier and tier.id or "-", view.settings)
         if unchanged(slot, signature, parent) then return end
@@ -322,8 +338,8 @@ function M.new(ctx)
         local item = (g.call(list_library, "GetListItemObject", tile))
         local id = item and g.guid_string((g.call(item, "GetCharacterID"))) or nil
         local entry = id and view.by_id[id] or nil
-        local points, required = entry and entry.points, entry and entry.required
-        local tier = current_tier(entry)
+        local points, required = entry and entry.points, entry ~= nil and last_required[id] == true
+        local tier = current_tier(entry, required)
         local signature = string.format("%s|%s|%s|%s|%s", tostring(id), tostring(points), tostring(required),
             tier and tier.id or "-", view.settings)
         if unchanged(tile, signature, parent) then return end
@@ -446,7 +462,9 @@ function M.new(ctx)
             if not ok then warn_once("refresh_" .. kind, "%s refresh failed | %s", kind, tostring(err)) end
         end
         if full then
-            for class_name, kind in pairs({ WBP_CharacterSlot_C = "slot", WBP_RosterTile_C = "tile" }) do
+            -- Slots first: they read the mission's required operators, which the portrait tiles reuse.
+            for _, pair in ipairs({ { "WBP_CharacterSlot_C", "slot" }, { "WBP_RosterTile_C", "tile" } }) do
+                local class_name, kind = pair[1], pair[2]
                 local ok, found = pcall(FindAllOf, class_name)
                 for _, widget in pairs(ok and found or {}) do run(kind, widget) end
             end
