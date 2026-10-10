@@ -133,6 +133,12 @@ def count_foes(text):
     return 0 if re.search(r"\bno living\b|\bnone\b", text, re.I) else None
 
 
+def foe_entries(text):
+    """`foes` entries: [(selector 'e3', actor name 'Char_Enemy_Separatist_B1_C_2', label 'B1 Battle Droid')]."""
+    return [(sel, actor, label.strip())
+            for sel, label, actor in re.findall(r"\b(e\d+) ([^\[;]+?) \[([^\]]+)\]", text)]
+
+
 def squad_health(sb):
     """[health per squad unit] from `units` (count) and `stats <n> Health` ('...HealthSet.Health=88')."""
     status, text = sb.send("units")
@@ -222,12 +228,21 @@ def one_run(sb, args, condition, run_index):
     apply_condition(sb, condition, len(squad))
     start_health = squad_health(sb)
     status, text = sb.send("foes")
+    if args.keep is not None:
+        # Same fight every run: remove all but `keep` enemies, the strongest kinds first (B1s are kept last).
+        entries = foe_entries(text)
+        entries.sort(key=lambda e: (e[2] == "B1 Battle Droid", e[0]))
+        for sel, _, _ in entries[:max(0, len(entries) - args.keep)]:
+            sb.send("kill %s wait=1" % sel, timeout=60)
+        status, text = sb.send("foes")
     start_foes = count_foes(text)
+    seen = {actor for _, actor, _ in foe_entries(text)}
     sb.ok("speed %s" % args.speed)
     sb.ok("ai camera off")
     sb.ok("ai on")
     start = time.time()
     result, foes, health = "timeout", start_foes, start_health
+    living = set(seen)
     while time.time() - start < args.wall_cap:
         time.sleep(args.poll)
         state = mission_status(sb)
@@ -237,7 +252,10 @@ def one_run(sb, args, condition, run_index):
             result = "win"; break
         # Only read the squad and enemies while the mission is live (afterwards they read as restored).
         status, text = sb.send("foes")
-        foes = count_foes(text) if status == "ok" else foes
+        if status == "ok":
+            foes = count_foes(text)
+            seen |= {actor for _, actor, _ in foe_entries(text)}
+            living = {actor for _, actor, _ in foe_entries(text)}
         health = squad_health(sb) or health
         if foes == 0:
             result = "win"; break
@@ -246,7 +264,8 @@ def one_run(sb, args, condition, run_index):
     row = {
         "condition": condition, "run": run_index, "mission": args.mission, "enemies": args.enemies,
         "result": result, "rounds": log_lines_since(log_offset, "Round "),
-        "foes_start": start_foes, "foes_left": foes,
+        "foes_start": start_foes, "foes_left": foes, "foes_seen": len(seen),
+        "kills": len(seen - living) if result != "win" else len(seen),
         "squad_size": len(squad), "squad_alive": sum(1 for h in health if h > 0),
         "health_start": round(sum(start_health)), "health_end": round(sum(max(h, 0) for h in health)),
         "ap_losses": log_lines_since(log_offset, "AP loss |"), "seconds": round(time.time() - start),
@@ -305,15 +324,17 @@ def cmd_report(args):
         values = [float(v) for v in values if v not in (None, "")]
         return sum(values) / len(values) if values else float("nan")
 
-    print("%-10s %4s %6s %7s %8s %9s %7s" % ("condition", "runs", "win %", "rounds", "alive", "hp lost%", "AP lost"))
+    print("%-10s %4s %6s %7s %6s %8s %9s %7s" % ("condition", "runs", "win %", "rounds", "kills", "alive",
+                                                    "hp lost%", "AP lost"))
     order = [c for c in CONDITIONS if any(r["condition"] == c for r in rows)]
     for condition in order:
         group = [r for r in rows if r["condition"] == condition]
         wins = sum(1 for r in group if r["result"] == "win")
         lost = [1 - float(r["health_end"]) / float(r["health_start"]) for r in group
                 if r.get("health_start") not in (None, "", "0")]
-        print("%-10s %4d %5.0f%% %7.1f %8.2f %8.0f%% %7.1f" % (
+        print("%-10s %4d %5.0f%% %7.1f %6.1f %8.2f %8.0f%% %7.1f" % (
             condition, len(group), 100.0 * wins / len(group), mean(r.get("rounds") for r in group),
+            mean(r.get("kills") for r in group),
             mean(r.get("squad_alive") for r in group), 100.0 * mean(lost), mean(r.get("ap_losses") for r in group)))
 
 
@@ -335,6 +356,7 @@ def main():
     p.add_argument("--wall-cap", type=float, default=1800, help="seconds per mission before giving up")
     p.add_argument("--poll", type=float, default=5.0)
     p.add_argument("--speed", default="4")
+    p.add_argument("--keep", type=int, default=None, help="enemies to keep at the start (the rest are removed)")
     p.add_argument("--neutralise", action="store_true", help="set Off Duty's fatigue gain to 0 during the runs")
     p.set_defaults(func=cmd_run)
     args = parser.parse_args()
