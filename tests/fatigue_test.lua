@@ -109,11 +109,11 @@ eq(tesh.effects[Game.DEPLOYED], 2, "Tesh marker records Tired")
 eq(rex.effects[Game.FATIGUE], 0, "guest untouched"); eq(rex.effects[Game.DEPLOYED], nil, "guest not marked")
 
 -- Required operators go in at half their fatigue (rounded down); fatigue itself still gains as usual.
--- Non-blocking entries are only suggestions: normal tier.
+-- Every listed operator counts, blocking or not (a locked story operator reads non-blocking).
 local hero = operator("Hawks", "H", 5)      -- Spent at 5; half is 2: Tired
 local forced = operator("Cly", "C", 3)      -- Exhausted at 3; half is 1: Tired
 local rested = operator("Tel", "E", 1)      -- Tired at 1; half is 0: rested
-local suggested = operator("Xel", "XL", 3)  -- listed but non-blocking: stays Exhausted
+local suggested = operator("Xel", "XL", 3)  -- listed, non-blocking: still half (1, Tired)
 roster[#roster + 1], roster[#roster + 2], roster[#roster + 3], roster[#roster + 4] = hero, forced, rested, suggested
 required = { H = true, C = true, E = true, XL = false }
 for _, op in ipairs({ hero, forced, rested, suggested }) do mission_start(nil, op) end
@@ -122,7 +122,7 @@ eq(hero.effects[ACCURACY], 1, "required: Tired accuracy only"); eq(hero.effects[
 eq(hero.effects[Game.DEPLOYED], 2, "required: marker records the tier they went in at")
 eq(forced.effects.GE_OffDuty_Tired, 1, "required Exhausted operator goes in Tired"); eq(forced.effects[Game.FATIGUE], 5, "required: +2")
 eq(rested.effects.GE_OffDuty_Tired, nil, "required Tired operator goes in rested"); eq(rested.effects[ACCURACY], nil, "no accuracy loss")
-eq(suggested.effects.GE_OffDuty_Exhausted, 1, "non-blocking listing keeps the normal tier")
+eq(suggested.effects.GE_OffDuty_Tired, 1, "non-blocking listing is still required"); eq(suggested.effects.GE_OffDuty_Exhausted, nil, "not Exhausted")
 assert(table.concat(logs, "\n"):find("Hawks | fatigue 5 -> 7 | required: tier from half fatigue (2)", 1, true), "required logged")
 required = {}
 

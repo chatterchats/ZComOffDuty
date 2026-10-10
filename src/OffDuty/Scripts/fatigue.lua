@@ -80,11 +80,11 @@ function M.new(ctx)
                 actions:schedule_after("mission_start", SAVE_SETTLE_MS, g.safe("mission start settle", try), actor)
                 return
             end
-            local required = g.required_ids(wco)[id]
-            if required ~= nil and not required then
-                log("Mission start | %s | listed for this mission but not required (non-blocking); normal tier", name)
+            local blocking = g.required_ids(wco)[id]
+            if blocking ~= nil then
+                log("Mission start | %s | required for this mission (bBlockingRequirement %s)", name, tostring(blocking))
             end
-            process_mission_start(actor, name, attempt, from_save, required == true)
+            process_mission_start(actor, name, attempt, from_save, blocking ~= nil)
         end
         try()
     end

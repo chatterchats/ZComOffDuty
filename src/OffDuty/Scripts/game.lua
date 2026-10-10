@@ -288,8 +288,10 @@ function M.new(log)
         return members
     end
 
-    -- The current mission's required operators: { [character id] = blocking }, where blocking means the
-    -- mission can't launch without them (UBrunoStrategyStatics::GetRequiredCharactersForCurrentMission).
+    -- The current mission's required operators: { [character id] = bBlockingRequirement }
+    -- (UBrunoStrategyStatics::GetRequiredCharactersForCurrentMission). Every listed operator is required:
+    -- Tesh Hawks on a story mission is locked into the squad and named under Unit Requirements, yet reads
+    -- bBlockingRequirement = false (verified 2026-10-10), so the flag is only logged.
     function g.required_ids(wco)
         local ids = {}
         local statics = g.cdo("/Script/Bruno.Default__BrunoStrategyStatics")
