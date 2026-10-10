@@ -259,6 +259,8 @@ def one_run(sb, args, condition, run_index):
         status, text = sb.send("foes")
     start_foes = count_foes(text)
     seen = {actor for _, actor, _ in foe_entries(text)}
+    starting = set(seen)  # the fight's own enemies; with --no-reinforcements anyone else is removed
+    removed = 0
     sb.ok("speed %s" % args.speed)
     sb.ok("ai camera off")
     sb.ok("ai on")
@@ -275,9 +277,16 @@ def one_run(sb, args, condition, run_index):
         # Only read the squad and enemies while the mission is live (afterwards they read as restored).
         status, text = sb.send("foes")
         if status == "ok":
-            foes = count_foes(text)
-            seen |= {actor for _, actor, _ in foe_entries(text)}
-            living = {actor for _, actor, _ in foe_entries(text)}
+            entries = foe_entries(text)
+            if args.no_reinforcements:
+                for _, actor, _ in entries:
+                    if actor not in starting:
+                        sb.send("kill %s wait=1" % actor, timeout=60)
+                        removed += 1
+                entries = [e for e in entries if e[1] in starting]
+            foes = len(entries) if args.no_reinforcements else count_foes(text)
+            seen |= {actor for _, actor, _ in entries}
+            living = {actor for _, actor, _ in entries}
         health = squad_health(sb) or health
         if foes == 0:
             result = "win"; break
@@ -288,6 +297,7 @@ def one_run(sb, args, condition, run_index):
         "result": result, "rounds": log_lines_since(log_offset, "Round "),
         "foes_start": start_foes, "foes_left": foes, "foes_seen": len(seen),
         "kills": len(seen - living) if result != "win" else len(seen),
+        "reinforcements_removed": removed,
         "squad_size": len(squad), "squad_alive": sum(1 for h in health if h > 0),
         "health_start": round(sum(start_health)), "health_end": round(sum(max(h, 0) for h in health)),
         "ap_losses": log_lines_since(log_offset, "AP loss |"), "seconds": round(time.time() - start),
@@ -379,6 +389,8 @@ def main():
     p.add_argument("--poll", type=float, default=5.0)
     p.add_argument("--speed", default="4")
     p.add_argument("--keep", type=int, default=None, help="enemies to keep at the start (the rest are removed)")
+    p.add_argument("--no-reinforcements", action="store_true",
+                   help="remove enemies that arrive after the start (same-sized fight every run)")
     p.add_argument("--neutralise", action="store_true", help="set Off Duty's fatigue gain to 0 during the runs")
     p.set_defaults(func=cmd_run)
     args = parser.parse_args()
