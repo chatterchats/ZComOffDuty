@@ -210,9 +210,8 @@ def neutralise_offduty():
     if not MXM_BACKUP.exists():
         MXM_BACKUP.write_text(MXM_VALUES.read_text() if MXM_VALUES.exists() else NO_VALUES)
     MXM_VALUES.parent.mkdir(parents=True, exist_ok=True)
-    # No fatigue gain between runs (the harness applies tiers itself); AP loss on (it's part of the test); the
-    # in-mission debuff UI off (the first Tired run crashed seconds after it attached, under the sandbox's AI).
-    MXM_VALUES.write_text("return {\n    fatigue_per_mission = 0,\n    ap_loss = true,\n    status_ui = false,\n}\n")
+    # No fatigue gain between runs (the harness applies tiers itself); AP loss on (it's part of the test).
+    MXM_VALUES.write_text("return {\n    fatigue_per_mission = 0,\n    ap_loss = true,\n}\n")
 
 
 def restore_offduty():

@@ -80,7 +80,7 @@ function M.new(ctx)
     -- attached before this read returns. Attaching later doesn't notify widgets already bound to the
     -- status, which then stay blank (verified in the probe). Re-entry is guarded by `busy`.
     local function on_list_read(context)
-        if busy or not Rules.normalise(ctx.settings()).status_ui then return end
+        if busy then return end
         local list = g.unwrap(context)
         if not g.live(list) then return end
         busy = true

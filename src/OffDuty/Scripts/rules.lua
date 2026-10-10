@@ -69,7 +69,6 @@ function M.normalise(settings)
         gain = whole(gain, 2, 0, 7),
         rest = whole(rest, 1, 0, 7),
         ap_loss = settings.ap_loss ~= false,
-        status_ui = settings.status_ui ~= false,
     }
 end
 

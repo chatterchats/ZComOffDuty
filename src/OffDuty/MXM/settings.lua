@@ -30,11 +30,5 @@ return {
         { key = "ap_loss", type = "bool",
           name = "Exhausted and Spent can lose AP", default = true,
           desc = "5% (Exhausted) or 10% (Spent) chance each turn to lose 1 AP." },
-
-        { type = "header", name = "Display" },
-
-        { key = "status_ui", type = "bool",
-          name = "Show fatigue as an in-mission debuff", default = true,
-          desc = "Name, description and Zzz icon in the Inspect panel and beside the health bar. The penalties apply either way." },
     },
 }
