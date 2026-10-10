@@ -515,55 +515,110 @@ def one_run(sb, args, condition, run_index, enemies):
     return row
 
 
+def run_jobs(instance, args, jobs, emit):
+    """Play jobs (run_index, spawn set, condition) on one game instance until the job source is empty.
+
+    `jobs` is a callable returning the next job or None; `emit(row)` receives each result row."""
+    use_instance(instance)
+    _, _, transcript = open_transcript("run")
+    sb = Sandbox(transcript=transcript)
+    print("i%d %s" % (instance, require_session(sb)), flush=True)
+    if args.neutralise:
+        neutralise_offduty()
+    try:
+        while True:
+            job = jobs()
+            if job is None:
+                break
+            run_index, enemies, condition = job
+            print("i%d run %d/%d | %s | %s ..." % (instance, run_index, args.runs, enemies, condition), flush=True)
+            try:
+                row = one_run(sb, args, condition, run_index, enemies)
+            except SandboxError as error:
+                print("  i%d ERROR: %s" % (instance, error), flush=True)
+                row = {"condition": condition, "run": run_index, "enemies": enemies, "result": "error: %s" % error}
+            finally:
+                for line in ("ai off", "speed 1"):
+                    try:
+                        sb.send(line)
+                    except SandboxError:
+                        pass
+            row["instance"] = instance
+            emit(row)
+    finally:
+        if args.neutralise:
+            restore_offduty()
+
+
+def _fleet_worker(instance, args, job_queue, row_queue):
+    import queue
+
+    def jobs():
+        try:
+            return job_queue.get_nowait()
+        except queue.Empty:
+            return None
+    try:
+        run_jobs(instance, args, jobs, row_queue.put)
+    finally:
+        row_queue.put(("done", instance))
+
+
 def cmd_run(args):
     for c in args.conditions.split(","):
         if c not in CONDITIONS:
             sys.exit("unknown condition %r (have %s)" % (c, ", ".join(CONDITIONS)))
-    out, stamp, transcript = open_transcript("run")
-    sb = Sandbox(transcript=transcript)
-    print(require_session(sb))
-    if args.neutralise:
-        neutralise_offduty()
-    csv_path = out / ("%s-results.csv" % stamp)
     spawn_sets = [e.strip() for e in args.enemies.split(",") if e.strip()]
+    # One full pass over every spawn set and condition per run index, so an interrupted batch still covers
+    # everything once. With --instances the passes are shared: each game takes the next job when it's free.
+    jobs = [(run_index, enemies, condition) for run_index in range(1, args.runs + 1)
+            for enemies in spawn_sets for condition in args.conditions.split(",")]
+    instances = [int(n) for n in args.instances.split(",")] if args.instances else [INSTANCE]
+    out = ROOT / "dist" / "simtest"
+    out.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stamp += "-i" + "".join(map(str, instances)) if instances != [1] else ""
+    csv_path = out / ("%s-results.csv" % stamp)
     rows = []
 
-    def save():
+    def emit(row):
         # Rewritten after every run with every column seen so far, so an error row first can't drop columns.
+        print("  %s" % row, flush=True)
+        rows.append(row)
         fields = []
-        for row in rows:
-            fields += [k for k in row if k not in fields]
+        for r in rows:
+            fields += [k for k in r if k not in fields]
         with open(csv_path, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=fields)
             writer.writeheader()
             writer.writerows(rows)
 
-    try:
-        # One full pass over every spawn set and condition per run index, so an interrupted batch still
-        # covers everything once.
-        for run_index in range(1, args.runs + 1):
-            for enemies in spawn_sets:
-                for condition in args.conditions.split(","):
-                    print("run %d/%d | %s | %s ..." % (run_index, args.runs, enemies, condition), flush=True)
-                    try:
-                        row = one_run(sb, args, condition, run_index, enemies)
-                    except SandboxError as error:
-                        print("  ERROR: %s" % error)
-                        row = {"condition": condition, "run": run_index, "enemies": enemies,
-                               "result": "error: %s" % error}
-                    finally:
-                        for line in ("ai off", "speed 1"):
-                            try:
-                                sb.send(line)
-                            except SandboxError:
-                                pass
-                    print("  %s" % row, flush=True)
-                    rows.append(row)
-                    save()
-    finally:
-        if args.neutralise:
-            restore_offduty()
-    print("results: %s\ntranscript: %s" % (csv_path, transcript.name))
+    if len(instances) == 1:
+        pending = list(jobs)
+        run_jobs(instances[0], args, lambda: pending.pop(0) if pending else None, emit)
+    else:
+        import multiprocessing
+        ctx = multiprocessing.get_context("fork")
+        job_queue, row_queue = ctx.Queue(), ctx.Queue()
+        for job in jobs:
+            job_queue.put(job)
+        time.sleep(0.5)  # let the feeder thread fill the queue before workers poll it
+        workers = [ctx.Process(target=_fleet_worker, args=(n, args, job_queue, row_queue)) for n in instances]
+        for w in workers:
+            w.start()
+        running = len(workers)
+        try:
+            while running:
+                item = row_queue.get()
+                if isinstance(item, tuple) and item and item[0] == "done":
+                    running -= 1
+                    print("i%d finished" % item[1], flush=True)
+                else:
+                    emit(item)
+        finally:
+            for w in workers:
+                w.join(timeout=5)
+    print("results: %s" % csv_path)
 
 
 def cmd_report(args):
@@ -634,6 +689,8 @@ def main():
     p.add_argument("--keep", type=int, default=None, help="enemies to keep at the start (the rest are removed)")
     p.add_argument("--no-reinforcements", action="store_true",
                    help="stop the mission's reinforcement waves at the start (same-sized fight every run)")
+    p.add_argument("--instances", default=None,
+                   help="comma-separated game instances sharing this batch (e.g. 1,2); each takes the next run")
     p.add_argument("--free-first-slot", action="store_true",
                    help="give the first squad member to its AI planner (the player controller holds it otherwise)")
     p.add_argument("--neutralise", action="store_true", help="set Off Duty's fatigue gain to 0 during the runs")
