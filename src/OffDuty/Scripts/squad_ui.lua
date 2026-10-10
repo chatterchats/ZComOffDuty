@@ -234,10 +234,12 @@ function M.new(ctx)
 
     -- The tier an operator deploys at: a required operator's comes from half their fatigue. A required
     -- operator with fatigue whose half leaves them rested shows the REQUIRED banner instead of nothing.
-    local function current_tier(entry)
+    -- Squad slots (banner = true) show RESTED for everyone else; portrait tiles show nothing for them.
+    local function current_tier(entry, banner)
         if not entry then return nil end
         local tier = Rules.tier(Rules.mission_points(entry.points, entry.required), Rules.normalise(ctx.settings()).preset)
         if not tier and entry.required and (entry.points or 0) > 0 then return Rules.REQUIRED_RESTED end
+        if not tier and banner then return Rules.RESTED end
         return tier
     end
 
@@ -267,7 +269,7 @@ function M.new(ctx)
         local name = g.plain(g.text(full_name and (g.call(full_name, "GetText"))) or ""):upper()
         local entry = name ~= "" and view.by_name[name] or nil
         local points, required = entry and entry.points, entry and entry.required
-        local tier = current_tier(entry)
+        local tier = current_tier(entry, true)
         local signature = string.format("%s|%s|%s|%s|%s", name, tostring(points), tostring(required),
             tier and tier.id or "-", view.settings)
         if unchanged(slot, signature, parent) then return end
@@ -282,10 +284,11 @@ function M.new(ctx)
         if not banner then warn_once("banner_create", "could not create a banner | %s", tostring(created)) return end
         local parts = parts_of(banner)
         g.call(parts.HeaderText or g.read(banner, "HeaderText"), "SetText", FText(tier.label))
-        -- The game shows Injury_1 for one injury and adds Injury_2 for two; ours shows the tier's Zzz icon.
-        g.call(parts.Injury_1, "SetVisibility", SELF_HIT_TEST_INVISIBLE)
+        -- The game shows Injury_1 for one injury and adds Injury_2 for two; ours shows the tier's Zzz icon
+        -- (none for RESTED, level 0).
         g.call(parts.Injury_2, "SetVisibility", HIDDEN)
-        local icon = icons.texture(tier.level)
+        local icon = tier.level > 0 and icons.texture(tier.level) or nil
+        g.call(parts.Injury_1, "SetVisibility", icon and SELF_HIT_TEST_INVISIBLE or COLLAPSED)
         if icon then g.call(parts.Injury_1, "SetBrushFromTexture", icon, false) end
         g.call(parts.Sizer, "SetWidthOverride", BANNER_SIZE[1])
         g.call(parts.Sizer, "SetHeightOverride", BANNER_SIZE[2])

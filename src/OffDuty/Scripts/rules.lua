@@ -45,6 +45,13 @@ M.REQUIRED_RESTED = {
     penalties = {},
 }
 
+-- Squad-slot banner for an operator with no tier, so every filled slot shows one. Level 0: no Zzz icon.
+M.RESTED = {
+    id = "rested", level = 0, name = "Rested", label = "RESTED",
+    colour = { R = 0.45, G = 0.80, B = 0.50, A = 1.0 },
+    penalties = {},
+}
+
 local by_id = {}
 for _, tier in ipairs(M.TIERS) do by_id[tier.id] = tier end
 
@@ -143,7 +150,7 @@ function M.tooltip(tier, points, settings, required)
         string.format("Fatigue <Bold>%d</> of %d. Each mission adds %d; each turn off duty removes %d.",
             points, cap, s.gain, s.rest),
     }
-    if required then
+    if required and points > 0 then
         lines[#lines + 1] = string.format("<Bold>Required:</> fatigue counts as half for this mission (%d instead of %d).",
             M.mission_points(points, true), points)
     end
