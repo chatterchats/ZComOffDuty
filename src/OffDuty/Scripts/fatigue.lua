@@ -146,6 +146,12 @@ function M.new(ctx)
 
         actions:cancel_group("ap_loss", "mission start") -- a new mission session
         self.reset_rounds()
+        local turn = g.strategy_turn(g.world_context())
+        if not Rules.active(turn, s) then
+            log("Mission start | %s | cycle %s, before fatigue starts (cycle %d) | no fatigue or penalty", name,
+                tostring(turn), s.start)
+            return
+        end
         local points = Rules.mission_points(fatigue, required)
         local tier = Rules.tier(points, s.preset)
         local summary = tier and apply_tier(asc, tier, name) or "rested"
@@ -155,7 +161,8 @@ function M.new(ctx)
             log("WARNING: mission start | %s | deployed marker not applied; turn-end recovery may count them", name)
         end
         local after = g.set_effect_count(asc, fatigue_class, Rules.after_mission(fatigue, s))
-        log("Mission start | %s | fatigue %d -> %d | %s%s", name, fatigue, after, summary, ready_note)
+        log("Mission start | %s | fatigue %d -> %d | %s%s | cycle %s", name, fatigue, after, summary, ready_note,
+            tostring(turn))
         if ctx.on_mission_start then ctx.on_mission_start() end
     end
 

@@ -26,10 +26,15 @@ return {
           min = 0, max = 3, step = 1,
           desc = "Removed each strategy turn an operator sits out. Operators away on an operation don't change." },
 
+        { key = "start_cycle", type = "number",
+          name = "Fatigue starts at cycle", default = 5,
+          min = 1, max = 20, step = 1,
+          desc = "Before this cycle missions add no fatigue and no penalties apply, while the early roster is too small to rotate." },
+
         { type = "header", name = "Penalties" },
 
         { key = "ap_loss", type = "bool",
           name = "Exhausted and Spent can lose AP", default = true,
-          desc = "5% (Exhausted) or 10% (Spent) chance each turn to lose 1 AP." },
+          desc = "10% (Exhausted) or 15% (Spent) chance each turn to lose 1 AP." },
     },
 }

@@ -9,6 +9,7 @@ M.PRESETS = {
     easy = { label = "Easy", tired = 3, exhausted = 5, spent = 7, cap = 7 },
 }
 M.DEFAULT_PRESET = "standard"
+M.DEFAULT_START_CYCLE = 5
 
 -- Highest first. accuracy_stacks: the game's GE_Lose_NextMission_RangedAccuracy (-5% each).
 -- level: 1 Tired, 2 Exhausted, 3 Spent (also the Zzz icon index).
@@ -80,12 +81,22 @@ function M.normalise(settings)
     if gain == nil then gain = settings.gain end
     local rest = settings.recovery_per_turn
     if rest == nil then rest = settings.rest end
+    local start = settings.start_cycle
+    if start == nil then start = settings.start end
     return {
         preset = M.PRESETS[settings.preset] and settings.preset or M.DEFAULT_PRESET,
         gain = whole(gain, 2, 0, 7),
         rest = whole(rest, 1, 0, 7),
         ap_loss = settings.ap_loss ~= false,
+        start = whole(start, M.DEFAULT_START_CYCLE, 1, 99),
     }
+end
+
+-- Fatigue only counts from a chosen cycle (strategy turn): early on the roster is too small to rotate.
+-- An unreadable turn counts as active, so a failed read never silently switches the mod off.
+function M.active(turn, settings)
+    turn = tonumber(turn)
+    return turn == nil or turn >= M.normalise(settings).start
 end
 
 -- The tier for a fatigue count, or nil when rested.
@@ -144,13 +155,17 @@ end
 
 -- Squad-select tooltip for one operator. `tier` is the tier they deploy at; for a required operator that
 -- comes from half their fatigue (M.mission_points), and the tooltip says so.
-function M.tooltip(tier, points, settings, required)
+-- starts_at: set before the starting cycle, when nothing applies yet.
+function M.tooltip(tier, points, settings, required, starts_at)
     local s = M.normalise(settings)
     local cap = M.preset(s.preset).cap
     local lines = {
         string.format("Fatigue <Bold>%d</> of %d. Each mission adds %d; each turn off duty removes %d.",
             points, cap, s.gain, s.rest),
     }
+    if starts_at then
+        lines[#lines + 1] = string.format("Fatigue tracking starts at cycle <Bold>%d</>.", starts_at)
+    end
     if required and points > 0 then
         lines[#lines + 1] = string.format("<Bold>Required:</> fatigue counts as half for this mission (%d instead of %d).",
             M.mission_points(points, true), points)

@@ -1,46 +1,47 @@
-Tired of sending the same four operators on every mission? With [b]Off Duty[/b], operators [b]get tired from back-to-back deployments[/b] and [b]recover while they're off duty[/b], so the rest of your company gets a chance to shine.
+[b]Off Duty[/b] gives you a reason to let your regulars take a break. Operators get tired from back-to-back missions and recover while they're off duty. You can still send your best people out tired, but they'll feel it in combat.
 
 [heading]How It Works[/heading]
 [list]
-[*][b]Every mission adds fatigue[/b] to each operator who deploys (2 by default).[/*]
-[*][b]Every strategy turn off duty removes some[/b] (1 by default). Operators away on an operation neither gain nor recover.[/*]
-[*][b]Your call, always[/b]: fatigue sets a tier for the next mission, but you can always deploy anyone. A tired operator just fights worse.[/*]
-[*][b]Story-safe[/b]: when a mission can't launch without someone, they go in at the tier for [b]half[/b] their fatigue. Their fatigue itself isn't changed.[/*]
-[*][b]No surprises[/b]: every squad slot shows a banner (RESTED, REQUIRED, TIRED, EXHAUSTED or SPENT). Hover it for the fatigue, the exact penalties and how long until they're rested. Roster portraits mark anyone tired or required.[/*]
-[*][b]Visible in the mission[/b]: the tier shows as a debuff under the health bar and in the Inspect panel, and the hit chance penalty appears in the hit breakdown as "Penalty from Operation".[/*]
-[*][b]Separate from injuries[/b]: the game's own injuries work exactly as before.[/*]
+[*]Each operator who deploys gains [b]2 fatigue per mission[/b] by default.[/*]
+[*]Operators recover [b]1 fatigue per strategy turn off duty[/b] by default. If they're away on an operation, their fatigue stays where it is until they return.[/*]
+[*]Fatigue determines their penalties for the next mission. [b]It never stops you from deploying them.[/b][/*]
+[*]If a mission requires an operator, their fatigue counts as [b]half[/b] when deciding their penalties, rounded down. Their actual fatigue stays the same, and the mission still adds fatigue as usual.[/*]
+[*]Every squad slot shows a banner: RESTED, REQUIRED, TIRED, EXHAUSTED or SPENT. Hover over it to see the operator's fatigue, penalties and recovery time. Roster portraits also mark tired and required operators.[/*]
+[*]During a mission, fatigue penalties appear under the health bar and in the Inspect panel. The hit chance penalty is listed as "Penalty from Operation" in the hit breakdown.[/*]
+[*]Fatigue is separate from injuries. The game's injury system works as usual.[/*]
 [/list]
 
 [heading]Tiers[/heading]
+These are the fatigue ranges and penalties for each preset:
 [list]
 [*][b]Tired[/b] (Easy 3–4, Standard 2–3, Hard 1–2): −5% hit chance, −5% max health[/*]
 [*][b]Exhausted[/b] (Easy 5–6, Standard 4–5, Hard 3–4): −10% hit chance, −10% max health, 10% chance each turn to lose 1 AP[/*]
 [*][b]Spent[/b] (Easy 7, Standard 6–7, Hard 5–7): −20% hit chance, −20% max health, −10% movement, 15% chance each turn to lose 1 AP[/*]
 [/list]
-Numbers were tuned with AI-vs-AI simulations of hundreds of missions.
+The penalties were tuned over hundreds of AI-vs-AI test missions.
 
 [heading]Settings[/heading]
-With the [url=https://www.nexusmods.com/starwarszerocompany/mods/149]Mixamoo Mod Config Manager[/url] installed, Off Duty has an in-game settings page:
+Install [url=https://www.nexusmods.com/starwarszerocompany/mods/149]Mixamoo Mod Config Manager[/url] to adjust these settings in game:
 [list]
 [*][b]Preset[/b]: Easy (tiers at 3 / 5 / 7), Standard (2 / 4 / 6, the default) or Hard (1 / 3 / 5); fatigue caps at 7[/*]
 [*][b]Fatigue per mission[/b]: 0–4[/*]
 [*][b]Recovery per turn off duty[/b]: 0–3[/*]
-[*][b]AP loss[/b]: on or off[/*]
+[*][b]AP loss[/b]: turn the chance to lose 1 AP on or off[/*]
 [/list]
-Without it, Off Duty uses the defaults (Standard, 2, 1, AP loss on).
+Without the config manager, Off Duty uses the Standard preset, 2 fatigue per mission, 1 recovery per turn off duty and AP loss enabled.
 
 [heading]Requirements[/heading]
 [list]
-[*][b]Star Wars Zero Company[/b][/*]
+[*][b]Star Wars: Zero Company[/b][/*]
 [*][url=https://www.nexusmods.com/starwarszerocompany/mods/9]UE4SS for Star Wars Zero Company[/url][/*]
 [*]Optional: [url=https://www.nexusmods.com/starwarszerocompany/mods/149]Mixamoo Mod Config Manager[/url], for the settings page[/*]
 [/list]
 
 [heading]Installation[/heading]
-The download has two parts, and [b]both are needed[/b]: [b]OffDuty[/b] (the mod) and [b]OffDuty_Assets[/b] (its gameplay effects and status tags).
+The download contains [b]OffDuty[/b] and [b]OffDuty_Assets[/b]. [b]Install both[/b]; the mod needs its asset files to work.
 
 [b]Mod manager[/b]
-Both parts carry metadata for the community mod managers:
+Install the ZIP with either of these mod managers:
 [list]
 [*][url=https://www.nexusmods.com/starwarszerocompany/mods/29]Zero Mod Manager[/url]: choose [b]Install all components[/b].[/*]
 [*][url=https://www.nexusmods.com/starwarszerocompany/mods/121]Zero Company Mod Command[/url]: it adds Off Duty and Off Duty — Assets as two entries.[/*]
@@ -48,11 +49,11 @@ Both parts carry metadata for the community mod managers:
 Make sure both are enabled.
 
 [b]Manual installation[/b]
-Make sure UE4SS is installed and working, and close the game.
+Install UE4SS first, then close the game.
 [list=1]
 [*]Extract the [b]OffDuty[/b] folder into:
 [code]SWZeroCompany/Binaries/Win64/ue4ss/Mods/[/code][/*]
-[*]Copy the three files inside [b]OffDuty_Assets[/b] ([b]OffDuty_P.pak[/b], [b]OffDuty_P.ucas[/b], [b]OffDuty_P.utoc[/b]) into (create [b]~mods[/b] if it's missing):
+[*]Copy [b]OffDuty_P.pak[/b], [b]OffDuty_P.ucas[/b] and [b]OffDuty_P.utoc[/b] from [b]OffDuty_Assets[/b] into the folder below. Create [b]~mods[/b] if it's missing.
 [code]SWZeroCompany/Content/Paks/~mods/[/code][/*]
 [/list]
 The package includes [b]enabled.txt[/b]. If your UE4SS setup doesn't pick it up, add this line to [b]ue4ss/Mods/mods.txt[/b]:
@@ -60,7 +61,7 @@ The package includes [b]enabled.txt[/b]. If your UE4SS setup doesn't pick it up,
 [b]Updating:[/b] close the game first, then install the new ZIP the same way.
 
 [b]Uninstalling[/b]
-Switch both parts off or remove them in your mod manager, or delete the [b]OffDuty[/b] folder and the three [b]OffDuty_P[/b] files. Saves stay loadable; operators simply stop tiring.
+Disable or remove both parts in your mod manager. For a manual uninstall, delete the [b]OffDuty[/b] folder and the three [b]OffDuty_P[/b] files. Your saves will still load, and operators will stop gaining fatigue.
 
 [heading]Known Issues[/heading]
 [list]
@@ -69,31 +70,30 @@ Switch both parts off or remove them in your mod manager, or delete the [b]OffDu
 [/list]
 
 [heading]Troubleshooting[/heading]
-Off Duty writes diagnostic information to [b]off_duty.log[/b] in its [b]OffDuty[/b] folder. [b]UE4SS.log[/b] remains the primary startup and crash log.
-When reporting a problem, please include:
+If something goes wrong, please include:
 [list]
 [*]Your game build[/*]
 [*]Your UE4SS version[/*]
 [*]Your other installed mods[/*]
 [*]What you were doing and what happened[/*]
-[*][code]UE4SS.log[/code] and [code]off_duty.log[/code][/*]
+[*][code]UE4SS.log[/code] (the startup and crash log) and [code]off_duty.log[/code] (in the installed [b]OffDuty[/b] folder)[/*]
 [/list]
-The logs only contain technical details about what the mod did: no screenshots, saves or personal files. They may mention folder paths on your PC, so feel free to look them over before sending.
+The logs record technical details, including folder paths on your PC. You can look them over before sharing; they don't include screenshots, saves or personal files.
 
 [heading]Source Code and Issue Reports[/heading]
-Source, technical documentation and issue tracking are available on [url=https://github.com/chatterchats/ZComOffDuty]GitHub[/url]. You can also post in the Bugs tab here on Nexus.
+You can find the source and technical docs on [url=https://github.com/chatterchats/ZComOffDuty]GitHub[/url]. Report problems there or in the Bugs tab here on Nexus.
 
 [heading]Check Out My Other Mods[/heading]
 [list]
-[*][url=https://www.nexusmods.com/starwarszerocompany/mods/154]Fast Resonance[/url] — Speeds up the long Resonance presentations (Resonance Transfer, Shared Suffering and Unnatural Resilience) with a per-ability on/off switch and speed setting.[/*]
-[*][url=https://www.nexusmods.com/starwarszerocompany/mods/176]Character Share[/url] — Share and import custom characters and Astromechs right from the Character Databank using compact copy-and-paste codes.[/*]
-[*][url=https://www.nexusmods.com/starwarszerocompany/mods/209]Enhanced Databank[/url] — Folders for your custom characters and Astromechs: create, rename and delete them, and move characters between them, all through the game's own hidden pool system.[/*]
-[*][url=https://www.nexusmods.com/starwarszerocompany/mods/314]Colors+[/url] — Pick any color you want, not just the preset swatches, with a live preview in the character creator, the barracks and the armory.[/*]
+[*][url=https://www.nexusmods.com/starwarszerocompany/mods/154]Fast Resonance[/url] — Speed up Resonance Transfer, Shared Suffering and Unnatural Resilience, with a separate toggle and speed setting for each.[/*]
+[*][url=https://www.nexusmods.com/starwarszerocompany/mods/176]Character Share[/url] — Share custom characters and Astromechs using copy-and-paste codes in the Character Databank.[/*]
+[*][url=https://www.nexusmods.com/starwarszerocompany/mods/209]Enhanced Databank[/url] — Sort your custom characters and Astromechs into folders you can create, rename and delete.[/*]
+[*][url=https://www.nexusmods.com/starwarszerocompany/mods/314]Colors+[/url] — Choose colors beyond the preset swatches, with a live preview in the character creator, barracks and armory.[/*]
 [/list]
 
 [heading]Shout-outs[/heading]
 [list]
-[*][url=https://forums.nexusmods.com/profile/1661783-gugarion/]Gugarion[/url] and the [url=https://discord.gg/qpBkjjKSRp][b]ZCom Modding Discord[/b][/url] — for the shared knowledge, testing, discussion and help that make increasingly strange Zero Company modding ideas possible.[/*]
-[*]The [url=https://github.com/UE4SS-RE/RE-UE4SS][b]UE4SS-RE team[/b][/url] — for UE4SS itself and the runtime scripting, object inspection, hooking and UI tooling that make mods like this possible.[/*]
-[*][url=https://www.nexusmods.com/profile/Vercadi]Vercadi[/url] — for creating and maintaining the [url=https://www.nexusmods.com/starwarszerocompany/mods/9]UE4SS build for Star Wars Zero Company[/url] that Off Duty runs on.[/*]
+[*][url=https://forums.nexusmods.com/profile/1661783-gugarion/]Gugarion[/url] and the [url=https://discord.gg/qpBkjjKSRp][b]ZCom Modding Discord[/b][/url] — thanks for the testing, advice and help figuring out how this game works.[/*]
+[*]The [url=https://github.com/UE4SS-RE/RE-UE4SS][b]UE4SS-RE team[/b][/url] — for the tools Off Duty is built on.[/*]
+[*][url=https://www.nexusmods.com/profile/Vercadi]Vercadi[/url] — for maintaining the [url=https://www.nexusmods.com/starwarszerocompany/mods/9]UE4SS build for Star Wars Zero Company[/url].[/*]
 [/list]

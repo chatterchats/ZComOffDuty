@@ -154,12 +154,13 @@ function M.new(ctx)
         return { R = 0.98, G = 0.45, B = 0.07, A = 1.0 }
     end
 
-    local function set_tooltip(box, tier, points, required)
+    local function set_tooltip(box, tier, points, required, starts_at)
         if not g.valid(box) then return end
         g.call(box, "SetTooltipPayloadTags", {})
         g.call(box, "SetTooltipPayloadObjects", {})
         g.call(box, "SetTooltipPayloadEntries", {
-            { HeaderText = FText(tier.label), BodyText = FText(Rules.tooltip(tier, points, ctx.settings(), required)) } })
+            { HeaderText = FText(tier.label),
+              BodyText = FText(Rules.tooltip(tier, points, ctx.settings(), required, starts_at)) } })
         g.call(box, "SetDisplayTooltop", true)
     end
 
@@ -219,8 +220,9 @@ function M.new(ctx)
     -- The tier an operator deploys at: a required operator's comes from half their fatigue. A required
     -- operator left without a tier shows REQUIRED (it takes priority over RESTED).
     -- Squad slots (banner = true) show RESTED for everyone else; portrait tiles show nothing for them.
-    local function current_tier(entry, required, banner)
+    local function current_tier(entry, required, banner, active)
         if not entry then return nil end
+        if not active then return banner and Rules.RESTED or nil end -- before the starting cycle
         local tier = Rules.tier(Rules.mission_points(entry.points, required), Rules.normalise(ctx.settings()).preset)
         if not tier and required then return Rules.REQUIRED_RESTED end
         if not tier and banner then return Rules.RESTED end
@@ -255,7 +257,7 @@ function M.new(ctx)
         local required = entry ~= nil and slot_locked(slot)
         if entry and entry.id then last_required[entry.id] = required or nil end
         local points = entry and entry.points
-        local tier = current_tier(entry, required, true)
+        local tier = current_tier(entry, required, true, view.active)
         local signature = string.format("%s|%s|%s|%s|%s", name, tostring(points), tostring(required),
             tier and tier.id or "-", view.settings)
         if unchanged(slot, signature, parent) then return end
@@ -278,7 +280,7 @@ function M.new(ctx)
         if icon then g.call(parts.Injury_1, "SetBrushFromTexture", icon, false) end
         g.call(parts.Sizer, "SetWidthOverride", BANNER_SIZE[1])
         g.call(parts.Sizer, "SetHeightOverride", BANNER_SIZE[2])
-        set_tooltip(tooltip_box(parts), tier, points, required)
+        set_tooltip(tooltip_box(parts), tier, points, required, not view.active and view.start or nil)
         g.call(banner, "SetVisibility", SELF_HIT_TEST_INVISIBLE)
         remember(slot, signature, parent)
         note(slot, string.format("slot '%s' | fatigue %d%s | %s banner %s", name, points, required and " (required: half)" or "",
@@ -309,7 +311,7 @@ function M.new(ctx)
         local id = item and g.guid_string((g.call(item, "GetCharacterID"))) or nil
         local entry = id and view.by_id[id] or nil
         local points, required = entry and entry.points, entry ~= nil and last_required[id] == true
-        local tier = current_tier(entry, required)
+        local tier = current_tier(entry, required, false, view.active)
         local signature = string.format("%s|%s|%s|%s|%s", tostring(id), tostring(points), tostring(required),
             tier and tier.id or "-", view.settings)
         if unchanged(tile, signature, parent) then return end
@@ -423,8 +425,11 @@ function M.new(ctx)
     function refresh_all(full, widgets)
         local by_name, by_id = fatigue_by_operator() -- one roster scan (or a cached one) for every widget
         local s = Rules.normalise(ctx.settings())
-        local view = { by_name = by_name, by_id = by_id,
-                       settings = string.format("%s/%d/%d/%s", s.preset, s.gain, s.rest, tostring(s.ap_loss)) }
+        local wco = g.world_context()
+        local active = Rules.active(wco and g.strategy_turn(wco) or nil, s)
+        local view = { by_name = by_name, by_id = by_id, active = active, start = s.start,
+                       settings = string.format("%s/%d/%d/%s/%d/%s", s.preset, s.gain, s.rest, tostring(s.ap_loss),
+                           s.start, tostring(active)) }
         local refreshers = { slot = refresh_slot, tile = refresh_tile }
         local function run(kind, widget)
             if not g.live(widget) then return end

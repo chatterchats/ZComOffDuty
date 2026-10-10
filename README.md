@@ -13,7 +13,8 @@ your best four.
 
 - **Fatigue from deployment.** Every operator who deploys gains fatigue (2 by
   default); every strategy turn off duty removes some (1 by default).
-  Operators away on an operation are frozen.
+  Operators away on an operation are frozen. Fatigue starts at cycle 5
+  (adjustable), once the roster is big enough to rotate.
 - **Push-through, never locked out.** Fatigue sets a tier with a penalty for
   the next mission, but anyone can always deploy, so a save can't get stuck.
 - **Story-safe.** Operators a mission requires go in at the tier for half
@@ -27,7 +28,7 @@ your best four.
   Operation".
 - **Separate from injuries.** The game's injury system is left alone.
 - **Settings** through the [Mixamoo Mod Config Manager](https://www.nexusmods.com/starwarszerocompany/mods/149): preset, fatigue per
-  mission, recovery per turn, AP loss on/off.
+  mission, recovery per turn, starting cycle, AP loss on/off.
 
 | Tier      | Easy | Standard (default) | Hard | Next mission                                                                 |
 | --------- | ---- | ------------------ | ---- | ---------------------------------------------------------------------------- |

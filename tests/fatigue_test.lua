@@ -22,6 +22,7 @@ end
 
 local roster, logs, hooks, scheduled = {}, {}, {}, 0
 local required = {} -- the current mission's required operators: id -> blocking
+cycle = 10 -- strategy turn (global so tests can move it); fatigue starts at cycle 5 by default
 mission_ready = true
 loading_save = false
 local settings = { preset = "hard" } -- these cases use Hard's thresholds (1 / 3 / 5)
@@ -46,6 +47,7 @@ local g = {
         return ids
     end,
     required_ids = function() return required end,
+    strategy_turn = function() return cycle end,
     asc = function(actor) return actor end,
     effect_class = function(name) return name end,
     load_class = function(path) return path end,
@@ -107,6 +109,22 @@ eq(kara.effects[Game.FATIGUE], 7, "Kara capped at 7")
 eq(kabb.effects[Game.DEPLOYED], 3, "Kabb marked deployed, tier Exhausted recorded (1 + 2)")
 eq(tesh.effects[Game.DEPLOYED], 2, "Tesh marker records Tired")
 eq(rex.effects[Game.FATIGUE], 0, "guest untouched"); eq(rex.effects[Game.DEPLOYED], nil, "guest not marked")
+
+-- Before the starting cycle (default 5) a mission adds no fatigue and applies no tier.
+cycle = 3
+local early = operator("Rookie", "RK", 3)
+roster[#roster + 1] = early
+mission_start(nil, early)
+eq(early.effects[Game.FATIGUE], 3, "before cycle 5: no gain"); eq(early.effects.GE_OffDuty_Exhausted, nil, "no tier")
+eq(early.effects[Game.DEPLOYED], nil, "no marker")
+assert(logs[#logs]:find("cycle 3, before fatigue starts (cycle 5)", 1, true), logs[#logs])
+settings = { preset = "hard", start_cycle = 1 }
+local first = operator("Day One", "D1", 0)
+roster[#roster + 1] = first
+mission_start(nil, first)
+eq(first.effects[Game.FATIGUE], 2, "start_cycle 1: counts from the first cycle")
+settings = { preset = "hard" }
+cycle = 10
 
 -- Required operators go in at half their fatigue (rounded down); fatigue itself still gains as usual.
 -- Every listed operator counts, blocking or not (a locked story operator reads non-blocking).

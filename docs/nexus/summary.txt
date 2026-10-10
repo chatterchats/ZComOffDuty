@@ -1,1 +1,1 @@
-Adds operator fatigue and recovery to Star Wars: Zero Company. Repeated deployments take their toll, so rotate your roster to keep the squad fresh, give weary veterans time to recover, or push your best through one more mission when you need them most.
+Adds fatigue and recovery to Star Wars: Zero Company. Operators get tired on missions and recover while off duty. Give your regulars a break, or send them out tired when you need them.

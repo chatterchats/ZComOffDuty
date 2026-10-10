@@ -303,6 +303,11 @@ function M.new(log)
         return ids
     end
 
+    -- The current strategy turn (the "cycle"), or nil if unreadable.
+    function g.strategy_turn(wco)
+        return tonumber((g.call(g.cdo("/Script/Bruno.Default__BrunoStrategyStatics"), "GetStrategyTurn", wco)))
+    end
+
     function g.roster_ids(wco)
         local ids = {}
         for _, member in ipairs(g.roster(wco)) do if member.id then ids[member.id] = true end end
