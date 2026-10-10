@@ -35,6 +35,8 @@ jobs:
           metadata_files = (
               Path("src/OffDuty/modinfo.json"),
               Path("src/OffDuty/zcom-mod.json"),
+              Path("src/OffDuty_Assets/modinfo.json"),
+              Path("src/OffDuty_Assets/zcom-mod.json"),
           )
           versions = {}
           for metadata_file in metadata_files:

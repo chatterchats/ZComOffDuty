@@ -2,8 +2,9 @@
 
 Two components, each with its own manifests so both mod managers install them as a pair:
   OffDuty/         the UE4SS mod: exactly src/OffDuty's player files      -> ue4ss/Mods/OffDuty
-  OffDuty_Assets/  OffDuty_P.pak/.ucas/.utoc (tools/build_plugin.sh;      -> Content/Paks/~mods
-                   the companion .pak also carries the gameplay tags file)
+  OffDuty_Assets/  src/OffDuty_Assets: OffDuty_P.pak/.ucas/.utoc            -> Content/Paks/~mods
+                   (committed build of tools/build_plugin.sh; the companion
+                   .pak also carries the gameplay tags file) and manifests
 src/OffDutyProbe is a developer tool and never ships.
 """
 from pathlib import Path
@@ -20,9 +21,9 @@ PACKAGE_ROOT = "OffDuty"  # installed folder name
 PAK_COMPONENTS = {
     "OffDuty_Assets": ("OffDuty_P.pak", "OffDuty_P.ucas", "OffDuty_P.utoc"),
 }
-PAK_DIR = ROOT / "dist" / "plugin" / "SWZeroCompany" / "Content" / "Paks" / "~mods"
+PAK_DIR = ROOT / "src" / "OffDuty_Assets"
 PAKS = [PAK_DIR / name for name in ("OffDuty_P.pak", "OffDuty_P.ucas", "OffDuty_P.utoc")]
-PAK_INPUTS = [ROOT / "unreal" / "scripts" / "create_effects.py", ROOT / "unreal" / "OffDuty" / "Config" / "Tags" / "OffDutyTags.ini"]
+PAK_INPUTS = ["unreal/scripts/create_effects.py", "unreal/OffDuty/Config/Tags/OffDutyTags.ini"]
 version = json.loads((SOURCE / "modinfo.json").read_text())["version"]
 assert re.fullmatch(r"\d+\.\d+\.\d+", version), "Invalid package version"
 assert json.loads((SOURCE / "zcom-mod.json").read_text())["version"] == version
@@ -35,16 +36,19 @@ for component in PAK_COMPONENTS:
 
 
 def checked_paks():
-    """The built paks: present, matching the build's SHA256SUMS, and newer than what they're built from."""
-    sums = {}
-    for line in (ROOT / "dist" / "plugin" / "SHA256SUMS").read_text().splitlines():
+    """The committed paks: matching BUILD.sha256, which also records the sources they were built from
+    (hashes, not file times: a fresh checkout has no meaningful times)."""
+    recorded = {}
+    for line in (PAK_DIR / "BUILD.sha256").read_text().splitlines():
         digest, name = line.split()
-        sums[name] = digest
-    newest_input = max(p.stat().st_mtime for p in PAK_INPUTS)
+        recorded[name] = digest
+    def sha(path):
+        return hashlib.sha256(path.read_bytes()).hexdigest()
     for pak in PAKS:
         assert pak.is_file(), f"{pak.name} missing: run tools/build_plugin.sh"
-        assert hashlib.sha256(pak.read_bytes()).hexdigest() == sums.get(pak.name), f"{pak.name} doesn't match SHA256SUMS"
-        assert pak.stat().st_mtime >= newest_input, f"{pak.name} is older than its sources: run tools/build_plugin.sh"
+        assert sha(pak) == recorded.get(pak.name), f"{pak.name} doesn't match BUILD.sha256: run tools/build_plugin.sh"
+    for source in PAK_INPUTS:
+        assert sha(ROOT / source) == recorded.get(source), f"{source} changed since the paks were built: run tools/build_plugin.sh"
     return PAKS
 
 COMMON = [SOURCE / leaf for leaf in ("enabled.txt", "modinfo.json", "zcom-mod.json", "README.md",
