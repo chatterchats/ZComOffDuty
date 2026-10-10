@@ -26,7 +26,7 @@ your best four.
   the Inspect panel; the hit chance penalty is the game's own "Penalty from
   Operation".
 - **Separate from injuries.** The game's injury system is left alone.
-- **Settings** through the Mixamoo Mod Config Manager: preset, fatigue per
+- **Settings** through the [Mixamoo Mod Config Manager](https://www.nexusmods.com/starwarszerocompany/mods/149): preset, fatigue per
   mission, recovery per turn, AP loss on/off.
 
 | Tier      | Hard | Standard | Next mission                                                                 |
@@ -43,7 +43,7 @@ simulations; see [docs/design.md](docs/design.md).
 
 - **Star Wars: Zero Company**; tested on the Steam build
 - **UE4SS** for Zero Company: the recommended build (v3.0.1 Beta, `a1e7f571`)
-- Optional: **Mixamoo Mod Config Manager** for the in-game settings page
+- Optional: **[Mixamoo Mod Config Manager](https://www.nexusmods.com/starwarszerocompany/mods/149)** for the in-game settings page
 
 ## Installation
 

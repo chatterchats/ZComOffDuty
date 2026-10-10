@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0]
+
 ### Added
 
 - Operator fatigue: each mission adds fatigue to everyone who deploys, and each strategy turn off duty
@@ -18,3 +20,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and markers on roster portraits.
 - In-mission debuffs under the health bar and in the Inspect panel.
 - Settings page (Mixamoo Mod Config Manager): preset, fatigue per mission, recovery per turn, AP loss.
+

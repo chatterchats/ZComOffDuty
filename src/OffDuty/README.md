@@ -1,4 +1,4 @@
-# Off Duty v0.1.0 — Operator Fatigue and Recovery for Star Wars: Zero Company
+# Off Duty v1.0.0 — Operator Fatigue and Recovery for Star Wars: Zero Company
 
 Tired of sending the same four operators on every mission? With Off Duty,
 operators **get tired from back-to-back deployments** and **recover while
@@ -36,7 +36,7 @@ Fatigue caps at 7 (Hard) or 6 (Standard).
 
 ## Settings
 
-With the Mixamoo Mod Config Manager installed, Off Duty has an in-game
+With the [Mixamoo Mod Config Manager](https://www.nexusmods.com/starwarszerocompany/mods/149) installed, Off Duty has an in-game
 settings page:
 
 - **Preset:** Hard (tiers at 1 / 3 / 5) or Standard (2 / 4 / 6).
@@ -51,7 +51,7 @@ from the next mission or strategy turn.
 
 - Star Wars: Zero Company
 - UE4SS for Star Wars Zero Company (Nexus Mods)
-- Optional: Mixamoo Mod Config Manager, for the settings page
+- Optional: [Mixamoo Mod Config Manager](https://www.nexusmods.com/starwarszerocompany/mods/149), for the settings page
 
 ## Installing
 
