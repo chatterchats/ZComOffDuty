@@ -2,6 +2,7 @@
 -- Run from repository root: tools/run-tests.sh fatigue
 local scripts = assert(arg[1], "pass the mod Scripts directory")
 package.path = scripts .. "/?.lua;" .. package.path
+FName = FName or function(name) return name end -- UE4SS global
 local Game = require("game")
 local Fatigue = require("fatigue")
 
@@ -218,6 +219,23 @@ settings = { ap_loss = false }
 team_turn(spent, PLAYER)
 eq(spent.effects[Game.LOSE_AP], 1, "AP loss off in settings")
 math.random = real_random
+
+-- Downed operators are logged on change (they keep some health; the tag marks them).
+g.call = function(object, method, arg)
+    if method == "GetOwner" then return object.owner end
+    if method == "IsPlayerTeamMember" then return arg and arg.player == true end
+    if method == "HasMatchingGameplayTag" then return object.downed == true end
+end
+local down = operator("Gizi", "Z", 0)
+down.downed = true
+team_turn(down, PLAYER)
+assert(logs[#logs]:find("Squad | Gizi downed", 1, true), logs[#logs])
+local before = #logs
+team_turn(down, PLAYER)
+assert(#logs == before or not logs[#logs]:find("Gizi", 1, true), "logged once while downed")
+down.downed = false
+team_turn(down, PLAYER)
+assert(logs[#logs]:find("Squad | Gizi revived", 1, true), logs[#logs])
 
 -- Penalties never touch injuries.
 for _, op in ipairs(roster) do assert(op.effects.GE_Injured == nil, "no injuries added") end

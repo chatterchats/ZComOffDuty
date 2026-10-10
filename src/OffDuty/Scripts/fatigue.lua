@@ -190,7 +190,9 @@ function M.new(ctx)
     -- Rounds: the hook fires once per unit per team turn; a new round starts when the player team's turn
     -- follows another team's. Logged (one line per round) for simulation runs and bug reports.
     local round, last_team = 0, nil
-    function self.reset_rounds() round, last_team = 0, nil end
+    local downed = {} -- name -> true while downed (BitReactor.Status.Character.Disabled.Downed)
+    function self.reset_rounds() round, last_team, downed = 0, nil, {} end
+    local DOWNED = "BitReactor.Status.Character.Disabled.Downed"
 
     local function on_team_turn(context, team)
         local team_name = g.full_name(g.unwrap(team))
@@ -200,16 +202,22 @@ function M.new(ctx)
             log("Round %d | player turn", round)
         end
         last_team = is_player_team and Game.PLAYER_TEAM or team_name
-        if not current_settings().ap_loss then return end
         -- Exact class: WorldTeam_PrePlayer also starts a turn each round, before the AP refill.
         if not team_name:find(Game.PLAYER_TEAM, 1, true) then return end
         local asc = g.unwrap(context)
         if not g.valid(asc) then return end
         local owner = (g.call(asc, "GetOwner"))
         if not g.valid(owner) or (g.call(g.unit_statics(), "IsPlayerTeamMember", owner)) ~= true then return end
+        -- Downed operators keep some health; the tag marks them. Logged on change (simulation runs count it).
+        local name = g.character_name(owner) or g.full_name(owner)
+        local is_downed = (g.call(asc, "HasMatchingGameplayTag", { TagName = FName(DOWNED) })) == true
+        if is_downed ~= (downed[name] == true) then
+            downed[name] = is_downed or nil
+            log("Squad | %s %s", name, is_downed and "downed" or "revived")
+        end
+        if not current_settings().ap_loss then return end
         local tier = tier_effect_present(asc)
         if not tier or tier.ap_loss <= 0 or math.random() >= tier.ap_loss then return end
-        local name = g.character_name(owner) or g.full_name(owner)
         actions:schedule_after("ap_loss", AP_LOSS_DELAY_MS, function()
             local class = g.effect_class(Game.LOSE_AP)
             local err = "GE_OffDuty_LoseAP unavailable"

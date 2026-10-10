@@ -151,6 +151,24 @@ def squad_health(sb):
     return healths
 
 
+def downed_since(offset):
+    """From Off Duty's 'Squad | <name> downed/revived' lines: (downed at the end, ever downed). Downed
+    operators keep some health, so health alone can't tell."""
+    state, ever = {}, set()
+    try:
+        with open(OFFDUTY_LOG, errors="replace") as f:
+            f.seek(offset)
+            for line in f:
+                m = re.search(r"Squad \| (.+) (downed|revived)\s*$", line)
+                if m:
+                    state[m.group(1)] = m.group(2) == "downed"
+                    if m.group(2) == "downed":
+                        ever.add(m.group(1))
+    except OSError:
+        pass
+    return sum(1 for v in state.values() if v), len(ever)
+
+
 def mission_status(sb):
     """The mission actor's MissionStatus: 'Active', 'Succeeded', 'Failed' ... (confirmed: 'Failed' after a wipe).
     A wiped squad doesn't read as 0 health: after the mission ends the units report restored characters."""
@@ -334,7 +352,8 @@ def one_run(sb, args, condition, run_index):
         "foes_start": start_foes, "foes_left": foes, "foes_seen": len(seen),
         "kills": len(seen - living) if result != "win" else len(seen),
         "reinforcements_removed": removed,
-        "squad_size": len(squad), "squad_alive": sum(1 for h in health if h > 0),
+        "squad_size": len(squad), "squad_alive": len(squad) - downed_since(log_offset)[0],
+        "downed_end": downed_since(log_offset)[0], "downed_ever": downed_since(log_offset)[1],
         "health_start": round(sum(start_health)), "health_end": round(sum(max(h, 0) for h in health)),
         "ap_losses": log_lines_since(log_offset, "AP loss |"), "seconds": round(time.time() - start),
     }
@@ -394,17 +413,17 @@ def cmd_report(args):
         values = [float(v) for v in values if v not in (None, "")]
         return sum(values) / len(values) if values else float("nan")
 
-    print("%-10s %4s %6s %7s %6s %8s %9s %7s" % ("condition", "runs", "win %", "rounds", "kills", "alive",
-                                                    "hp lost%", "AP lost"))
+    print("%-10s %4s %6s %7s %6s %7s %8s %9s %7s" % ("condition", "runs", "win %", "rounds", "kills", "downed",
+                                                        "alive", "hp lost%", "AP lost"))
     order = [c for c in CONDITIONS if any(r["condition"] == c for r in rows)]
     for condition in order:
         group = [r for r in rows if r["condition"] == condition]
         wins = sum(1 for r in group if r["result"] == "win")
         lost = [1 - float(r["health_end"]) / float(r["health_start"]) for r in group
                 if r.get("health_start") not in (None, "", "0")]
-        print("%-10s %4d %5.0f%% %7.1f %6.1f %8.2f %8.0f%% %7.1f" % (
+        print("%-10s %4d %5.0f%% %7.1f %6.1f %7.2f %8.2f %8.0f%% %7.1f" % (
             condition, len(group), 100.0 * wins / len(group), mean(r.get("rounds") for r in group),
-            mean(r.get("kills") for r in group),
+            mean(r.get("kills") for r in group), mean(r.get("downed_ever") for r in group),
             mean(r.get("squad_alive") for r in group), 100.0 * mean(lost), mean(r.get("ap_losses") for r in group)))
 
 
