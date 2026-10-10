@@ -77,5 +77,7 @@ assert(not rules.tooltip(rules.tier_by_id("tired"), 5, {}):find("Required", 1, t
 local waived = rules.tooltip(rules.REQUIRED_RESTED, 1, {}, true)
 assert(waived:find("(0 instead of 1)", 1, true) and waived:find("Next mission: no penalty.", 1, true), waived)
 local rested = rules.tooltip(rules.RESTED, 0, {}, true)
-assert(rested:find("Next mission: no penalty.", 1, true) and not rested:find("Required", 1, true), "rested, nothing to halve")
+assert(rested:find("Next mission: no penalty.", 1, true) and not rested:find("instead of", 1, true), "nothing to halve")
+assert(rested:find("<Bold>Required</> for this mission.", 1, true), "required at 0 fatigue still says so")
+assert(not rules.tooltip(rules.RESTED, 0, {}):find("Required", 1, true), "plain rested: no required line")
 print("rules ok")

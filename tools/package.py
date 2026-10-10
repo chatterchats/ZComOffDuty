@@ -21,7 +21,7 @@ assert f"Off Duty v{version} " in (SOURCE / "README.md").read_text()
 
 COMMON = [SOURCE / leaf for leaf in ("enabled.txt", "modinfo.json", "zcom-mod.json", "README.md",
                                      "MXM/settings.lua")]
-ICONS = [SOURCE / "icons" / f"T_OffDuty_Fatigue_{tier}.png" for tier in (1, 2, 3)]  # draw_icons.py
+ICONS = [SOURCE / "icons" / f"T_OffDuty_Fatigue_{tier}.png" for tier in (0, 1, 2, 3)]  # draw_icons.py
 REQUIRE = re.compile(r'require\("(\w+)"\)')
 FILE_REFERENCE = re.compile(r'"(\w+)\.lua"')
 

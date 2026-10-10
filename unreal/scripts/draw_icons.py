@@ -1,11 +1,13 @@
-"""Draw Off Duty's fatigue tier icons: white "Zzz" glyphs on transparency, like the game's status icons
-(the HUD tints them). One Z for Tired, two for Exhausted, three for Spent, rising and growing.
+"""Draw Off Duty's fatigue tier icons: white glyphs on transparency, like the game's status icons (the HUD
+tints them). One Z for Tired, two for Exhausted, three for Spent, rising and growing; a sun (level 0) for
+the squad-select RESTED banner.
 
-    python3 unreal/scripts/draw_icons.py   ->  src/OffDuty{,Probe}/icons/T_OffDuty_Fatigue_{1,2,3}.png (128x128)
+    python3 unreal/scripts/draw_icons.py   ->  src/OffDuty{,Probe}/icons/T_OffDuty_Fatigue_{0,1,2,3}.png (128x128)
 
 They ship as PNG files in the Lua mod and are loaded at runtime with
 KismetRenderingLibrary.ImportFileAsTexture2D: a texture cooked on Linux didn't load in the Windows game.
 """
+import math
 import os
 
 from PIL import Image, ImageDraw
@@ -33,13 +35,31 @@ def draw_z(draw, cx, cy, height):
                   ((left + t * 1.15) * s, (bottom - t) * s), (left * s, (bottom - t) * s)], fill=255)
 
 
+def draw_sun(draw):
+    """A bold disc with eight tapered rays."""
+    s, c = SCALE, SIZE / 2
+    r = 25
+    draw.ellipse([(c - r) * s, (c - r) * s, (c + r) * s, (c + r) * s], fill=255)
+    inner, outer, half = 34, 58, 7  # ray base radius, tip radius, half-width at the base
+    for i in range(8):
+        a = i * math.pi / 4
+        dx, dy = math.cos(a), math.sin(a)
+        px, py = -dy, dx  # perpendicular
+        base_l = (c + dx * inner + px * half, c + dy * inner + py * half)
+        base_r = (c + dx * inner - px * half, c + dy * inner - py * half)
+        tip = (c + dx * outer, c + dy * outer)
+        draw.polygon([(x * s, y * s) for x, y in (base_l, tip, base_r)], fill=255)
+
+
 def main():
     for out in OUTS:
         os.makedirs(out, exist_ok=True)
-    for tier, zs in LAYOUTS.items():
+    for tier, zs in [(0, None)] + list(LAYOUTS.items()):
         alpha = Image.new("L", (SIZE * SCALE, SIZE * SCALE), 0)
         draw = ImageDraw.Draw(alpha)
-        for cx, cy, height in zs:
+        if zs is None:
+            draw_sun(draw)
+        for cx, cy, height in zs or []:
             draw_z(draw, cx, cy, height)
         alpha = alpha.resize((SIZE, SIZE), Image.LANCZOS)
         icon = Image.new("RGBA", (SIZE, SIZE), (255, 255, 255, 0))

@@ -37,8 +37,8 @@ M.TIERS = {
     },
 }
 
--- Squad select only: a required operator whose half fatigue leaves them rested still gets a banner, so the
--- tooltip can say why there's no penalty. Not a tier (no effect, never applied in mission).
+-- Squad select only: a required operator left without a tier (half their fatigue is below Tired, or they
+-- have none) gets this banner rather than RESTED. Not a tier (no effect, never applied in mission).
 M.REQUIRED_RESTED = {
     id = "required", level = 1, name = "Required", label = "REQUIRED",
     colour = { R = 0.62, G = 0.72, B = 0.82, A = 1.0 },
@@ -153,6 +153,8 @@ function M.tooltip(tier, points, settings, required)
     if required and points > 0 then
         lines[#lines + 1] = string.format("<Bold>Required:</> fatigue counts as half for this mission (%d instead of %d).",
             M.mission_points(points, true), points)
+    elseif required then
+        lines[#lines + 1] = "<Bold>Required</> for this mission."
     end
     lines[#lines + 1] = ""
     local penalties = M.penalties(tier, settings)

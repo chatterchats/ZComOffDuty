@@ -1,4 +1,4 @@
--- Off Duty's Zzz tier icons: PNGs in the mod's icons/ folder (drawn by unreal/scripts/draw_icons.py),
+-- Off Duty's tier icons (Zzz, and a sun for RESTED): PNGs in the mod's icons/ folder (drawn by unreal/scripts/draw_icons.py),
 -- imported at runtime with KismetRenderingLibrary.ImportFileAsTexture2D. A texture cooked on Linux
 -- doesn't load in the Windows game. Each call imports a new transient texture; whatever brush it's set
 -- on keeps it alive, so nothing is cached in Lua.
@@ -25,7 +25,7 @@ function M.new(ctx)
         return paths
     end
 
-    -- level: 1 Tired, 2 Exhausted, 3 Spent.
+    -- level: 0 the RESTED sun, 1 Tired, 2 Exhausted, 3 Spent.
     function self.texture(level)
         local rendering = g.cdo("/Script/Engine.Default__KismetRenderingLibrary")
         local tried = {}
