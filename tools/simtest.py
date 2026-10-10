@@ -424,6 +424,15 @@ def one_run(sb, args, condition, run_index, enemies):
     seen = {actor for _, actor, _ in foe_entries(text)}
     starting = set(seen)  # the fight's own enemies; anyone else is a reinforcement
     waves_stopped = stop_reinforcements(sb) if args.no_reinforcements else 0
+    if args.free_first_slot:
+        # Hand slot 1 over only once the player turn is live, plus a settle, so every condition gets the same
+        # timing: baseline (no tier effects to apply) used to reach this fastest, and its runs were the ones
+        # where the freed operator then idled and stayed at 0 health.
+        for _ in range(30):
+            if sb.send("turn")[1].startswith("turn: Player"):
+                break
+            time.sleep(1)
+        time.sleep(3)
     first_slot = free_first_slot(sb) if args.free_first_slot else "player"
     heroes = hero_actors(sb) or set()
     vanished = set()
