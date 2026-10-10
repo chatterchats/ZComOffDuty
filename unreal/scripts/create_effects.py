@@ -19,8 +19,11 @@ Effects (all UBitReactorGameplayEffect Blueprints):
   UBrunoGameStatics::AddNextMissionCharacterEffect like the game's GE_Lose_NextMission_* effects and
   copying their pattern (bTerminateWithCombat, not saved, TemporaryPenalty + StatusEffect.Negative tags).
   Percentages use MultiplyAdditive, which the engine multiplies by the stack count, so these never stack
-  (limit 1): one effect per tier instead. Tired has no modifiers of its own (its accuracy is the game's
-  effect); it exists so the tier shows in mission.
+  (limit 1): one effect per tier instead. Tired's accuracy is the game's effect, so its only modifier is a
+  no-op (MaxHealth MultiplyAdditive 1.0); it exists so the tier shows in mission. It needs that modifier:
+  a native routine that walks a character's status effects reads each one's first modifier without checking
+  there is one (SWZeroCompany.exe+0x97042b6), so a status effect with no modifiers crashes the game once
+  AI logic runs for the character (seen with sandbox AI driving the squad).
   Each carries BRG_StatusEffectUIData, the component GE_Injured uses, so the tactical Inspect panel lists
   it under Debuffs. The list takes a status's name, description and icon from its StatusEffectTag's tag
   UI data, so each tier has its own tag (OffDuty.Status.<Tier>, Config/Tags/OffDutyTags.ini) whose text
@@ -84,7 +87,7 @@ EFFECTS = [
         "name": "GE_OffDuty_Tired",
         "defaults": NEXT_MISSION_PENALTY,
         "asset_tags": TIER_TAGS,
-        "modifiers": [],
+        "modifiers": [(HEALTH, "MultiplyAdditive", 1.0)],  # no-op; see the module docstring
         "ui": ("Tired", "Worn down from back-to-back deployments. <Bold>-5%</> Chance-To-Hit."),
     },
     {

@@ -522,3 +522,15 @@ the imported texture and `BrushType` to None; never write `WeakResourceObject`.
 - **Post-hooks on Blueprint functions never fire in UE4SS 3.0.1** (probe history: 140 pre, 0 post on `/Game/`
   functions; native `/Script/` functions fire both). The squad UI used post-hooks; it uses pre-hooks now.
   `WBP_CharacterSlot_C:FilledSlotState` and the like were probably hookable after all.
+
+## A status effect with no modifiers crashes AI logic (2026-10-09)
+
+Tiered simtest runs crashed about 20 s into sandbox-AI play at `SWZeroCompany.exe+0x97042b6` (null read).
+`tier_effect_only` (GE_OffDuty_Tired alone, no accuracy stacks) reproduced it; the baseline did not.
+The function there takes a tag query's matching active effects from the ASC's container (`ASC+0x8c8`), and for
+each `FActiveGameplayEffect` reads `Spec.Modifiers[0].EvaluatedMagnitude` (`[effect+0x1c8]`) with no
+bounds check; a nonzero magnitude adds the effect's asset and granted tags to a list. GE_OffDuty_Tired had no
+modifiers, so the data pointer was null. GE_OffDuty_Deployed (no modifiers, Persists tag only) never
+crashed, so the query matches one of the tier tags (TemporaryPenalty, StatusEffect.Negative or
+CoreCondition), all of which the game only uses on effects with modifiers. Fix: Tired carries a no-op
+modifier (MaxHealth MultiplyAdditive 1.0). Rule: any status-tagged effect we ship needs at least one modifier.
