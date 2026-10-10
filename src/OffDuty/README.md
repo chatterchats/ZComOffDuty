@@ -1,4 +1,4 @@
-# Off Duty v1.0.0 — Operator Fatigue and Recovery for Star Wars: Zero Company
+# Off Duty v1.0.1 — Operator Fatigue and Recovery for Star Wars: Zero Company
 
 Tired of sending the same four operators on every mission? With Off Duty,
 operators **get tired from back-to-back deployments** and **recover while

@@ -1,6 +1,6 @@
 {
   "title": "Off Duty — Assets",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "Chats",
   "description": "Off Duty's gameplay effects (fatigue, tiers, AP loss) and status tags. Required by Off Duty; deploys to Content/Paks/~mods."
 }
