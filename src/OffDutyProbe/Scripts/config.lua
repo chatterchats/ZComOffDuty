@@ -31,12 +31,12 @@ return {
     -- to them. Defaults cover each tier (1 Tired, 3 Exhausted, 5/7 Spent) and 0/1/2 injuries.
     -- Never more than 2 injuries: a third kills the operator. The probe caps it at 2 regardless.
     test_squad = {
-        { name = "Tesh", fatigue = 1, injuries = 1 },
-        { name = "Kabb", fatigue = 3, injuries = 2 },
-        { name = "BR-1", fatigue = 5, injuries = 0 },
-        { name = "Kara", fatigue = 7, injuries = 0 },
-        -- Benched (don't deploy): shows turn-end recovery (4 -> 3 after a mission turn).
-        { name = "Tel-Rea", fatigue = 4, injuries = 0 },
+        -- Simtest squad (tools/simtest.py): clean baseline, no fatigue and no injuries. Press Ctrl+Shift+F in the
+        -- sandbox Den, then `campaign baseline` saves it as the baseline every run resets to.
+        { name = "Tesh", fatigue = 0, injuries = 0 },
+        { name = "Kabb", fatigue = 0, injuries = 0 },
+        { name = "Luco", fatigue = 0, injuries = 0 },
+        { name = "Jae", fatigue = 0, injuries = 0 },
     },
 
     -- High-frequency hooks (roster tiles) log their first N calls, then every Nth.
