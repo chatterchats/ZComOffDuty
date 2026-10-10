@@ -17,9 +17,9 @@ side is gone or the turn cap is reached. Results go to dist/simtest/<time>.csv w
         --conditions baseline,tired,exhausted,spent --runs 5 --turn-cap 15 --speed 4 \\
         --keep 10 --no-reinforcements --free-first-slot --neutralise
 
-Speed: 6 is the fastest safe setting (about 7 s per round). At 8 the freed first-slot operator's actor was
-destroyed at the start of every Coil fight (5 of 5), so the run was a 3-operator fight; the `vanished`
-column flags any operator whose actor disappears mid-mission.
+Speed: 6 runs about 7 s per round. The `vanished` column flags any operator whose actor disappears
+mid-mission: before free_first_slot pinned the unit in place, the possession swap dropped it through the
+floor and it was sometimes destroyed (more often at higher speeds); 0 of 4 at speed 6 since the fix.
 
 --free-first-slot matters: the player controller possesses the first squad member, so without it the
 game's AI barely ever acts with that unit. Freed, each squad turn waits about 10 s at its end (the
@@ -313,7 +313,11 @@ def free_first_slot(sb):
     The player controller possesses the first squad member, and that unit keeps no AI controller, so the
     game's AI barely ever acts with it. Its AIC_Planner is still there (its Pawn still names the unit):
     the player controller takes one of the level's hidden BP_PreviewActor pawns instead (with no pawn
-    at all the squad's turn stalls), and the planner possesses the unit again."""
+    at all the squad's turn stalls), and the planner possesses the unit again.
+
+    The possession swap drops the unit into MOVE_Falling through the floor; left alone it falls until the
+    AI's first move snaps it back, and past the kill depth the engine destroys it (the `vanished` runs).
+    So its location is put back and its movement set to walking straight after."""
     status, text = sb.send("get @pc Pawn")
     unit = quoted_path(text) if status == "ok" else None
     if not unit or ".Char_Hero_" not in unit:
@@ -332,10 +336,24 @@ def free_first_slot(sb):
     spare = re.search(r"BP_PreviewActor_C_\d+", text) if status == "ok" else None
     if not spare:
         return "no spare pawn"
+    status, text = sb.send("call %s K2_GetActorLocation" % unit)
+    where = re.search(r"\(X=[-\d.]+,Y=[-\d.]+,Z=([-\d.]+)\)", text) if status == "ok" else None
     sb.ok("call @pc Possess InPawn=%s.%s" % (level, spare.group(0)))
     sb.ok("call %s Possess InPawn=%s" % (planner, unit))
     status, text = sb.send("get %s Controller" % unit)
-    return "freed %s" % unit.rsplit(".", 1)[1] if "AIC_Planner" in text else "possess failed"
+    if "AIC_Planner" not in text:
+        return "possess failed"
+    name = unit.rsplit(".", 1)[1]
+    if not where:
+        return "freed %s (location unread)" % name
+    sb.ok("call %s.CharMoveComp SetMovementMode NewMovementMode=MOVE_Walking" % unit)
+    sb.ok("call %s K2_SetActorLocation NewLocation=%s bSweep=False bTeleport=True" % (unit, where.group(0)))
+    time.sleep(1.0)
+    status, text = sb.send("call %s K2_GetActorLocation" % unit)
+    now = re.search(r"Z=([-\d.]+)", text) if status == "ok" else None
+    if not now or float(now.group(1)) < float(where.group(1)) - 300:
+        return "fell %s" % name
+    return "freed %s" % name
 
 
 def one_run(sb, args, condition, run_index, enemies):
