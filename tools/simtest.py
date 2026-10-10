@@ -232,8 +232,9 @@ def one_run(sb, args, condition, run_index):
         # Same fight every run: remove all but `keep` enemies, the strongest kinds first (B1s are kept last).
         entries = foe_entries(text)
         entries.sort(key=lambda e: (e[2] == "B1 Battle Droid", e[0]))
-        for sel, _, _ in entries[:max(0, len(entries) - args.keep)]:
-            sb.send("kill %s wait=1" % sel, timeout=60)
+        # By actor name: the e-numbers are renumbered after every kill.
+        for _, actor, _ in entries[:max(0, len(entries) - args.keep)]:
+            sb.send("kill %s wait=1" % actor, timeout=60)
         status, text = sb.send("foes")
     start_foes = count_foes(text)
     seen = {actor for _, actor, _ in foe_entries(text)}
