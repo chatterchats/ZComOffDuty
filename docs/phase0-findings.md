@@ -544,3 +544,12 @@ undercover clone" Tesh Hawks is locked into the squad and listed under Unit Requ
 reads `bBlockingRequirement = false`, so Off Duty treats every listed operator as required. Verified in
 game: Tesh at 2 fatigue (Standard preset) went in rested (tier from half: 1) while Kabb and BR-1 at 2
 went in Tired; all three went 2 -> 4.
+
+## Required operators in squad select (2026-10-10)
+
+In the hub `GetRequiredCharactersForCurrentMission` returns nothing until launch. Scanning every
+`BrunoMissionSquadSlotViewModel` for a `RequiredCharacterID` finds other available missions' locked slots
+too (an operator stayed REQUIRED after switching missions), and `MDViewModelFunctionLibrary::GetViewModel`
+found no slot view model on `WBP_CharacterSlot_C` under Default/SquadSlot/Slot/SlotVM. The slot widget's
+`LockedIcon` (an Overlay, visible beside a required operator's name) is the reliable marker: Off Duty treats
+a slot with a visible lock as required. Verified in game.
