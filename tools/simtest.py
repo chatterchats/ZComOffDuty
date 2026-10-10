@@ -260,6 +260,33 @@ def apply_condition(sb, condition, size):
             sb.ok("ge %d %s wait=1" % (n, ACCURACY), timeout=60)
 
 
+def stop_reinforcements(sb):
+    """Stop every encounter's reinforcement waves (ABRGameEncounterActor::StopAllReinforcementWaves).
+
+    Returns how many encounters were stopped. Done once at setup, so the AI can keep the squad for the
+    whole mission: removing arrivals needed the squad's turn back every round, and taking a turn over
+    mid-way left the first-slot operator idle most rounds."""
+    status, _ = sb.send("actors /Script/BitReactorGame.BRGameMissionActor")
+    if status != "ok":
+        return 0
+    status, text = sb.send("get @last OrderedEncounterArray.Num")
+    match = re.search(r"= (\d+)", text)
+    paths = []
+    for index in range(int(match.group(1)) if status == "ok" and match else 0):
+        sb.send("actors /Script/BitReactorGame.BRGameMissionActor")
+        status, text = sb.send("get @last OrderedEncounterArray[%d]" % index)
+        found = re.search(r"'([^']+)'", text)
+        if status == "ok" and found:
+            paths.append(found.group(1))
+    stopped = 0
+    for path in paths:
+        if sb.send("find %s" % path)[0] == "ok" and sb.send("call @last StopAllReinforcementWaves")[0] == "ok":
+            stopped += 1
+    if not paths and sb.send("actors /Script/BitReactorGame.BRGameEncounterActor")[0] == "ok":
+        stopped += sb.send("call @last StopAllReinforcementWaves")[0] == "ok"
+    return stopped
+
+
 def one_run(sb, args, condition, run_index):
     squad = [s.strip() for s in args.squad.split(",") if s.strip()]
     # `ai on` and `speed` persist across missions: start every run with the squad in our hands, so setup
@@ -284,8 +311,8 @@ def one_run(sb, args, condition, run_index):
         status, text = sb.send("foes")
     start_foes = count_foes(text)
     seen = {actor for _, actor, _ in foe_entries(text)}
-    starting = set(seen)  # the fight's own enemies; with --no-reinforcements anyone else is removed
-    removed = 0
+    starting = set(seen)  # the fight's own enemies; anyone else is a reinforcement
+    waves_stopped = stop_reinforcements(sb) if args.no_reinforcements else 0
     sb.ok("speed %s" % args.speed)
     sb.ok("ai camera off")
     start = time.time()
@@ -296,31 +323,20 @@ def one_run(sb, args, condition, run_index):
         state = mission_status(sb)
         return {"Failed": "loss", "Succeeded": "win"}.get(state)
 
-    def give_turn_to_ai():
-        # `ai on` plays the current player turn; `ai off` straight after takes effect from the NEXT player turn,
-        # which then waits for input: a guaranteed safe moment for the harness at every round start.
-        sb.ok("ai on")
-        if args.no_reinforcements:
-            sb.ok("ai off")
-
     def check_enemies():
-        """Read the enemies; with --no-reinforcements, remove arrivals (call only on a paused player turn)."""
-        nonlocal foes, seen, living, removed
+        """Read the enemies (read-only, so safe on the AI's turns)."""
+        nonlocal foes, seen, living
         status, text = sb.send("foes")
         if status != "ok":
             return
         entries = foe_entries(text)
-        if args.no_reinforcements:
-            for actor in [a for _, a, _ in entries if a not in starting]:
-                k_status, _ = sb.send("kill %s wait=1 timeout=60000" % actor, timeout=80)
-                if k_status == "ok":
-                    removed += 1
-            entries = [e for e in entries if e[1] in starting]
-        foes = len(entries) if args.no_reinforcements else count_foes(text)
+        foes = count_foes(text)
         seen |= {actor for _, actor, _ in entries}
         living = {actor for _, actor, _ in entries}
 
-    give_turn_to_ai()
+    # Setup ran on the first player turn, so `ai on` takes that turn over; it then stays on, and every later
+    # squad turn is planned by the AI from its start.
+    sb.ok("ai on")
     rounds_seen = log_lines_since(log_offset, "Round ")
     last_poll = 0.0
     while time.time() - start < args.wall_cap:
@@ -334,8 +350,7 @@ def one_run(sb, args, condition, run_index):
         if outcome:
             result = outcome; break
         # Only read the squad and enemies while the mission is live (afterwards they read as restored).
-        if new_round or not args.no_reinforcements:
-            check_enemies()
+        check_enemies()
         reading = squad_health(sb)
         outcome = ended()
         if outcome:
@@ -347,14 +362,12 @@ def one_run(sb, args, condition, run_index):
             result = "turn cap"; break
         if new_round:
             rounds_seen = rounds
-            if args.no_reinforcements:
-                give_turn_to_ai()  # the paused turn goes to the AI; the next one pauses again
     row = {
         "condition": condition, "run": run_index, "mission": args.mission, "enemies": args.enemies,
         "result": result, "rounds": log_lines_since(log_offset, "Round "),
         "foes_start": start_foes, "foes_left": foes, "foes_seen": len(seen),
         "kills": len(seen - living) if result != "win" else len(seen),
-        "reinforcements_removed": removed,
+        "waves_stopped": waves_stopped, "arrivals": len(seen - starting),
         "squad_size": len(squad), "squad_alive": len(squad) - downed_since(log_offset)[0],
         "downed_end": downed_since(log_offset)[0], "downed_ever": downed_since(log_offset)[1],
         "health_start": round(sum(start_health)), "health_end": round(sum(max(h, 0) for h in health)),
@@ -452,7 +465,7 @@ def main():
     p.add_argument("--speed", default="4")
     p.add_argument("--keep", type=int, default=None, help="enemies to keep at the start (the rest are removed)")
     p.add_argument("--no-reinforcements", action="store_true",
-                   help="remove enemies that arrive after the start (same-sized fight every run)")
+                   help="stop the mission's reinforcement waves at the start (same-sized fight every run)")
     p.add_argument("--neutralise", action="store_true", help="set Off Duty's fatigue gain to 0 during the runs")
     p.set_defaults(func=cmd_run)
     args = parser.parse_args()
