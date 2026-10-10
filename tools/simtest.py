@@ -122,33 +122,42 @@ def require_session(sb):
 # ---- reading the game (formats confirmed against `info` output) ----------------------------------------
 
 def count_foes(text):
-    """`foes` lists the living enemies as e1 e2 ...; 0 when none."""
-    return len(set(re.findall(r"\be(\d+)\b", text)))
+    """`foes`: '11 living enemies: e1 ...' (confirmed in game)."""
+    m = re.search(r"(\d+) living enem", text)
+    if m:
+        return int(m.group(1))
+    return 0 if re.search(r"\bno living\b|\bnone\b", text, re.I) else None
 
 
-def squad_alive(sb, size):
-    """Living squad members: units with Health > 0 (via `stats <n> Health`)."""
-    alive = 0
-    for n in range(1, size + 1):
+def squad_health(sb):
+    """[health per squad unit] from `units` (count) and `stats <n> Health` ('...HealthSet.Health=88')."""
+    status, text = sb.send("units")
+    m = re.search(r"(\d+) units", text) if status == "ok" else None
+    healths = []
+    for n in range(1, (int(m.group(1)) if m else 0) + 1):
         status, text = sb.send("stats %d Health" % n)
-        if status != "ok":
-            continue
-        m = re.search(r"Health\D+([\d.]+)", text)
-        if m and float(m.group(1)) > 0:
-            alive += 1
-    return alive
+        h = re.search(r"HealthSet\.Health=([\d.]+)", text) if status == "ok" else None
+        healths.append(float(h.group(1)) if h else 0.0)
+    return healths
 
 
-def current_turn(text):
-    m = re.search(r"\bturn\D*(\d+)", text, re.I)
-    return int(m.group(1)) if m else None
+def mission_status(sb):
+    """The mission actor's MissionStatus: 'Active', 'Succeeded', 'Failed' ... (confirmed: 'Failed' after a wipe).
+    A wiped squad doesn't read as 0 health: after the mission ends the units report restored characters."""
+    status, _ = sb.send("actors /Script/BitReactorGame.BRGameMissionActor")
+    if status != "ok":
+        return None
+    status, text = sb.send("get @last MissionStatus")
+    m = re.search(r"MissionStatus\s*=\s*(\w+)", text) if status == "ok" else None
+    return m.group(1) if m else None
 
 
-def ap_losses_since(offset):
+def log_lines_since(offset, needle):
+    """Off Duty log lines containing `needle` written after `offset` (rounds, AP losses)."""
     try:
         with open(OFFDUTY_LOG, errors="replace") as f:
             f.seek(offset)
-            return sum(1 for line in f if "AP loss |" in line)
+            return sum(1 for line in f if needle in line)
     except OSError:
         return 0
 
@@ -185,7 +194,8 @@ def neutralise_offduty():
     """Off Duty's fatigue gain 0 for the session (the harness applies tiers itself). Returns the old file."""
     old = MXM_VALUES.read_text() if MXM_VALUES.exists() else None
     MXM_VALUES.parent.mkdir(parents=True, exist_ok=True)
-    MXM_VALUES.write_text("return {\n    fatigue_per_mission = 0,\n}\n")
+    # No fatigue gain between runs (the harness applies tiers itself); AP loss on (it's part of the test).
+    MXM_VALUES.write_text("return {\n    fatigue_per_mission = 0,\n    ap_loss = true,\n}\n")
     return old
 
 
@@ -203,30 +213,39 @@ def one_run(sb, args, condition, run_index):
     sb.ok("campaign reset", timeout=300)
     sb.ok("wait phase=hub settled=1 timeout=240000")
     sb.ok('mission launch %s squad="%s" enemies=%s' % (args.mission, ",".join(squad), args.enemies), timeout=120)
+    log_offset = log_size()
     sb.ok("wait phase=mission settled=1 timeout=300000")
     apply_condition(sb, condition, len(squad))
+    start_health = squad_health(sb)
+    status, text = sb.send("foes")
+    start_foes = count_foes(text)
     sb.ok("speed %s" % args.speed)
     sb.ok("ai camera off")
     sb.ok("ai on")
-    start, log_offset = time.time(), log_size()
-    result, turn, foes, alive = "timeout", None, None, None
+    start = time.time()
+    result, foes, health = "timeout", start_foes, start_health
     while time.time() - start < args.wall_cap:
         time.sleep(args.poll)
+        state = mission_status(sb)
+        if state == "Failed":
+            result = "loss"; break
+        if state == "Succeeded":
+            result = "win"; break
+        # Only read the squad and enemies while the mission is live (afterwards they read as restored).
         status, text = sb.send("foes")
         foes = count_foes(text) if status == "ok" else foes
-        alive = squad_alive(sb, len(squad))
-        status, text = sb.send("turn")
-        turn = current_turn(text) if status == "ok" else turn
+        health = squad_health(sb) or health
         if foes == 0:
             result = "win"; break
-        if alive == 0:
-            result = "loss"; break
-        if turn is not None and turn > args.turn_cap:
+        if log_lines_since(log_offset, "Round ") > args.turn_cap:
             result = "turn cap"; break
     row = {
         "condition": condition, "run": run_index, "mission": args.mission, "enemies": args.enemies,
-        "result": result, "turn": turn, "foes_left": foes, "squad_alive": alive, "squad_size": len(squad),
-        "ap_losses": ap_losses_since(log_offset), "seconds": round(time.time() - start),
+        "result": result, "rounds": log_lines_since(log_offset, "Round "),
+        "foes_start": start_foes, "foes_left": foes,
+        "squad_size": len(squad), "squad_alive": sum(1 for h in health if h > 0),
+        "health_start": round(sum(start_health)), "health_end": round(sum(max(h, 0) for h in health)),
+        "ap_losses": log_lines_since(log_offset, "AP loss |"), "seconds": round(time.time() - start),
     }
     sb.send("ai off")
     sb.send("speed 1")

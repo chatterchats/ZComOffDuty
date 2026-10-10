@@ -140,6 +140,7 @@ function M.new(ctx)
         end
 
         actions:cancel_group("ap_loss", "mission start") -- a new mission session
+        self.reset_rounds()
         local tier = Rules.tier(fatigue, s.preset)
         local summary = tier and apply_tier(asc, tier, name) or "rested"
         g.set_effect_count(asc, deployed_class, 1 + (tier and tier.level or 0)) -- records the starting tier
@@ -186,9 +187,20 @@ function M.new(ctx)
 
     -- Player turn start: AP loss ----------------------------------------------------------------------
 
+    -- Rounds: the hook fires once per unit per team turn; a new round starts when the player team's turn
+    -- follows another team's. Logged (one line per round) for simulation runs and bug reports.
+    local round, last_team = 0, nil
+    function self.reset_rounds() round, last_team = 0, nil end
+
     local function on_team_turn(context, team)
-        if not current_settings().ap_loss then return end
         local team_name = g.full_name(g.unwrap(team))
+        local is_player_team = team_name:find(Game.PLAYER_TEAM, 1, true) ~= nil
+        if is_player_team and last_team ~= Game.PLAYER_TEAM then
+            round = round + 1
+            log("Round %d | player turn", round)
+        end
+        last_team = is_player_team and Game.PLAYER_TEAM or team_name
+        if not current_settings().ap_loss then return end
         -- Exact class: WorldTeam_PrePlayer also starts a turn each round, before the AP refill.
         if not team_name:find(Game.PLAYER_TEAM, 1, true) then return end
         local asc = g.unwrap(context)
