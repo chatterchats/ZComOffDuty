@@ -10,8 +10,8 @@ for dir in "$games"/Instance\ *; do
     # Each copy keeps its own settings (values.lua), simtest backup and log.
     rsync -a --delete --exclude 'MXM/values.lua*' --exclude 'off_duty.log' "$repo/src/OffDuty/" "$root/Binaries/Win64/ue4ss/Mods/OffDuty/"
     if [ -f "$repo/dist/plugin/SWZeroCompany/Content/Paks/~mods/OffDuty_P.pak" ]; then
-        cp "$repo"/dist/plugin/SWZeroCompany/Content/Paks/~mods/OffDuty_P.* \
-           "$repo"/dist/plugin/SWZeroCompany/Content/Paks/~mods/OffDutyTags_P.pak "$root/Content/Paks/~mods/"
+        rm -f "$root/Content/Paks/~mods/OffDutyTags_P.pak" # older builds; now inside OffDuty_P.pak
+        cp "$repo"/dist/plugin/SWZeroCompany/Content/Paks/~mods/OffDuty_P.* "$root/Content/Paks/~mods/"
     fi
     echo "synced: ${dir##*/}"
 done

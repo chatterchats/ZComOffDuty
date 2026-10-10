@@ -10,8 +10,12 @@
 #   3. assemble a ~mods pak mod (a Modkit "override" mod: content remapped onto /Game):
 #        SWZeroCompany/Content/Paks/~mods/OffDuty_P.{pak,ucas,utoc}
 #      and check the remap ran (in game the effect is /Game/OffDuty/Effects/GE_OffDuty_Fatigue)
-#   4. OffDutyTags_P.pak: Config/Tags/OffDutyTags.ini mounted at the project's Config/Tags, in case the
-#      game only reads gameplay tag files from there (the cooked plugin config lands under Mods/OffDuty/)
+#   4. rebuild the companion OffDuty_P.pak (UAT's own pak list, same compression) with one more entry:
+#      Config/Tags/OffDutyTags.ini at the game's SWZeroCompany/Config/Tags/. The game only reads gameplay
+#      tag files from there at startup; the cooked plugin copy lands under Mods/OffDuty/, which nothing
+#      scans. IoStore containers (utoc/ucas) hold only cooked packages, so loose files belong in this pak.
+#      (Earlier builds shipped that one file as a separate OffDutyTags_P.pak; Zero Mod Manager skips a
+#      pak-only file sitting beside an IoStore set, so it now rides in the companion.)
 #
 # The Linux editor has no Windows target platform, so this cooks for Linux. GE_OffDuty_Fatigue
 # has no shaders, textures or other platform-specific data; whether a Linux cook loads in the
@@ -75,18 +79,30 @@ grep -q "Remapping plugin content to game: 'True'" "$logs/cook.log" \
 "$engine/Binaries/Linux/UnrealPak" "$out/OffDuty_P.utoc" -List > "$logs/list.log" 2>&1
 grep -q '/OffDuty/Effects/GE_OffDuty_Fatigue.uasset"' "$logs/list.log" \
     || { echo "GE_OffDuty_Fatigue missing from the container; see $logs/list.log" >&2; exit 1; }
-printf '"%s" "../../../SWZeroCompany/Config/Tags/OffDutyTags.ini"\n' \
-    "$repo/unreal/OffDuty/Config/Tags/OffDutyTags.ini" > "$logs/tags-pak.txt"
-"$engine/Binaries/Linux/UnrealPak" "$out/OffDutyTags_P.pak" -create="$logs/tags-pak.txt" > "$logs/tags-pak.log" 2>&1 \
-    || { tail -5 "$logs/tags-pak.log" >&2; echo "Tags pak failed; see $logs/tags-pak.log" >&2; exit 1; }
-( cd "$out" && sha256sum OffDuty_P.* OffDutyTags_P.pak ) > "$repo/dist/plugin/SHA256SUMS"
+paklist="$engine/Programs/AutomationTool/Saved/ResponseFiles/PakList_OffDutySWZeroCompany-$platform.txt"
+[ "$paklist" -nt "$logs/author.log" ] || { echo "UAT's pak list $paklist is stale or missing" >&2; exit 1; }
+# UAT writes the list with a UTF-8 BOM; drop it, then add the tags file at the game's path.
+sed '1s/^\xEF\xBB\xBF//' "$paklist" > "$logs/companion-pak.txt"
+printf '"%s" "../../../SWZeroCompany/Config/Tags/OffDutyTags.ini" -compress\n' \
+    "$repo/unreal/OffDuty/Config/Tags/OffDutyTags.ini" >> "$logs/companion-pak.txt"
+rm -f "$out/OffDuty_P.pak"
+"$engine/Binaries/Linux/UnrealPak" "$out/OffDuty_P.pak" -create="$logs/companion-pak.txt" -platform=$platform \
+    -compressionformats=Oodle -compresslevel=4 -compressmethod=Kraken > "$logs/companion-pak.log" 2>&1 \
+    || { tail -5 "$logs/companion-pak.log" >&2; echo "Companion pak failed; see $logs/companion-pak.log" >&2; exit 1; }
+"$engine/Binaries/Linux/UnrealPak" "$out/OffDuty_P.pak" -List > "$logs/companion-list.log" 2>&1
+grep -q 'mount point "../../../SWZeroCompany/"' "$logs/companion-list.log" \
+    && grep -q '"Config/Tags/OffDutyTags.ini"' "$logs/companion-list.log" \
+    && grep -q '"Mods/OffDuty/AssetRegistry.bin"' "$logs/companion-list.log" \
+    || { echo "Companion pak layout unexpected; see $logs/companion-list.log" >&2; exit 1; }
+( cd "$out" && sha256sum OffDuty_P.* ) > "$repo/dist/plugin/SHA256SUMS"
 cat "$repo/dist/plugin/SHA256SUMS"
 
 if $install; then
     game=${SWZC_GAME:-$(cat "$kit/GameInstallDirectory.txt")}
     target="$game/SWZeroCompany/Content/Paks/~mods"
+    # OffDutyTags_P.pak is from older builds (its file now rides in OffDuty_P.pak): remove it.
     mkdir -p "$target" && rm -f "$target"/OffDuty_P.* "$target"/OffDutyTags_P.pak \
-        && cp "$out"/OffDuty_P.* "$out"/OffDutyTags_P.pak "$target/"
-    echo "Installed: $target/OffDuty_P.{pak,ucas,utoc} and OffDutyTags_P.pak"
+        && cp "$out"/OffDuty_P.* "$target/"
+    echo "Installed: $target/OffDuty_P.{pak,ucas,utoc}"
     "$repo/tools/sync_instances.sh" # the simtest game copies, if any
 fi

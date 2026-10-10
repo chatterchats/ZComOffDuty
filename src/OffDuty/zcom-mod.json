@@ -14,5 +14,14 @@
   ],
   "requires": {
     "ue4ss": true
+  },
+  "dependencies": [
+    {
+      "id": "community.off-duty.assets",
+      "reason": "Off Duty's gameplay effects and status tags ship as an IoStore pak in the same archive."
+    }
+  ],
+  "nexus": {
+    "modId": 315
   }
 }

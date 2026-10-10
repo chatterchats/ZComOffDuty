@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "community.off-duty.assets",
+  "name": "Off Duty — Assets",
+  "version": "0.1.0",
+  "author": "Chats",
+  "description": "Off Duty's gameplay effects (fatigue, tiers, AP loss) and status tags. Required by Off Duty.",
+  "game": {
+    "appId": 2075800,
+    "testedBuilds": []
+  },
+  "type": [
+    "iostore"
+  ],
+  "requires": {
+    "ue4ss": false
+  },
+  "nexus": {
+    "modId": 315
+  }
+}

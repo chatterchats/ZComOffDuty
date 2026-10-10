@@ -16,12 +16,20 @@ ROOT = Path(__file__).resolve().parent.parent
 CHANGELOG = ROOT / "CHANGELOG.md"
 MODINFO = ROOT / "src/OffDuty/modinfo.json"
 ZCOM_MOD = ROOT / "src/OffDuty/zcom-mod.json"
+ASSETS_MODINFO = ROOT / "src/OffDuty_Assets/modinfo.json"
+ASSETS_ZCOM_MOD = ROOT / "src/OffDuty_Assets/zcom-mod.json"
+MXM_SETTINGS = ROOT / "src/OffDuty/MXM/settings.lua"
+JSON_FILES = (MODINFO, ZCOM_MOD, ASSETS_MODINFO, ASSETS_ZCOM_MOD)
 MAIN = ROOT / "src/OffDuty/Scripts/main.lua"
 README = ROOT / "src/OffDuty/README.md"
 
 SEMVER_PATTERN = re.compile(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)")
 JSON_VERSION_PATTERN = re.compile(
     r'^(?P<prefix>\s*"version"\s*:\s*")(?P<version>[^"]+)(?P<suffix>".*)$',
+    re.MULTILINE,
+)
+MXM_VERSION_PATTERN = re.compile(
+    r'^(?P<prefix>\s*version\s*=\s*")(?P<version>[^"]+)(?P<suffix>".*)$',
     re.MULTILINE,
 )
 MAIN_VERSION_PATTERN = re.compile(
@@ -164,32 +172,28 @@ def write_updates(updates: dict[Path, str]) -> None:
 
 def main() -> None:
     args = parse_args()
-    texts = {
-        MODINFO: read_text(MODINFO),
-        ZCOM_MOD: read_text(ZCOM_MOD),
+    texts = {path: read_text(path) for path in JSON_FILES}
+    texts.update({
+        MXM_SETTINGS: read_text(MXM_SETTINGS),
         MAIN: read_text(MAIN),
         README: read_text(README),
         CHANGELOG: read_text(CHANGELOG),
-    }
+    })
 
     try:
-        modinfo_json = json.loads(texts[MODINFO])
-        zcom_mod_json = json.loads(texts[ZCOM_MOD])
+        parsed = {path: json.loads(texts[path]) for path in JSON_FILES}
     except json.JSONDecodeError as error:
         raise SystemExit(f"Invalid JSON: {error}") from error
 
-    versions = {
-        MODINFO: extract_version(MODINFO, texts[MODINFO], JSON_VERSION_PATTERN),
-        ZCOM_MOD: extract_version(ZCOM_MOD, texts[ZCOM_MOD], JSON_VERSION_PATTERN),
-        MAIN: extract_version(MAIN, texts[MAIN], MAIN_VERSION_PATTERN),
-    }
+    versions = {path: extract_version(path, texts[path], JSON_VERSION_PATTERN) for path in JSON_FILES}
+    versions[MXM_SETTINGS] = extract_version(MXM_SETTINGS, texts[MXM_SETTINGS], MXM_VERSION_PATTERN)
+    versions[MAIN] = extract_version(MAIN, texts[MAIN], MAIN_VERSION_PATTERN)
     header_version = extract_version(MAIN, texts[MAIN], MAIN_HEADER_PATTERN)
     readme_version = extract_version(README, texts[README], README_HEADER_PATTERN)
 
-    if modinfo_json.get("version") != versions[MODINFO]:
-        raise SystemExit("Parsed modinfo.json version does not match its declaration")
-    if zcom_mod_json.get("version") != versions[ZCOM_MOD]:
-        raise SystemExit("Parsed zcom-mod.json version does not match its declaration")
+    for path in JSON_FILES:
+        if parsed[path].get("version") != versions[path]:
+            raise SystemExit(f"Parsed {path.relative_to(ROOT)} version does not match its declaration")
 
     unique_versions = set(versions.values()) | {header_version, readme_version}
     if len(unique_versions) != 1:
@@ -204,11 +208,12 @@ def main() -> None:
     next_version = bump_version(current_version, args.part)
 
     updates = {
-        MODINFO: replace_version(
-            MODINFO, texts[MODINFO], JSON_VERSION_PATTERN, current_version, next_version
-        ),
-        ZCOM_MOD: replace_version(
-            ZCOM_MOD, texts[ZCOM_MOD], JSON_VERSION_PATTERN, current_version, next_version
+        path: replace_version(path, texts[path], JSON_VERSION_PATTERN, current_version, next_version)
+        for path in JSON_FILES
+    }
+    updates.update({
+        MXM_SETTINGS: replace_version(
+            MXM_SETTINGS, texts[MXM_SETTINGS], MXM_VERSION_PATTERN, current_version, next_version
         ),
         MAIN: replace_version(
             MAIN, texts[MAIN], MAIN_VERSION_PATTERN, current_version, next_version
@@ -217,7 +222,7 @@ def main() -> None:
             README, texts[README], README_HEADER_PATTERN, current_version, next_version
         ),
         CHANGELOG: promote_unreleased(texts[CHANGELOG], next_version),
-    }
+    })
     updates[MAIN] = replace_version(
         MAIN,
         updates[MAIN],
