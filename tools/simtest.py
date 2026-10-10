@@ -12,6 +12,7 @@ side is gone or the turn cap is reached. Results go to dist/simtest/<time>.csv w
 
     tools/simtest.py info                          sandbox status, roster, units, missions, spawn sets
     tools/simtest.py send "<command>"              one raw command (prints the reply)
+    tools/simtest.py report [results.csv ...]       per-condition summary (default: all of dist/simtest)
     tools/simtest.py run --mission SK_X --enemies SS_Y --squad "A,B,C,D" \\
         --conditions baseline,tired,exhausted,spent --runs 5 --turn-cap 15 --speed 4
 
@@ -290,6 +291,32 @@ def cmd_run(args):
     print("results: %s\ntranscript: %s" % (csv_path, transcript.name))
 
 
+def cmd_report(args):
+    """Per-condition summary of one or more results CSVs (default: every file in dist/simtest)."""
+    files = [Path(f) for f in args.files] or sorted((ROOT / "dist" / "simtest").glob("*-results.csv"))
+    rows = []
+    for path in files:
+        with open(path, newline="") as f:
+            rows += [r for r in csv.DictReader(f) if r.get("result") in ("win", "loss", "turn cap", "timeout")]
+    if not rows:
+        sys.exit("no finished runs in %s" % ", ".join(map(str, files)) if files else "no results files")
+
+    def mean(values):
+        values = [float(v) for v in values if v not in (None, "")]
+        return sum(values) / len(values) if values else float("nan")
+
+    print("%-10s %4s %6s %7s %8s %9s %7s" % ("condition", "runs", "win %", "rounds", "alive", "hp lost%", "AP lost"))
+    order = [c for c in CONDITIONS if any(r["condition"] == c for r in rows)]
+    for condition in order:
+        group = [r for r in rows if r["condition"] == condition]
+        wins = sum(1 for r in group if r["result"] == "win")
+        lost = [1 - float(r["health_end"]) / float(r["health_start"]) for r in group
+                if r.get("health_start") not in (None, "", "0")]
+        print("%-10s %4d %5.0f%% %7.1f %8.2f %8.0f%% %7.1f" % (
+            condition, len(group), 100.0 * wins / len(group), mean(r.get("rounds") for r in group),
+            mean(r.get("squad_alive") for r in group), 100.0 * mean(lost), mean(r.get("ap_losses") for r in group)))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -297,6 +324,8 @@ def main():
     p.set_defaults(func=cmd_info)
     p = sub.add_parser("send"); p.add_argument("line"); p.add_argument("--timeout", type=float, default=None)
     p.set_defaults(func=cmd_send)
+    p = sub.add_parser("report"); p.add_argument("files", nargs="*")
+    p.set_defaults(func=cmd_report)
     p = sub.add_parser("run")
     p.add_argument("--mission", required=True); p.add_argument("--enemies", required=True)
     p.add_argument("--squad", required=True, help="comma-separated roster names")
