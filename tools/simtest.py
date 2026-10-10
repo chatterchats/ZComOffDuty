@@ -241,6 +241,10 @@ def apply_condition(sb, condition, size):
 
 def one_run(sb, args, condition, run_index):
     squad = [s.strip() for s in args.squad.split(",") if s.strip()]
+    # `ai on` and `speed` persist across missions: start every run with the squad in our hands, so setup
+    # (trimming enemies, applying tiers) happens on the player's turn, a "safe moment" for the sandbox.
+    sb.send("ai off")
+    sb.send("speed 1")
     sb.ok("campaign reset", timeout=300)
     sb.ok("wait phase=hub settled=1 timeout=240000")
     sb.ok('mission launch %s squad="%s" enemies=%s' % (args.mission, ",".join(squad), args.enemies), timeout=120)
@@ -267,27 +271,35 @@ def one_run(sb, args, condition, run_index):
     start = time.time()
     result, foes, health = "timeout", start_foes, start_health
     living = set(seen)
+    def ended():
+        state = mission_status(sb)
+        return {"Failed": "loss", "Succeeded": "win"}.get(state)
+
     while time.time() - start < args.wall_cap:
         time.sleep(args.poll)
-        state = mission_status(sb)
-        if state == "Failed":
-            result = "loss"; break
-        if state == "Succeeded":
-            result = "win"; break
+        outcome = ended()
+        if outcome:
+            result = outcome; break
         # Only read the squad and enemies while the mission is live (afterwards they read as restored).
         status, text = sb.send("foes")
         if status == "ok":
             entries = foe_entries(text)
             if args.no_reinforcements:
+                # Short timeout: while the AI plays, safe moments are brief. Not removed now = tried next poll.
                 for _, actor, _ in entries:
                     if actor not in starting:
-                        sb.send("kill %s wait=1" % actor, timeout=60)
-                        removed += 1
+                        k_status, _ = sb.send("kill %s wait=1 timeout=5000" % actor, timeout=15)
+                        if k_status == "ok":
+                            removed += 1
                 entries = [e for e in entries if e[1] in starting]
             foes = len(entries) if args.no_reinforcements else count_foes(text)
             seen |= {actor for _, actor, _ in entries}
             living = {actor for _, actor, _ in entries}
-        health = squad_health(sb) or health
+        reading = squad_health(sb)
+        outcome = ended()  # after the mission ends, units read as restored: keep the last live reading
+        if outcome:
+            result = outcome; break
+        health = reading or health
         if foes == 0:
             result = "win"; break
         if log_lines_since(log_offset, "Round ") > args.turn_cap:
@@ -302,8 +314,6 @@ def one_run(sb, args, condition, run_index):
         "health_start": round(sum(start_health)), "health_end": round(sum(max(h, 0) for h in health)),
         "ap_losses": log_lines_since(log_offset, "AP loss |"), "seconds": round(time.time() - start),
     }
-    sb.send("ai off")
-    sb.send("speed 1")
     return row
 
 
@@ -328,6 +338,12 @@ def cmd_run(args):
                     except SandboxError as error:
                         print("  ERROR: %s" % error)
                         row = {"condition": condition, "run": run_index, "result": "error: %s" % error}
+                    finally:
+                        for line in ("ai off", "speed 1"):
+                            try:
+                                sb.send(line)
+                            except SandboxError:
+                                pass
                     print("  %s" % row)
                     if writer is None:
                         writer = csv.DictWriter(f, fieldnames=list(row.keys()) + ["error"], extrasaction="ignore")
