@@ -40,11 +40,28 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-GAME = Path(os.environ.get("SWZC_GAME_WIN64", "/run/media/chats/e0057d4a-fe46-43eb-a837-db51979c500f/Games/"
-                           "STAR WARS Zero Company (2026)/Star Wars Zero Company/SWZeroCompany/Binaries/Win64"))
-SANDBOX = GAME / "ue4ss" / "Mods" / "ZCSandbox"
-OFFDUTY_LOG = ROOT / "src" / "OffDuty" / "off_duty.log"
-MXM_VALUES = ROOT / "src" / "OffDuty" / "MXM" / "values.lua"
+GAMES = Path(os.environ.get("SWZC_GAMES", "/run/media/chats/e0057d4a-fe46-43eb-a837-db51979c500f/Games/"
+                            "STAR WARS Zero Company (2026)"))
+WIN64 = Path("Star Wars Zero Company") / "SWZeroCompany" / "Binaries" / "Win64"
+GAME = SANDBOX = OFFDUTY_LOG = MXM_VALUES = MXM_BACKUP = None
+INSTANCE = 1
+NO_VALUES = "-- simtest: there was no values.lua\n"
+
+
+def use_instance(n):
+    """Point the harness at game instance n: 1 is the main install (Off Duty symlinked from this repo);
+    n >= 2 is GAMES/"Instance n", a copy-on-write copy with its own prefix, sandbox and Off Duty copy."""
+    global GAME, SANDBOX, OFFDUTY_LOG, MXM_VALUES, MXM_BACKUP, INSTANCE
+    INSTANCE = n
+    GAME = GAMES / WIN64 if n == 1 else GAMES / ("Instance %d" % n) / WIN64
+    SANDBOX = GAME / "ue4ss" / "Mods" / "ZCSandbox"
+    offduty = ROOT / "src" / "OffDuty" if n == 1 else GAME / "ue4ss" / "Mods" / "OffDuty"
+    OFFDUTY_LOG = offduty / "off_duty.log"
+    MXM_VALUES = offduty / "MXM" / "values.lua"
+    MXM_BACKUP = MXM_VALUES.with_name("values.lua.simtest-backup")
+
+
+use_instance(int(os.environ.get("SWZC_INSTANCE", "1")))
 
 EFFECTS = "/Game/OffDuty/Effects/"
 ACCURACY = ("/Game/Game/GameData/Progression/NextMissionGameplayEffects/"
@@ -68,7 +85,8 @@ class SandboxError(RuntimeError):
 class Sandbox:
     """cmd.txt / reply.txt client. Ids are unique per process (prefix + counter)."""
 
-    def __init__(self, folder=SANDBOX, transcript=None):
+    def __init__(self, folder=None, transcript=None):
+        folder = folder or SANDBOX
         self.cmd = Path(folder) / "cmd.txt"
         self.reply = Path(folder) / "reply.txt"
         self.prefix = "st%d" % (os.getpid() % 100000)
@@ -127,6 +145,8 @@ def open_transcript(name):
     out = ROOT / "dist" / "simtest"
     out.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    if INSTANCE != 1:
+        stamp += "-i%d" % INSTANCE
     return out, stamp, open(out / ("%s-%s.log" % (stamp, name)), "w")
 
 
@@ -238,8 +258,6 @@ def cmd_send(args):
     return 0 if status == "ok" else 1
 
 
-MXM_BACKUP = MXM_VALUES.with_name("values.lua.simtest-backup")
-NO_VALUES = "-- simtest: there was no values.lua\n"
 
 
 def neutralise_offduty():
@@ -584,6 +602,8 @@ def cmd_report(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--instance", type=int, default=None,
+                        help="game instance: 1 = the main install, 2+ = GAMES/'Instance N' (default: $SWZC_INSTANCE or 1)")
     sub = parser.add_subparsers(dest="command", required=True)
     p = sub.add_parser("info"); p.add_argument("filter", nargs="?", default="")
     p.set_defaults(func=cmd_info)
@@ -612,6 +632,8 @@ def main():
     p.add_argument("--neutralise", action="store_true", help="set Off Duty's fatigue gain to 0 during the runs")
     p.set_defaults(func=cmd_run)
     args = parser.parse_args()
+    if args.instance:
+        use_instance(args.instance)
     return args.func(args) or 0
 
 
