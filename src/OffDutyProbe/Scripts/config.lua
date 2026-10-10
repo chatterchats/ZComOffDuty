@@ -32,7 +32,7 @@ return {
     -- Never more than 2 injuries: a third kills the operator. The probe caps it at 2 regardless.
     test_squad = {
         -- Screenshot squad: one operator per tier. 0 / 2 / 4 / 6 are Rested / Tired / Exhausted / Spent
-        -- under both presets (Hard 1/3/5, Standard 2/4/6). Tesh is Spent so his story mission shows the
+        -- on Standard and Hard (Easy shifts them down a tier). Tesh is Spent so his story mission shows the
         -- required halving: 6 counts as 3 there (Tired on Standard, Exhausted on Hard).
         { name = "Cly Kullervo", fatigue = 0 },
         { name = "Tel-Rea Vokoss", fatigue = 2 },

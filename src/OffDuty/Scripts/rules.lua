@@ -2,12 +2,13 @@
 -- Pure Lua (no Unreal calls), so tests can load it directly.
 local M = {}
 
--- Thresholds per preset (fatigue points at which each tier starts) and the cap.
+-- Thresholds per preset (fatigue points at which each tier starts) and the cap (7 for all).
 M.PRESETS = {
     hard = { label = "Hard", tired = 1, exhausted = 3, spent = 5, cap = 7 },
-    standard = { label = "Standard", tired = 2, exhausted = 4, spent = 6, cap = 6 },
+    standard = { label = "Standard", tired = 2, exhausted = 4, spent = 6, cap = 7 },
+    easy = { label = "Easy", tired = 3, exhausted = 5, spent = 7, cap = 7 },
 }
-M.DEFAULT_PRESET = "hard"
+M.DEFAULT_PRESET = "standard"
 
 -- Highest first. accuracy_stacks: the game's GE_Lose_NextMission_RangedAccuracy (-5% each).
 -- level: 1 Tired, 2 Exhausted, 3 Spent (also the Zzz icon index).

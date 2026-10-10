@@ -12,14 +12,14 @@ they're off duty**, so the rest of your company gets a chance to shine.
 - **Fatigue sets a tier** for the next mission. You can always deploy anyone;
   a tired operator just fights worse.
 
-| Tier      | Hard preset | Standard preset | Next mission                                                   |
-| --------- | ----------- | --------------- | -------------------------------------------------------------- |
-| Rested    | 0           | 0–1             | No penalty                                                     |
-| Tired     | 1–2         | 2–3             | −5% hit chance, −5% max health                                 |
-| Exhausted | 3–4         | 4–5             | −10% hit chance, −10% max health, 10% chance a turn to lose 1 AP |
-| Spent     | 5–7         | 6               | −20% hit chance, −20% max health, −10% movement, 15% chance a turn to lose 1 AP |
+| Tier      | Easy | Standard (default) | Hard | Next mission                                                   |
+| --------- | ---- | ------------------ | ---- | -------------------------------------------------------------- |
+| Rested    | 0–2  | 0–1                | 0    | No penalty                                                     |
+| Tired     | 3–4  | 2–3                | 1–2  | −5% hit chance, −5% max health                                 |
+| Exhausted | 5–6  | 4–5                | 3–4  | −10% hit chance, −10% max health, 10% chance a turn to lose 1 AP |
+| Spent     | 7    | 6–7                | 5–7  | −20% hit chance, −20% max health, −10% movement, 15% chance a turn to lose 1 AP |
 
-Fatigue caps at 7 (Hard) or 6 (Standard).
+Fatigue caps at 7.
 
 - **Story-required operators go in at half their fatigue.** When a mission
   can't launch without someone, their tier comes from half their fatigue
@@ -39,12 +39,12 @@ Fatigue caps at 7 (Hard) or 6 (Standard).
 With the [Mixamoo Mod Config Manager](https://www.nexusmods.com/starwarszerocompany/mods/149) installed, Off Duty has an in-game
 settings page:
 
-- **Preset:** Hard (tiers at 1 / 3 / 5) or Standard (2 / 4 / 6).
+- **Preset:** Easy (tiers at 3 / 5 / 7), Standard (2 / 4 / 6) or Hard (1 / 3 / 5).
 - **Fatigue per mission:** 0–4.
 - **Recovery per turn off duty:** 0–3.
 - **AP loss:** turn the chance to lose an AP on or off.
 
-Without it, Off Duty uses the defaults (Hard, 2, 1, AP loss on). Changes apply
+Without it, Off Duty uses the defaults (Standard, 2, 1, AP loss on). Changes apply
 from the next mission or strategy turn.
 
 ## What you need

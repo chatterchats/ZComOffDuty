@@ -19,5 +19,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Squad select banners on every slot (RESTED, REQUIRED, TIRED, EXHAUSTED, SPENT) with detailed tooltips,
   and markers on roster portraits.
 - In-mission debuffs under the health bar and in the Inspect panel.
-- Settings page (Mixamoo Mod Config Manager): preset, fatigue per mission, recovery per turn, AP loss.
+- Settings page (Mixamoo Mod Config Manager): Easy / Standard / Hard presets, fatigue per mission, recovery
+  per turn, AP loss.
 

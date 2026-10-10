@@ -24,7 +24,7 @@ local roster, logs, hooks, scheduled = {}, {}, {}, 0
 local required = {} -- the current mission's required operators: id -> blocking
 mission_ready = true
 loading_save = false
-local settings = {}
+local settings = { preset = "hard" } -- these cases use Hard's thresholds (1 / 3 / 5)
 local g = {
     unwrap = function(x) return x end,
     valid = function(x) return x ~= nil end,
@@ -210,10 +210,10 @@ settings = { preset = "standard", fatigue_per_mission = 3, recovery_per_turn = 2
 local std = operator("Tel", "E", 3)
 roster[#roster + 1] = std
 mission_start(nil, std) -- 3 on Standard is Tired (2), not Exhausted (4)
-eq(std.effects.GE_OffDuty_Tired, 1, "standard tier"); eq(std.effects[Game.FATIGUE], 6, "standard +3, cap 6")
+eq(std.effects.GE_OffDuty_Tired, 1, "standard tier"); eq(std.effects[Game.FATIGUE], 6, "standard +3")
 end_turn(); end_turn()
 eq(std.effects[Game.FATIGUE], 4, "rest 2 per turn after the deployed turn")
-settings = {}
+settings = { preset = "hard" }
 
 -- AP loss: only the real PlayerTeam turn, only Exhausted/Spent, at their odds.
 local real_random = math.random

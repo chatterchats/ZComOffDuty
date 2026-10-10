@@ -18,15 +18,20 @@ for points, expected in pairs({ [0] = "rested", [1] = "tired", [2] = "tired", [3
                                 [4] = "exhausted", [5] = "spent", [7] = "spent" }) do
     eq(tier_id(points, "hard"), expected, "hard tier at " .. points)
 end
--- Standard preset: 2 / 4 / 6, cap 6.
+-- Standard preset: 2 / 4 / 6, cap 7.
 for points, expected in pairs({ [1] = "rested", [2] = "tired", [4] = "exhausted", [6] = "spent" }) do
     eq(tier_id(points, "standard"), expected, "standard tier at " .. points)
 end
-eq(tier_id(3, "nonsense"), "exhausted", "unknown preset falls back to hard")
+eq(tier_id(3, "nonsense"), "tired", "unknown preset falls back to standard")
+-- Easy preset: 3 / 5 / 7, cap 7.
+for points, expected in pairs({ [0] = "rested", [2] = "rested", [3] = "tired", [4] = "tired", [5] = "exhausted", [6] = "exhausted", [7] = "spent" }) do
+    eq(tier_id(points, "easy"), expected, "easy tier at " .. points)
+end
 
 -- Gain caps at the preset's cap; recovery floors at 0.
-eq(rules.after_mission(6, {}), 7, "hard cap")
-eq(rules.after_mission(5, { preset = "standard" }), 6, "standard cap")
+eq(rules.after_mission(6, { preset = "hard" }), 7, "hard cap")
+eq(rules.after_mission(6, {}), 7, "standard cap (the default)")
+eq(rules.after_mission(6, { preset = "easy" }), 7, "easy cap")
 eq(rules.after_mission(0, { fatigue_per_mission = 3 }), 3, "custom gain")
 eq(rules.after_rest(1, {}), 0, "rest to zero")
 eq(rules.after_rest(0, {}), 0, "never negative")
@@ -34,7 +39,7 @@ eq(rules.after_rest(5, { recovery_per_turn = 2 }), 3, "custom rest")
 
 -- Settings are clamped (values.lua can be hand-edited).
 local s = rules.normalise({ preset = "x", fatigue_per_mission = 99, recovery_per_turn = -4, ap_loss = false })
-eq(s.preset, "hard", "bad preset"); eq(s.gain, 7, "gain clamp"); eq(s.rest, 0, "rest clamp"); eq(s.ap_loss, false, "ap_loss off")
+eq(s.preset, "standard", "bad preset"); eq(s.gain, 7, "gain clamp"); eq(s.rest, 0, "rest clamp"); eq(s.ap_loss, false, "ap_loss off")
 eq(rules.normalise({}).ap_loss, true, "ap_loss default on")
 -- Idempotent: callers pass normalised settings back in.
 local custom = rules.normalise({ preset = "standard", fatigue_per_mission = 3, recovery_per_turn = 2, ap_loss = false })
@@ -47,7 +52,7 @@ eq(rules.turns_to_rest(7, {}), 7, "turns to rest")
 eq(rules.turns_to_rest(5, { recovery_per_turn = 2 }), 3, "turns to rest rounds up")
 eq(rules.turns_to_rest(3, { recovery_per_turn = 0 }), nil, "no recovery")
 
--- One push-through cycle on hard: 2 missions in a row is Exhausted, a third is Spent.
+-- One push-through cycle on the default (Standard): 2 missions in a row is Exhausted, a third is Spent.
 local points = 0
 for _ = 1, 3 do points = rules.after_mission(points, {}) end
 eq(points, 6, "three missions"); eq(tier_id(points), "spent", "three missions tier")

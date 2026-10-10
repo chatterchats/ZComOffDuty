@@ -29,14 +29,14 @@ your best four.
 - **Settings** through the [Mixamoo Mod Config Manager](https://www.nexusmods.com/starwarszerocompany/mods/149): preset, fatigue per
   mission, recovery per turn, AP loss on/off.
 
-| Tier      | Hard | Standard | Next mission                                                                 |
-| --------- | ---- | -------- | ---------------------------------------------------------------------------- |
-| Rested    | 0    | 0–1      | No penalty                                                                   |
-| Tired     | 1–2  | 2–3      | −5% hit chance, −5% max health                                               |
-| Exhausted | 3–4  | 4–5      | −10% hit chance, −10% max health, 10% chance per turn to lose 1 AP           |
-| Spent     | 5–7  | 6        | −20% hit chance, −20% max health, −10% movement, 15% chance per turn to lose 1 AP |
+| Tier      | Easy | Standard (default) | Hard | Next mission                                                                 |
+| --------- | ---- | ------------------ | ---- | ---------------------------------------------------------------------------- |
+| Rested    | 0–2  | 0–1                | 0    | No penalty                                                                   |
+| Tired     | 3–4  | 2–3                | 1–2  | −5% hit chance, −5% max health                                               |
+| Exhausted | 5–6  | 4–5                | 3–4  | −10% hit chance, −10% max health, 10% chance per turn to lose 1 AP           |
+| Spent     | 7    | 6–7                | 5–7  | −20% hit chance, −20% max health, −10% movement, 15% chance per turn to lose 1 AP |
 
-Fatigue caps at 7 (Hard) or 6 (Standard). The numbers come from AI-vs-AI
+Fatigue caps at 7 on every preset. The numbers come from AI-vs-AI
 simulations; see [docs/design.md](docs/design.md).
 
 ## Requirements

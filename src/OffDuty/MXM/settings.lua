@@ -8,12 +8,13 @@ return {
         { type = "header", name = "Fatigue" },
 
         { key = "preset", type = "choice",
-          name = "Preset", default = "hard",
+          name = "Preset", default = "standard",
           choices = {
-              { value = "hard", label = "Hard: tiers at 1 / 3 / 5, cap 7" },
-              { value = "standard", label = "Standard: tiers at 2 / 4 / 6, cap 6" },
+              { value = "easy", label = "Easy: tiers at 3 / 5 / 7" },
+              { value = "standard", label = "Standard: tiers at 2 / 4 / 6" },
+              { value = "hard", label = "Hard: tiers at 1 / 3 / 5" },
           },
-          desc = "Fatigue points at which an operator becomes Tired, Exhausted and Spent." },
+          desc = "Fatigue points at which an operator becomes Tired, Exhausted and Spent. Fatigue caps at 7." },
 
         { key = "fatigue_per_mission", type = "number",
           name = "Fatigue per mission", default = 2,

@@ -15,8 +15,10 @@
 - **Fatigue points:** +2 per mission played, −1 per strategy turn off, cap 7. Operators on an
   operation are frozen (no gain, no recovery).
 - **Tiers:**
-  - Hard preset Tired at 1, Exhausted at 3, Spent at 5. Cap of 7.
-  - Standard preset: 2 / 4 / 6, cap 6.
+  - Easy preset: Tired at 3, Exhausted at 5, Spent at 7.
+  - Standard preset (the default): 2 / 4 / 6.
+  - Hard preset: 1 / 3 / 5.
+  - Fatigue caps at 7 on every preset.
 
 | Tier      | Next-mission penalty                                  |
 | --------- | ----------------------------------------------------- |
