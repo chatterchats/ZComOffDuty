@@ -534,3 +534,13 @@ modifiers, so the data pointer was null. GE_OffDuty_Deployed (no modifiers, Pers
 crashed, so the query matches one of the tier tags (TemporaryPenalty, StatusEffect.Negative or
 CoreCondition), all of which the game only uses on effects with modifiers. Fix: Tired carries a no-op
 modifier (MaxHealth MultiplyAdditive 1.0). Rule: any status-tagged effect we ship needs at least one modifier.
+
+## Required operators (2026-10-10)
+
+`UBrunoStrategyStatics::GetRequiredCharactersForCurrentMission(WorldContext)` works during the tactical
+mission (called from Off Duty's mission-start processing) and returns `FRequiredMissionCharacter`
+entries: `CharacterID` (FGuid), `SpawnerTags`, `bBlockingRequirement`. On the story mission "rescue the
+undercover clone" Tesh Hawks is locked into the squad and listed under Unit Requirements, yet his entry
+reads `bBlockingRequirement = false`, so Off Duty treats every listed operator as required. Verified in
+game: Tesh at 2 fatigue (Standard preset) went in rested (tier from half: 1) while Kabb and BR-1 at 2
+went in Tired; all three went 2 -> 4.
