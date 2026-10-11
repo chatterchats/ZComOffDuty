@@ -19,7 +19,9 @@
 - **Fatigue points:** +2 per mission played, cap 7. Operators on an operation are frozen (no gain,
   no recovery).
 - **Recovery per strategy turn off** is what the presets change: Easy −3, Standard −2 (default),
-  Hard −1.5 (−1 then −2, the half point banked as `GE_OffDuty_RestCredit`).
+  Hard −1.5. It halves once the operator cap (Crew Quarters, the game's
+  `Facts.Values.MaximumRosterCount`) reaches 12: three squads are then needed to stay rested, so a big
+  roster still gets used. Fractions are banked as quarter points in `GE_OffDuty_RestCredit` (0–3 stacks).
   Tuned for two squads (2026-10-11): by cycle 5 the roster holds at most 7 operators and late game 13,
   so a three-squad rotation isn't realistic. With +2 / −2, two squads alternating stay rested, and each
   back-to-back mission is one tier worse. The first tuning (+2 / −1) only stayed level with three squads.

@@ -13,8 +13,9 @@ your best four.
 
 - **Fatigue from deployment.** Every operator who deploys gains fatigue (2 by
   default); every strategy turn off duty removes some: 3 on Easy, 2 on
-  Standard (the default), 1.5 on Hard. On Standard two squads taking turns
-  stay rested, and each mission in a row is one tier worse. Operators away on
+  Standard (the default), 1.5 on Hard, halved once Crew Quarters has room for
+  12+ operators. On Standard two squads taking turns stay rested (three with
+  12+ operator slots), and each mission in a row is one tier worse. Operators away on
   an operation are frozen. Fatigue starts after cycle 5 (adjustable), once the
   roster is big enough to rotate.
 - **Push-through, never locked out.** Fatigue sets a tier with a penalty for

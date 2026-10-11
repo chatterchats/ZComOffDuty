@@ -14,6 +14,8 @@ they're off duty**, so the rest of your company gets a chance to shine.
   recover.
 - On Standard, **two squads taking turns stay rested**. Sending the same
   operator on missions back to back raises them one tier per mission.
+- **Once Crew Quarters has room for 12 or more operators, recovery halves**
+  (Standard: 1 a turn), so it takes three squads taking turns to stay rested.
 - **Fatigue sets a tier** for the next mission. You can always deploy anyone;
   a tired operator just fights worse.
 
@@ -45,7 +47,7 @@ With the [Mixamoo Mod Config Manager](https://www.nexusmods.com/starwarszerocomp
 settings page:
 
 - **Preset:** how fast operators recover off duty: Easy (3 a turn), Standard
-  (2) or Hard (1.5).
+  (2) or Hard (1.5), halved with room for 12+ operators.
 - **Fatigue per mission:** 0–4.
 - **Fatigue starts after cycle:** 1–20 (5 by default).
 - **AP loss:** turn the chance to lose an AP on or off.

@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   taking turns stay rested, while each mission in a row still makes an operator one tier more tired.
 - Presets now set recovery speed (Easy 3, Standard 2, Hard 1.5 per turn off duty); every preset uses the
   same tiers (Tired at 2, Exhausted at 4, Spent at 6). The separate recovery setting is gone.
+- Once Crew Quarters has room for 12 or more operators, recovery halves, so it takes three squads taking
+  turns to stay rested.
 
 ### Fixed
 

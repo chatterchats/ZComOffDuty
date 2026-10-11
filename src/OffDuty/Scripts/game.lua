@@ -9,7 +9,7 @@ local M = {}
 M.EFFECTS_DIR = "/Game/OffDuty/Effects/"
 M.FATIGUE = "GE_OffDuty_Fatigue"
 M.DEPLOYED = "GE_OffDuty_Deployed"
-M.REST_CREDIT = "GE_OffDuty_RestCredit" -- a banked half point of recovery (Hard's 1.5 per turn)
+M.REST_CREDIT = "GE_OffDuty_RestCredit" -- banked quarter points of recovery (0-3 stacks)
 
 -- The cycle number the game displays for a strategy turn (it shows one more: turn 5 is "Cycle 6").
 function M.cycle_label(turn)
@@ -308,6 +308,15 @@ function M.new(log)
             if id then ids[id] = blocking == true end
         end
         return ids
+    end
+
+    -- The operator cap Crew Quarters allows (the game's Facts.Values.MaximumRosterCount), or nil.
+    function g.roster_cap(wco)
+        local value = (g.call(g.game_statics(), "GetFactValue", wco,
+            { TagName = FName("Facts.Values.MaximumRosterCount") },
+            { Characters = {}, AssociatedTag = { TagName = FName("None") } }, false))
+        value = tonumber(value)
+        return value and value > 0 and math.floor(value + 0.5) or nil
     end
 
     -- The current strategy turn (the "cycle"), or nil if unreadable.

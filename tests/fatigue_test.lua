@@ -23,6 +23,7 @@ end
 local roster, logs, hooks, scheduled = {}, {}, {}, 0
 local required = {} -- the current mission's required operators: id -> blocking
 cycle = 10 -- strategy turn (global so tests can move it); fatigue starts at cycle 5 by default
+roster_cap = 8 -- operator cap (Crew Quarters); recovery halves at 12
 mission_ready = true
 loading_save = false
 local settings = { preset = "hard" } -- Hard: tiers 2 / 4 / 6, recovery 1.5 (1, then 2)
@@ -48,6 +49,7 @@ local g = {
     end,
     required_ids = function() return required end,
     strategy_turn = function() return cycle end,
+    roster_cap = function() return roster_cap end,
     asc = function(actor) return actor end,
     effect_class = function(name) return name end,
     load_class = function(path) return path end,
@@ -216,12 +218,12 @@ eq(fresh.effects[ACCURACY], nil, "rested: no accuracy penalty"); eq(fresh.effect
 -- Hard recovers 1.5: 1 and a banked half point (GE_OffDuty_RestCredit), then 2.
 end_turn()
 eq(kabb.effects[Game.FATIGUE], 6, "deployed don't recover"); eq(kabb.effects[Game.DEPLOYED], 0, "marker cleared")
-eq(benched.effects[Game.FATIGUE], 2, "benched recover 1 (Hard)"); eq(benched.effects[Game.REST_CREDIT], 1, "half point banked")
+eq(benched.effects[Game.FATIGUE], 2, "benched recover 1 (Hard)"); eq(benched.effects[Game.REST_CREDIT], 2, "half point banked (2 quarters)")
 eq(away.effects[Game.FATIGUE], 4, "away frozen")
 eq(absent.effects[Game.FATIGUE], 2, "no hub actor: unchanged")
 -- Next turn everyone sits out: the deployed recover too.
 end_turn()
-eq(kabb.effects[Game.FATIGUE], 5, "recovers the turn after (1, banks a half)"); eq(kabb.effects[Game.REST_CREDIT], 1, "Kabb banked")
+eq(kabb.effects[Game.FATIGUE], 5, "recovers the turn after (1, banks a half)"); eq(kabb.effects[Game.REST_CREDIT], 2, "Kabb banked")
 eq(benched.effects[Game.FATIGUE], 0, "banked half + 1.5 = 2"); eq(benched.effects[Game.REST_CREDIT], 0, "bank spent")
 
 -- Settings: Standard preset (recovery 2) and a custom gain.
@@ -232,6 +234,11 @@ mission_start(nil, std) -- 3 is Tired (2), not Exhausted (4)
 eq(std.effects.GE_OffDuty_Tired, 1, "standard tier"); eq(std.effects[Game.FATIGUE], 6, "standard +3")
 end_turn(); end_turn()
 eq(std.effects[Game.FATIGUE], 4, "rest 2 per turn after the deployed turn")
+roster_cap = 12 -- room for three squads: Standard recovers 1
+end_turn()
+eq(std.effects[Game.FATIGUE], 3, "recovery halves once the operator cap reaches 12")
+assert(logs[#logs]:find("recovery 1 | operator cap 12", 1, true), logs[#logs])
+roster_cap = 8
 settings = { preset = "hard" }
 
 -- AP loss: only the real PlayerTeam turn, only Exhausted/Spent, at their odds.

@@ -154,13 +154,14 @@ function M.new(ctx)
         return { R = 0.98, G = 0.45, B = 0.07, A = 1.0 }
     end
 
+    local roster_cap = nil -- the operator cap for the current refresh pass (a number)
     local function set_tooltip(box, tier, points, required, starts_at)
         if not g.valid(box) then return end
         g.call(box, "SetTooltipPayloadTags", {})
         g.call(box, "SetTooltipPayloadObjects", {})
         g.call(box, "SetTooltipPayloadEntries", {
             { HeaderText = FText(tier.label),
-              BodyText = FText(Rules.tooltip(tier, points, ctx.settings(), required, starts_at)) } })
+              BodyText = FText(Rules.tooltip(tier, points, ctx.settings(), required, starts_at, roster_cap)) } })
         g.call(box, "SetDisplayTooltop", true)
     end
 
@@ -427,9 +428,10 @@ function M.new(ctx)
         local s = Rules.normalise(ctx.settings())
         local wco = g.world_context()
         local active = Rules.active(wco and g.strategy_turn(wco) or nil, s)
+        roster_cap = wco and g.roster_cap(wco) or nil
         local view = { by_name = by_name, by_id = by_id, active = active, start = s.start,
                        settings = string.format("%s/%d/%s/%s/%d/%s", s.preset, s.gain, tostring(s.rest), tostring(s.ap_loss),
-                           s.start, tostring(active)) }
+                           s.start, tostring(active)) .. "/" .. tostring(roster_cap) }
         local refreshers = { slot = refresh_slot, tile = refresh_tile }
         local function run(kind, widget)
             if not g.live(widget) then return end

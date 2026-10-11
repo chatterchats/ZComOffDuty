@@ -83,10 +83,11 @@ EFFECTS = [
         "modifiers": [],
     },
     {
-        # A banked half point of recovery: Hard recovers 1.5 per strategy turn off duty, as 1 then 2. Saved
-        # (Persists) like the fatigue counter; one stack at most.
+        # Banked quarter points of recovery (0-3 stacks): fractional recovery per strategy turn off duty
+        # (Hard's 1.5, and the halved rates once Crew Quarters allows 12+ operators). Saved (Persists) like
+        # the fatigue counter.
         "name": "GE_OffDuty_RestCredit",
-        "defaults": dict(COMMON, stack_limit_count=1, include_in_save_data=True, terminate_with_combat=False),
+        "defaults": dict(COMMON, stack_limit_count=3, include_in_save_data=True, terminate_with_combat=False),
         "asset_tags": [PERSISTS],
         "modifiers": [],
     },

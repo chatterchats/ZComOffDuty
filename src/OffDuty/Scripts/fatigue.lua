@@ -162,8 +162,8 @@ function M.new(ctx)
             log("WARNING: mission start | %s | deployed marker not applied; turn-end recovery may count them", name)
         end
         local after = g.set_effect_count(asc, fatigue_class, Rules.after_mission(fatigue, s))
-        log("Mission start | %s | fatigue %d -> %d | %s%s | cycle %s", name, fatigue, after, summary, ready_note,
-            Game.cycle_label(turn))
+        log("Mission start | %s | fatigue %d -> %d | %s%s | cycle %s | operator cap %s", name, fatigue, after, summary,
+            ready_note, Game.cycle_label(turn), tostring(g.roster_cap(g.world_context())))
         if ctx.on_mission_start then ctx.on_mission_start() end
     end
 
@@ -179,8 +179,10 @@ function M.new(ctx)
         end
         local s = current_settings()
         local credit_class = g.effect_class(Game.REST_CREDIT)
-        local rested, frozen, deployed, missing = 0, 0, 0, 0
+        local roster_cap = g.roster_cap(wco)
+        local rested, frozen, deployed, missing, members = 0, 0, 0, 0, 0
         for _, member in ipairs(g.roster(wco)) do
+            members = members + 1
             local asc = member.actor and g.asc(member.actor)
             if not asc then
                 missing = missing + 1
@@ -192,18 +194,19 @@ function M.new(ctx)
             else
                 local before = math.min(g.effect_count(asc, fatigue_class), Rules.preset(s.preset).cap)
                 if before > 0 then
-                    local banked = credit_class ~= nil and g.effect_count(asc, credit_class) > 0
-                    local after, bank = Rules.after_rest(before, s, banked)
+                    local banked = credit_class and g.effect_count(asc, credit_class) or 0
+                    local after, bank = Rules.after_rest(before, s, banked, roster_cap)
                     g.set_effect_count(asc, fatigue_class, after)
-                    if credit_class and bank ~= banked then g.set_effect_count(asc, credit_class, bank and 1 or 0) end
+                    if credit_class and bank ~= banked then g.set_effect_count(asc, credit_class, bank) end
                     rested = rested + 1
                 elseif credit_class and g.effect_count(asc, credit_class) > 0 then
                     g.set_effect_count(asc, credit_class, 0) -- fully rested: nothing to bank against
                 end
             end
         end
-        log("Turn end | %d recovered, %d deployed this turn, %d away (frozen), %d without a hub actor",
-            rested, deployed, frozen, missing)
+        log("Turn end | %d recovered, %d deployed this turn, %d away (frozen), %d without a hub actor | recovery %s | operator cap %s, roster %d",
+            rested, deployed, frozen, missing, Rules.format_number(Rules.recovery(s, roster_cap)),
+            tostring(roster_cap), members)
     end
 
     -- Player turn start: AP loss ----------------------------------------------------------------------

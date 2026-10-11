@@ -4,13 +4,15 @@ local M = {}
 
 -- Presets differ in recovery per strategy turn off duty; the tiers (2 / 4 / 6) and cap (7) are shared.
 -- With the default +2 per mission and Standard's -2, two squads alternating stay rested, and each mission
--- in a row puts an operator one tier higher. Hard's 1.5 alternates 1 and 2 (a banked half point).
+-- in a row puts an operator one tier higher. Once Crew Quarters allows THREE_SQUADS operators, recovery
+-- halves, so it takes three squads to stay rested. Fractions are kept as banked quarter points.
 M.PRESETS = {
     easy = { label = "Easy", recovery = 3, tired = 2, exhausted = 4, spent = 6, cap = 7 },
     standard = { label = "Standard", recovery = 2, tired = 2, exhausted = 4, spent = 6, cap = 7 },
     hard = { label = "Hard", recovery = 1.5, tired = 2, exhausted = 4, spent = 6, cap = 7 },
 }
 M.DEFAULT_PRESET = "standard"
+M.THREE_SQUADS = 12 -- operator cap (Crew Quarters) at which recovery halves
 M.DEFAULT_START_CYCLE = 5
 
 -- Highest first. accuracy_stacks: the game's GE_Lose_NextMission_RangedAccuracy (-5% each).
@@ -56,10 +58,10 @@ M.RESTED = {
     penalties = {},
 }
 
--- 2 -> "2", 1.5 -> "1.5"
+-- 2 -> "2", 1.5 -> "1.5", 0.75 -> "0.75"
 function M.format_number(value)
     if value == math.floor(value) then return string.format("%d", value) end
-    return string.format("%.1f", value)
+    return (string.format("%.2f", value):gsub("0+$", ""))
 end
 
 local by_id = {}
@@ -133,23 +135,31 @@ function M.after_mission(points, settings)
     return math.min((tonumber(points) or 0) + s.gain, M.preset(s.preset).cap)
 end
 
--- One strategy turn off duty. Recovery is counted in half points so Hard's 1.5 works with whole fatigue
--- stacks: `banked` is a carried half point (saved as GE_OffDuty_RestCredit). Returns the new fatigue and
--- whether a half point is banked; nothing stays banked once fatigue reaches 0.
-function M.after_rest(points, settings, banked)
-    local s = M.normalise(settings)
+-- Recovery per strategy turn off duty: the preset's, halved once the operator cap reaches THREE_SQUADS.
+-- An unknown cap (nil) counts as below it.
+function M.recovery(settings, roster_cap)
+    local rest = M.normalise(settings).rest
+    if (tonumber(roster_cap) or 0) >= M.THREE_SQUADS then return rest / 2 end
+    return rest
+end
+
+-- One strategy turn off duty. Recovery is counted in quarter points so fractions (Hard's 1.5, 0.75 with a
+-- big roster) work with whole fatigue stacks: `banked` is the carried remainder, 0-3 quarters (saved as
+-- GE_OffDuty_RestCredit stacks). Returns the new fatigue and the new remainder; nothing stays banked once
+-- fatigue reaches 0.
+function M.after_rest(points, settings, banked, roster_cap)
     points = tonumber(points) or 0
-    local halves = math.floor(s.rest * 2 + 0.5) + (banked and 1 or 0)
-    local after = math.max(points - math.floor(halves / 2), 0)
-    return after, after > 0 and halves % 2 == 1
+    local quarters = math.floor(M.recovery(settings, roster_cap) * 4 + 0.5) + (tonumber(banked) or 0)
+    local after = math.max(points - math.floor(quarters / 4), 0)
+    return after, after > 0 and quarters % 4 or 0
 end
 
 -- Strategy turns off duty until fully rested.
-function M.turns_to_rest(points, settings, banked)
+function M.turns_to_rest(points, settings, banked, roster_cap)
     points = tonumber(points) or 0
     local turns = 0
     while points > 0 and turns < 99 do
-        points, banked = M.after_rest(points, settings, banked)
+        points, banked = M.after_rest(points, settings, banked, roster_cap)
         turns = turns + 1
     end
     return turns
@@ -173,13 +183,16 @@ end
 
 -- Squad-select tooltip for one operator. `tier` is the tier they deploy at; for a required operator that
 -- comes from half their fatigue (M.mission_points), and the tooltip says so.
--- starts_after: the cycle setting, given while fatigue hasn't started yet.
-function M.tooltip(tier, points, settings, required, starts_after)
+-- starts_after: the cycle setting, given while fatigue hasn't started yet. roster_cap: the operator cap
+-- (Crew Quarters), which halves recovery at THREE_SQUADS.
+function M.tooltip(tier, points, settings, required, starts_after, roster_cap)
     local s = M.normalise(settings)
     local cap = M.preset(s.preset).cap
+    local rest = M.recovery(s, roster_cap)
     local lines = {
-        string.format("Fatigue <Bold>%d</> of %d. Each mission adds %d; each turn off duty removes %s.",
-            points, cap, s.gain, M.format_number(s.rest)),
+        string.format("Fatigue <Bold>%d</> of %d. Each mission adds %d; each turn off duty removes %s%s.",
+            points, cap, s.gain, M.format_number(rest),
+            rest < s.rest and string.format(" (halved: room for %d+ operators)", M.THREE_SQUADS) or ""),
     }
     if starts_after then
         lines[#lines + 1] = string.format("Fatigue tracking starts after cycle <Bold>%d</>.", starts_after)
@@ -198,7 +211,7 @@ function M.tooltip(tier, points, settings, required, starts_after)
         lines[#lines + 1] = "Next mission:"
         for _, penalty in ipairs(penalties) do lines[#lines + 1] = "  " .. penalty end
     end
-    local turns = M.turns_to_rest(points, settings)
+    local turns = M.turns_to_rest(points, settings, 0, roster_cap)
     if turns > 0 then
         lines[#lines + 1] = ""
         lines[#lines + 1] = string.format("Fully rested after <Bold>%d</> turn%s off duty.", turns, turns == 1 and "" or "s")

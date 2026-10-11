@@ -14,7 +14,7 @@ return {
               { value = "standard", label = "Standard: recover 2 per turn off duty" },
               { value = "hard", label = "Hard: recover 1.5 per turn off duty" },
           },
-          desc = "How fast operators recover off duty. Every preset: Tired at 2 fatigue, Exhausted at 4, Spent at 6; fatigue caps at 7." },
+          desc = "How fast operators recover off duty; halved once Crew Quarters has room for 12+ operators. Every preset: Tired at 2 fatigue, Exhausted at 4, Spent at 6; fatigue caps at 7." },
 
         { key = "fatigue_per_mission", type = "number",
           name = "Fatigue per mission", default = 2,

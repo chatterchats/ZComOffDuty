@@ -28,12 +28,29 @@ eq(rules.after_mission(0, { fatigue_per_mission = 3 }), 3, "custom gain")
 eq((rules.after_rest(7, { preset = "easy" })), 4, "easy -3")
 eq((rules.after_rest(7, {})), 5, "standard -2 (default)")
 local after, banked = rules.after_rest(7, { preset = "hard" })
-eq(after, 6, "hard first turn -1"); eq(banked, true, "hard banks a half")
+eq(after, 6, "hard first turn -1"); eq(banked, 2, "hard banks a half (2 quarters)")
 after, banked = rules.after_rest(after, { preset = "hard" }, banked)
-eq(after, 4, "hard second turn -2"); eq(banked, false, "bank spent")
+eq(after, 4, "hard second turn -2"); eq(banked, 0, "bank spent")
 eq((rules.after_rest(1, {})), 0, "rest to zero"); eq((rules.after_rest(0, {})), 0, "never negative")
 local _, kept = rules.after_rest(1, { preset = "hard" })
-eq(kept, false, "nothing banked once rested")
+eq(kept, 0, "nothing banked once rested")
+
+-- Once Crew Quarters allows 12+ operators, recovery halves (three squads to stay rested).
+eq(rules.recovery({}, 11), 2, "standard below 12"); eq(rules.recovery({}, 12), 1, "standard at 12+")
+eq(rules.recovery({ preset = "easy" }, 13), 1.5, "easy at 12+"); eq(rules.recovery({ preset = "hard" }, 12), 0.75, "hard at 12+")
+eq(rules.recovery({}, nil), 2, "unknown cap counts as below 12")
+local p, q, sequence = 7, 0, {}
+for _ = 1, 4 do p, q = rules.after_rest(p, { preset = "hard" }, q, 12); sequence[#sequence + 1] = p end
+eq(table.concat(sequence, ","), "7,6,5,4", "hard 0.75: 0, 1, 1, 1 over four turns")
+-- Three squads rotating stay rested at 12+ on Standard (+2, then -1, -1).
+p = 0
+for _ = 1, 4 do
+    eq(tier_id(p), "rested", "three squads deploy rested at 12+")
+    p = rules.after_mission(p, {})
+    p = rules.after_rest(p, {}, 0, 12); p = rules.after_rest(p, {}, 0, 12)
+end
+assert(rules.tooltip(rules.tier_by_id("tired"), 2, {}, false, nil, 12):find("removes 1 (halved: room for 12+ operators)", 1, true), "halved tooltip")
+eq(rules.format_number(0.75), "0.75", "format 0.75"); eq(rules.format_number(1.5), "1.5", "format 1.5")
 eq(rules.normalise({ recovery_per_turn = 3 }).rest, 2, "1.0.0's recovery setting is ignored")
 
 -- Two squads alternating stay rested on Standard; each mission in a row is one tier worse.
