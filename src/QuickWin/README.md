@@ -2,7 +2,10 @@
 
 Never ships. **Ctrl+Shift+W** in a tactical mission wins it through the game's own
 `BRGameMissionActor::CompleteMissionCheat`, so the normal success flow runs. Use it to test Off Duty's
-loop without playing missions out. Output goes to `UE4SS.log` with the `[QuickWin]` prefix.
+loop without playing missions out. **Ctrl+Shift+L** loses it instead by failing the primary
+mission objectives (`ABRGameObjectiveBase::FailObjective`), so the normal failure flow runs; the log
+reports `mission failed: true` a second later if it took. Output goes to `UE4SS.log` with the
+`[QuickWin]` prefix.
 
 **Wait for Off Duty first.** It applies tiers and fatigue once the mission is fully ready, which took
 about 30 seconds in testing. Win before then and the squad's characters are gone when it tries: the log
