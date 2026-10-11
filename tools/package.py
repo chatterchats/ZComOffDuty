@@ -1,10 +1,14 @@
 """Build the release ZIP from source, never the live mod directory.
 
-Two components, each with its own manifests so both mod managers install them as a pair:
-  OffDuty/         the UE4SS mod: exactly src/OffDuty's player files      -> ue4ss/Mods/OffDuty
-  OffDuty_Assets/  src/OffDuty_Assets: OffDuty_P.pak/.ucas/.utoc            -> Content/Paks/~mods
-                   (committed build of tools/build_plugin.sh; the companion
-                   .pak also carries the gameplay tags file) and manifests
+The ZIP mirrors the game's SWZeroCompany folder, so a manual install is one extract and the
+Vortex extension takes it as a combo mod (it needs both Binaries/ and Content/ at the root):
+  Binaries/Win64/ue4ss/Mods/OffDuty/        exactly src/OffDuty's player files
+  Content/Paks/~mods/OffDuty_Assets/        src/OffDuty_Assets: OffDuty_P.pak/.ucas/.utoc
+                                            (committed build of tools/build_plugin.sh; the
+                                            companion .pak also carries the gameplay tags file)
+Each component keeps its modinfo.json and zcom-mod.json beside its payload, so Zero Mod
+Manager and Zero Company Mod Command still install the pair as two entries. The paks get
+their own ~mods subfolder so Vortex doesn't deploy those manifests loose into ~mods.
 src/OffDutyProbe is a developer tool and never ships.
 """
 from pathlib import Path
@@ -16,7 +20,11 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "src" / "OffDuty"
 SCRIPTS = SOURCE / "Scripts"
-PACKAGE_ROOT = "OffDuty"  # installed folder name
+# Archive paths are relative to the game's SWZeroCompany folder; nothing may sit at the root,
+# or Vortex's combo installer deploys it loose into SWZeroCompany.
+ARCHIVE_ROOTS = ("Binaries/", "Content/")
+PACKAGE_ROOT = "Binaries/Win64/ue4ss/Mods/OffDuty"  # installed folder name is the last part
+PAKS_ROOT = "Content/Paks/~mods"
 # Pak components: folder -> the built paks it ships (beside its src/<folder> manifests).
 PAK_COMPONENTS = {
     "OffDuty_Assets": ("OffDuty_P.pak", "OffDuty_P.ucas", "OffDuty_P.utoc"),
@@ -92,10 +100,11 @@ def build(scripts, paks):
     by_name = {pak.name: pak for pak in paks}
     for component, names in PAK_COMPONENTS.items():
         for path in [ROOT / "src" / component / "modinfo.json", ROOT / "src" / component / "zcom-mod.json"]:
-            entries[f"{component}/{path.name}"] = path
+            entries[f"{PAKS_ROOT}/{component}/{path.name}"] = path
         for name in names:
-            entries[f"{component}/{name}"] = by_name[name]
+            entries[f"{PAKS_ROOT}/{component}/{name}"] = by_name[name]
     assert not any(name.endswith(".log") for name in entries)
+    assert all(name.startswith(ARCHIVE_ROOTS) for name in entries)
     output = ROOT / "dist" / f"OffDuty-{version}.zip"
     output.parent.mkdir(exist_ok=True)
     if output.exists():

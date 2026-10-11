@@ -1,7 +1,7 @@
 return {
     id      = "OffDuty",
     name    = "Off Duty",
-    version = "1.1.0",
+    version = "1.1.1",
     description = "Operator fatigue and recovery. Changes apply from the next mission or strategy turn.",
 
     settings = {

@@ -152,7 +152,7 @@ jobs:
         env:
           VERSION: ${{ steps.release.outputs.version }}
         run: |
-          # The verified release ZIP (OffDuty/ root, LICENSE included).
+          # The verified release ZIP (laid out as SWZeroCompany/: Binaries/ and Content/, LICENSE included).
           python3 tools/package.py
           ln "dist/OffDuty-${VERSION}.zip" "OffDuty v${VERSION}.zip"
 

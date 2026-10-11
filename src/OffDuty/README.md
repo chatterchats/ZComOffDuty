@@ -1,4 +1,4 @@
-# Off Duty v1.1.0 — Operator Fatigue and Recovery for Star Wars: Zero Company
+# Off Duty v1.1.1 — Operator Fatigue and Recovery for Star Wars: Zero Company
 
 Tired of sending the same four operators on every mission? With Off Duty,
 operators **get tired from back-to-back deployments** and **recover while
@@ -71,29 +71,32 @@ The download has two parts, and both are needed:
 
 ### With a mod manager
 
-Install the downloaded ZIP with **Zero Mod Manager** or **Zero Company Mod
-Command**, install both parts, and make sure they're switched on.
+Install the downloaded ZIP with **Zero Mod Manager**, **Zero Company Mod
+Command** or **Vortex**, install both parts, and make sure they're switched on.
 
 ### By hand
 
 1. Close the game.
-2. Drag the **OffDuty** folder into the UE4SS mods folder:
-   `SWZeroCompany/Binaries/Win64/ue4ss/Mods/`
-3. Copy the three files inside **OffDuty_Assets** (`OffDuty_P.pak`,
-   `OffDuty_P.ucas` and `OffDuty_P.utoc`) into:
-   `SWZeroCompany/Content/Paks/~mods/` (create `~mods` if it's missing)
-4. Start the game.
+2. Extract the ZIP into the game's `SWZeroCompany` folder (the one holding
+   `Binaries` and `Content`), merging folders. This puts **OffDuty** in
+   `Binaries/Win64/ue4ss/Mods/` and **OffDuty_Assets** in
+   `Content/Paks/~mods/`.
+3. Start the game.
 
 ## Updating
 
 Close the game, then install the new version the same way. Restart the game
 after installing or updating rather than using UE4SS's "Reload All Mods".
 
+If you installed 1.1.0 or earlier by hand, delete the old `OffDuty_P.pak`,
+`OffDuty_P.ucas` and `OffDuty_P.utoc` directly inside `Content/Paks/~mods/`.
+
 ## Uninstalling
 
 Switch both parts off or remove them in your mod manager, or delete the
-**OffDuty** folder and the three `OffDuty_P` files. Saves stay loadable without the
-mod; operators simply stop tiring.
+**OffDuty** folder in `ue4ss/Mods` and the **OffDuty_Assets** folder in
+`Content/Paks/~mods`. Saves stay loadable without the mod; operators simply
+stop tiring.
 
 ## Good to know
 

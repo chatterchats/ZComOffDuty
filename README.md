@@ -53,15 +53,17 @@ simulations; see [docs/design.md](docs/design.md).
 
 Download the release ZIP from
 [Nexus Mods](https://www.nexusmods.com/starwarszerocompany/mods/315), not
-GitHub's source-code archive. It holds two components, and both are needed:
+GitHub's source-code archive. It mirrors the game's `SWZeroCompany` folder and
+holds two components, and both are needed:
 
-| Folder           | Contents                                   | Installs to                            |
-| ---------------- | ------------------------------------------ | -------------------------------------- |
-| `OffDuty`        | the UE4SS Lua mod                          | `SWZeroCompany/Binaries/Win64/ue4ss/Mods/` |
-| `OffDuty_Assets` | `OffDuty_P.pak/.ucas/.utoc` (effects, tags) | `SWZeroCompany/Content/Paks/~mods/`     |
+| Path in the ZIP                       | Contents                                    |
+| ------------------------------------- | ------------------------------------------- |
+| `Binaries/Win64/ue4ss/Mods/OffDuty`   | the UE4SS Lua mod                           |
+| `Content/Paks/~mods/OffDuty_Assets`   | `OffDuty_P.pak/.ucas/.utoc` (effects, tags) |
 
-Each carries `modinfo.json` and `zcom-mod.json`, so both managers below
-recognise them as a pair.
+Each carries `modinfo.json` and `zcom-mod.json`, so Zero Mod Manager and Zero
+Company Mod Command recognise them as a pair. Vortex installs the whole ZIP as
+one combo mod.
 
 ### With a mod manager
 
@@ -71,14 +73,15 @@ recognise them as a pair.
 - **[Zero Company Mod Command](https://github.com/EnvianMods/ZeroCompanyModCommand)**:
   drag the ZIP into the **Hangar Bay**; it adds Off Duty and Off Duty — Assets
   as two entries. Check both are enabled.
+- **Vortex** (with the Star Wars Zero Company extension): install the ZIP; it
+  deploys both components and adds `OffDuty` to the UE4SS load order.
 
 ### By hand
 
 1. Install UE4SS for Star Wars: Zero Company and close the game.
-2. Extract the `OffDuty` folder into `SWZeroCompany/Binaries/Win64/ue4ss/Mods/`.
-3. Copy the three files in `OffDuty_Assets` into
-   `SWZeroCompany/Content/Paks/~mods/` (create `~mods` if needed).
-4. If your UE4SS setup ignores the packaged `enabled.txt`, add
+2. Extract the ZIP into the game's `SWZeroCompany` folder (the one holding
+   `Binaries` and `Content`), merging folders.
+3. If your UE4SS setup ignores the packaged `enabled.txt`, add
    `OffDuty : 1` to `ue4ss/Mods/mods.txt`.
 
 ### Updating and uninstalling
@@ -86,9 +89,13 @@ recognise them as a pair.
 Close the game, then install the new ZIP the same way. Restart the game after
 installing or updating; don't use UE4SS's Reload All Mods.
 
+Manual installs of 1.1.0 or earlier put the three `OffDuty_P` files directly in
+`Content/Paks/~mods/`; delete those when you update, since the new ones live in
+`~mods/OffDuty_Assets/`.
+
 To uninstall, disable or remove both components in your mod manager, or
-delete the `OffDuty` folder and the three `OffDuty_P` files. Saves stay
-loadable; operators simply stop tiring.
+delete the `ue4ss/Mods/OffDuty` and `Content/Paks/~mods/OffDuty_Assets`
+folders. Saves stay loadable; operators simply stop tiring.
 
 ## Compatibility
 
@@ -172,7 +179,11 @@ The research behind each piece is in
 
 `tools/package.py` zips `src/OffDuty` (with the LICENSE, checking every script
 is reachable from `main.lua`) and `src/OffDuty_Assets` (checking the committed
-paks against `BUILD.sha256` and the sources they were built from).
+paks against `BUILD.sha256` and the sources they were built from), laid out as
+the game's `SWZeroCompany` folder: `Binaries/Win64/ue4ss/Mods/OffDuty` and
+`Content/Paks/~mods/OffDuty_Assets`. Vortex's Zero Company extension needs both
+`Binaries` and `Content` at the root to install it as one combo mod; anything
+else at the root would be deployed loose into `SWZeroCompany`.
 
 ## Development
 
@@ -216,7 +227,8 @@ The manually run **Release to Nexus Mods** workflow publishes a release; use
    `[Unreleased]` into the new version.
 
 4. Run `tools/run-tests.sh` and `python3 tools/package.py`, then check
-   `dist/OffDuty-#.#.#.zip` with a mod manager and a clean manual install.
+   `dist/OffDuty-#.#.#.zip` with the mod managers (Vortex included) and a clean
+   manual install.
    A built version is immutable: the packager refuses to overwrite a ZIP with
    different contents.
 5. Commit (`chore(release): v#.#.#`), merge to `main` and push.

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1]
+
+### Changed
+
+- The download now mirrors the game's folders (`Binaries/…/ue4ss/Mods/OffDuty` and
+  `Content/Paks/~mods/OffDuty_Assets`), so Vortex installs both parts to the right places. A manual
+  install is now one extract into `SWZeroCompany`. If you installed 1.1.0 or earlier by hand, delete
+  the old `OffDuty_P` files directly inside `Content/Paks/~mods`.
+
 ## [1.1.0]
 
 ### Added

@@ -46,30 +46,28 @@ Without the config manager, Off Duty uses the Standard preset, 2 fatigue per mis
 [/list]
 
 [heading]Installation[/heading]
-The download contains [b]OffDuty[/b] and [b]OffDuty_Assets[/b]. [b]Install both[/b]; the mod needs its asset files to work.
+The download contains [b]OffDuty[/b] (the UE4SS mod) and [b]OffDuty_Assets[/b] (its pak files). [b]Install both[/b]; the mod needs its asset files to work.
 
 [b]Mod manager[/b]
 Install the ZIP with either of these mod managers:
 [list]
 [*][url=https://www.nexusmods.com/starwarszerocompany/mods/29]Zero Mod Manager[/url]: choose [b]Install all components[/b].[/*]
 [*][url=https://www.nexusmods.com/starwarszerocompany/mods/121]Zero Company Mod Command[/url]: it adds Off Duty and Off Duty — Assets as two entries.[/*]
+[*][b]Vortex[/b]: install it like any other mod; both parts are deployed together.[/*]
 [/list]
 Make sure both are enabled.
 
 [b]Manual installation[/b]
-Install UE4SS first, then close the game.
-[list=1]
-[*]Extract the [b]OffDuty[/b] folder into:
-[code]SWZeroCompany/Binaries/Win64/ue4ss/Mods/[/code][/*]
-[*]Copy [b]OffDuty_P.pak[/b], [b]OffDuty_P.ucas[/b] and [b]OffDuty_P.utoc[/b] from [b]OffDuty_Assets[/b] into the folder below. Create [b]~mods[/b] if it's missing.
-[code]SWZeroCompany/Content/Paks/~mods/[/code][/*]
-[/list]
+Install UE4SS first, then close the game. The ZIP mirrors the game's folders, so extract it into the folder below (the one holding [b]Binaries[/b] and [b]Content[/b]) and merge folders:
+[code]SWZeroCompany/[/code]
+That puts [b]OffDuty[/b] in [b]Binaries/Win64/ue4ss/Mods/[/b] and [b]OffDuty_Assets[/b] in [b]Content/Paks/~mods/[/b].
+
 The package includes [b]enabled.txt[/b]. If your UE4SS setup doesn't pick it up, add this line to [b]ue4ss/Mods/mods.txt[/b]:
 [code]OffDuty : 1[/code]
-[b]Updating:[/b] close the game first, then install the new ZIP the same way.
+[b]Updating:[/b] close the game first, then install the new ZIP the same way. If you installed 1.1.0 or earlier by hand, delete the old [b]OffDuty_P.pak[/b], [b]OffDuty_P.ucas[/b] and [b]OffDuty_P.utoc[/b] directly inside [b]Content/Paks/~mods/[/b].
 
 [b]Uninstalling[/b]
-Disable or remove both parts in your mod manager. For a manual uninstall, delete the [b]OffDuty[/b] folder and the three [b]OffDuty_P[/b] files. Your saves will still load, and operators will stop gaining fatigue.
+Disable or remove both parts in your mod manager. For a manual uninstall, delete the [b]OffDuty[/b] folder in [b]ue4ss/Mods[/b] and the [b]OffDuty_Assets[/b] folder in [b]Content/Paks/~mods[/b]. Your saves will still load, and operators will stop gaining fatigue.
 
 [heading]Known Issues[/heading]
 [list]
