@@ -1,7 +1,7 @@
--- Off Duty v1.0.1
+-- Off Duty v1.1.0
 -- Operator fatigue and recovery. Loader-thread composition only: hooks, UObject work and settings
 -- start on the game thread (the final scheduled action below).
-local VERSION = "1.0.1"
+local VERSION = "1.1.0"
 local MOD_FOLDER = "OffDuty"
 local source = debug.getinfo(1, "S").source:gsub("^@", "")
 local directory = assert(source:match("^(.*[/\\])"), "Scripts directory unavailable")
