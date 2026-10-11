@@ -534,8 +534,12 @@ def run_jobs(instance, args, jobs, emit):
     print("i%d %s" % (instance, require_session(sb)), flush=True)
     if args.neutralise:
         neutralise_offduty()
+    failures = 0  # in a row: a crashed game would otherwise burn through the shared queue
     try:
         while True:
+            if failures >= 3:
+                print("i%d: 3 failed runs in a row (game crashed or stuck?); this instance stops" % instance, flush=True)
+                break
             job = jobs()
             if job is None:
                 break
@@ -546,6 +550,9 @@ def run_jobs(instance, args, jobs, emit):
             except SandboxError as error:
                 print("  i%d ERROR: %s" % (instance, error), flush=True)
                 row = {"condition": condition, "run": run_index, "enemies": enemies, "result": "error: %s" % error}
+                failures += 1
+            else:
+                failures = 0
             finally:
                 for line in ("ai off", "speed 1"):
                     try:
