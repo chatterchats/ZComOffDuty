@@ -143,7 +143,7 @@ The research behind each piece is in
 ├── docs/
 │   ├── design.md                         # decisions and working model
 │   ├── phase0-findings.md                # game systems the design relies on
-│   └── nexus/                            # mod page summary and BBCode description
+│   └── nexus/                            # mod page summary, BBCode description and media/ (banner, screenshots)
 ├── src/
 │   ├── OffDuty/                          # the UE4SS mod component
 │   │   ├── Scripts/                      # main.lua and modules

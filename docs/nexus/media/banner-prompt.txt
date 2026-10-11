@@ -1,0 +1,11 @@
+Generated using the built-in image_gen tool.
+
+Use case: compositing.
+Asset type: polished Nexus Mods cover/banner image for a mod called Off Duty.
+Input image 1 is the EDIT TARGET: the supplied 1920x1080 gameplay screenshot. Use this exact screenshot as the background, retaining its recognizable scene, room layout, furniture, control consoles, textures, and the reclining man on the right. Preserve the man's face, identity, clothing, proportions, pose, boots resting on the desk, and dangling hand. Do not repaint or redesign the scene or introduce objects.
+Primary request: turn this screenshot into a professional finished mod banner with clean graphic typography.
+Output framing: landscape 16:9, ideally 1920x1080. Keep the reclining character fully recognizable on the right, unobstructed. Retain the screenshot's composition.
+Graphic treatment: gently lift the midtones of the character and surrounding consoles for readability while preserving the moody dark sci-fi atmosphere, warm cabin light, orange chair, cyan screens. Add a subtle dark gradient over the left half behind the title, blending smoothly into the original image, without washing out the scene.
+Text (verbatim): "OFF DUTY". Only this title, no other words.
+Typography and placement: large beautifully typeset bold condensed geometric sans-serif uppercase title on the left, stacked as OFF above DUTY, occupying roughly the left third of the frame at mid-height with generous safe margins. Warm off-white letters, exceptionally clear at thumbnail size. Minimal thin amber-orange accent line below the title. Straight horizontal typography, crisp edges, considered spacing, understated sci-fi editorial style. Title must not overlap the reclining character, face, boots, or body.
+Constraints: keep the original game screenshot visually faithful. Add only title, subtle gradient, and minimal accent. No logo, no Nexus logo, no Starfield logo, no subtitle, no tagline, no badges, no watermark, no decorative frame, no extra people. The result should look like a professionally designed mod cover made from actual gameplay.
