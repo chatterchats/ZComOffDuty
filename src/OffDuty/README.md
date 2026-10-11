@@ -9,17 +9,20 @@ they're off duty**, so the rest of your company gets a chance to shine.
 - **Fatigue starts at cycle 5** (adjustable), once your roster is big enough to
   rotate. Before that, missions add no fatigue.
 - **Every mission adds fatigue** to each operator who deploys (2 by default).
-- **Every strategy turn off duty removes some** (1 by default). Operators away
-  on an operation neither gain nor recover.
+- **Every strategy turn off duty removes some**: 3 on Easy, 2 on Standard (the
+  default), 1.5 on Hard. Operators away on an operation neither gain nor
+  recover.
+- On Standard, **two squads taking turns stay rested**. Sending the same
+  operator on missions back to back raises them one tier per mission.
 - **Fatigue sets a tier** for the next mission. You can always deploy anyone;
   a tired operator just fights worse.
 
-| Tier      | Easy | Standard (default) | Hard | Next mission                                                   |
-| --------- | ---- | ------------------ | ---- | -------------------------------------------------------------- |
-| Rested    | 0–2  | 0–1                | 0    | No penalty                                                     |
-| Tired     | 3–4  | 2–3                | 1–2  | −5% hit chance, −5% max health                                 |
-| Exhausted | 5–6  | 4–5                | 3–4  | −10% hit chance, −10% max health, 10% chance a turn to lose 1 AP |
-| Spent     | 7    | 6–7                | 5–7  | −20% hit chance, −20% max health, −10% movement, 15% chance a turn to lose 1 AP |
+| Tier      | Fatigue | Next mission                                                   |
+| --------- | ------- | -------------------------------------------------------------- |
+| Rested    | 0–1     | No penalty                                                     |
+| Tired     | 2–3     | −5% hit chance, −5% max health                                 |
+| Exhausted | 4–5     | −10% hit chance, −10% max health, 10% chance a turn to lose 1 AP |
+| Spent     | 6–7     | −20% hit chance, −20% max health, −10% movement, 15% chance a turn to lose 1 AP |
 
 Fatigue caps at 7.
 
@@ -41,13 +44,14 @@ Fatigue caps at 7.
 With the [Mixamoo Mod Config Manager](https://www.nexusmods.com/starwarszerocompany/mods/149) installed, Off Duty has an in-game
 settings page:
 
-- **Preset:** Easy (tiers at 3 / 5 / 7), Standard (2 / 4 / 6) or Hard (1 / 3 / 5).
+- **Preset:** how fast operators recover off duty: Easy (3 a turn), Standard
+  (2) or Hard (1.5).
 - **Fatigue per mission:** 0–4.
-- **Recovery per turn off duty:** 0–3.
 - **Fatigue starts at cycle:** 1–20 (5 by default).
 - **AP loss:** turn the chance to lose an AP on or off.
 
-Without it, Off Duty uses the defaults (Standard, 2, 1, cycle 5, AP loss on). Changes apply
+Without it, Off Duty uses the defaults (Standard, 2 per mission, cycle 5, AP
+loss on). Changes apply
 from the next mission or strategy turn.
 
 ## What you need

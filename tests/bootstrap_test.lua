@@ -62,7 +62,7 @@ assert(type(handle) == "number", "main.lua must return the bootstrap action hand
 assert(not output():find("runtime | loading -> ready", 1, true), "ready before game thread")
 assert(output():find("WORKFLOW TRANSITION | runtime | idle -> loading; version=", 1, true))
 run_pending()
-assert(output():find("runtime | loading -> ready; preset=standard gain=2 rest=1 ap_loss=true", 1, true), output())
+assert(output():find("runtime | loading -> ready; preset=standard gain=2 rest=2 ap_loss=true", 1, true), output())
 for _, path in ipairs({
     "/Script/Bruno.BrunoGameStatics:ApplyNextMissionEffectsToCharacter",
     "/Script/Bruno.BrunoStrategyTurnManager:EndStrategyTurn",

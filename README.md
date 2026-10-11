@@ -12,9 +12,11 @@ your best four.
 ## Features
 
 - **Fatigue from deployment.** Every operator who deploys gains fatigue (2 by
-  default); every strategy turn off duty removes some (1 by default).
-  Operators away on an operation are frozen. Fatigue starts at cycle 5
-  (adjustable), once the roster is big enough to rotate.
+  default); every strategy turn off duty removes some: 3 on Easy, 2 on
+  Standard (the default), 1.5 on Hard. On Standard two squads taking turns
+  stay rested, and each mission in a row is one tier worse. Operators away on
+  an operation are frozen. Fatigue starts at cycle 5 (adjustable), once the
+  roster is big enough to rotate.
 - **Push-through, never locked out.** Fatigue sets a tier with a penalty for
   the next mission, but anyone can always deploy, so a save can't get stuck.
 - **Story-safe.** Operators a mission requires go in at the tier for half
@@ -27,17 +29,17 @@ your best four.
   the Inspect panel; the hit chance penalty is the game's own "Penalty from
   Operation".
 - **Separate from injuries.** The game's injury system is left alone.
-- **Settings** through the [Mixamoo Mod Config Manager](https://www.nexusmods.com/starwarszerocompany/mods/149): preset, fatigue per
-  mission, recovery per turn, starting cycle, AP loss on/off.
+- **Settings** through the [Mixamoo Mod Config Manager](https://www.nexusmods.com/starwarszerocompany/mods/149): preset (recovery
+  speed), fatigue per mission, starting cycle, AP loss on/off.
 
-| Tier      | Easy | Standard (default) | Hard | Next mission                                                                 |
-| --------- | ---- | ------------------ | ---- | ---------------------------------------------------------------------------- |
-| Rested    | 0–2  | 0–1                | 0    | No penalty                                                                   |
-| Tired     | 3–4  | 2–3                | 1–2  | −5% hit chance, −5% max health                                               |
-| Exhausted | 5–6  | 4–5                | 3–4  | −10% hit chance, −10% max health, 10% chance per turn to lose 1 AP           |
-| Spent     | 7    | 6–7                | 5–7  | −20% hit chance, −20% max health, −10% movement, 15% chance per turn to lose 1 AP |
+| Tier      | Fatigue | Next mission                                                                 |
+| --------- | ------- | ---------------------------------------------------------------------------- |
+| Rested    | 0–1     | No penalty                                                                   |
+| Tired     | 2–3     | −5% hit chance, −5% max health                                               |
+| Exhausted | 4–5     | −10% hit chance, −10% max health, 10% chance per turn to lose 1 AP           |
+| Spent     | 6–7     | −20% hit chance, −20% max health, −10% movement, 15% chance per turn to lose 1 AP |
 
-Fatigue caps at 7 on every preset. The numbers come from AI-vs-AI
+Fatigue caps at 7; the tiers are the same on every preset. The numbers come from AI-vs-AI
 simulations; see [docs/design.md](docs/design.md).
 
 ## Requirements

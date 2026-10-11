@@ -9,6 +9,7 @@ local M = {}
 M.EFFECTS_DIR = "/Game/OffDuty/Effects/"
 M.FATIGUE = "GE_OffDuty_Fatigue"
 M.DEPLOYED = "GE_OffDuty_Deployed"
+M.REST_CREDIT = "GE_OffDuty_RestCredit" -- a banked half point of recovery (Hard's 1.5 per turn)
 M.LOSE_AP = "GE_OffDuty_LoseAP"
 M.ACCURACY = "/Game/Game/GameData/Progression/NextMissionGameplayEffects/"
     .. "GE_Lose_NextMission_RangedAccuracy.GE_Lose_NextMission_RangedAccuracy_C"

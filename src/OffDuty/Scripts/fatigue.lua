@@ -7,7 +7,8 @@
 --       this turn (GE_OffDuty_Deployed, saved), add the mission's fatigue (capped);
 --     loaded save (marker present): fatigue is already counted; restore the tier only.
 --   Strategy turn end (EndStrategyTurn): every roster operator who isn't away and wasn't deployed
---     recovers; the deployed marker is cleared. Away operators (operations) are frozen.
+--     recovers by their preset's amount (Hard's 1.5 banks the half as GE_OffDuty_RestCredit); the deployed
+--     marker is cleared. Away operators (operations) are frozen.
 --   Player turn start (OnTeamTurnStarted with PlayerTeam): Exhausted/Spent operators roll to lose 1 AP.
 -- Only roster operators take part (guest units such as Rex aren't on the roster).
 local Rules = require("rules")
@@ -177,6 +178,7 @@ function M.new(ctx)
             return
         end
         local s = current_settings()
+        local credit_class = g.effect_class(Game.REST_CREDIT)
         local rested, frozen, deployed, missing = 0, 0, 0, 0
         for _, member in ipairs(g.roster(wco)) do
             local asc = member.actor and g.asc(member.actor)
@@ -190,8 +192,13 @@ function M.new(ctx)
             else
                 local before = math.min(g.effect_count(asc, fatigue_class), Rules.preset(s.preset).cap)
                 if before > 0 then
-                    g.set_effect_count(asc, fatigue_class, Rules.after_rest(before, s))
+                    local banked = credit_class ~= nil and g.effect_count(asc, credit_class) > 0
+                    local after, bank = Rules.after_rest(before, s, banked)
+                    g.set_effect_count(asc, fatigue_class, after)
+                    if credit_class and bank ~= banked then g.set_effect_count(asc, credit_class, bank and 1 or 0) end
                     rested = rested + 1
+                elseif credit_class and g.effect_count(asc, credit_class) > 0 then
+                    g.set_effect_count(asc, credit_class, 0) -- fully rested: nothing to bank against
                 end
             end
         end

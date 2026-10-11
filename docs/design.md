@@ -14,13 +14,14 @@
 
 - **Starting cycle:** fatigue only counts from cycle 5 (setting, 1–20); the early roster is too small to
   rotate. Before it, missions add no fatigue and apply no tier.
-- **Fatigue points:** +2 per mission played, −1 per strategy turn off, cap 7. Operators on an
-  operation are frozen (no gain, no recovery).
-- **Tiers:**
-  - Easy preset: Tired at 3, Exhausted at 5, Spent at 7.
-  - Standard preset (the default): 2 / 4 / 6.
-  - Hard preset: 1 / 3 / 5.
-  - Fatigue caps at 7 on every preset.
+- **Fatigue points:** +2 per mission played, cap 7. Operators on an operation are frozen (no gain,
+  no recovery).
+- **Recovery per strategy turn off** is what the presets change: Easy −3, Standard −2 (default),
+  Hard −1.5 (−1 then −2, the half point banked as `GE_OffDuty_RestCredit`).
+  Tuned for two squads (2026-10-11): by cycle 5 the roster holds at most 7 operators and late game 13,
+  so a three-squad rotation isn't realistic. With +2 / −2, two squads alternating stay rested, and each
+  back-to-back mission is one tier worse. The first tuning (+2 / −1) only stayed level with three squads.
+- **Tiers** (every preset): Tired at 2, Exhausted at 4, Spent at 6; fatigue caps at 7.
 
 | Tier      | Next-mission penalty                                  |
 | --------- | ----------------------------------------------------- |

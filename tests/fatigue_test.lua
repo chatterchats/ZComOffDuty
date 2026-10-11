@@ -25,7 +25,7 @@ local required = {} -- the current mission's required operators: id -> blocking
 cycle = 10 -- strategy turn (global so tests can move it); fatigue starts at cycle 5 by default
 mission_ready = true
 loading_save = false
-local settings = { preset = "hard" } -- these cases use Hard's thresholds (1 / 3 / 5)
+local settings = { preset = "hard" } -- Hard: tiers 2 / 4 / 6, recovery 1.5 (1, then 2)
 local g = {
     unwrap = function(x) return x end,
     valid = function(x) return x ~= nil end,
@@ -89,8 +89,8 @@ local mission_start, end_turn, team_turn = hooks.ApplyNextMissionEffectsToCharac
 assert(mission_start and end_turn and team_turn, "hooks installed")
 
 local ACCURACY = Game.ACCURACY
-local tesh = operator("Tesh", "T", 1)
-local kabb = operator("Kabb", "K", 3)
+local tesh = operator("Tesh", "T", 2)
+local kabb = operator("Kabb", "K", 4)
 local kara = operator("Kara", "N", 6)
 local benched = operator("Luco", "L", 3)
 local away = operator("Jae", "J", 4, { away = true })
@@ -101,9 +101,9 @@ roster = { tesh, kabb, kara, benched, away, absent }
 -- Mission start: tier from current fatigue, deployed marker, then +2 (capped).
 for _, op in ipairs({ tesh, kabb, kara, rex }) do mission_start(nil, op) end
 eq(tesh.effects.GE_OffDuty_Tired, 1, "Tesh tired effect"); eq(tesh.effects[ACCURACY], 1, "Tesh accuracy")
-eq(tesh.effects[Game.FATIGUE], 3, "Tesh fatigue +2")
+eq(tesh.effects[Game.FATIGUE], 4, "Tesh fatigue +2")
 eq(kabb.effects.GE_OffDuty_Exhausted, 1, "Kabb exhausted effect"); eq(kabb.effects[ACCURACY], 2, "Kabb accuracy")
-eq(kabb.effects[Game.FATIGUE], 5, "Kabb fatigue +2")
+eq(kabb.effects[Game.FATIGUE], 6, "Kabb fatigue +2")
 eq(kara.effects.GE_OffDuty_Spent, 1, "Kara spent effect"); eq(kara.effects[ACCURACY], 4, "Kara accuracy")
 eq(kara.effects[Game.FATIGUE], 7, "Kara capped at 7")
 eq(kabb.effects[Game.DEPLOYED], 3, "Kabb marked deployed, tier Exhausted recorded (1 + 2)")
@@ -115,7 +115,7 @@ cycle = 3
 local early = operator("Rookie", "RK", 3)
 roster[#roster + 1] = early
 mission_start(nil, early)
-eq(early.effects[Game.FATIGUE], 3, "before cycle 5: no gain"); eq(early.effects.GE_OffDuty_Exhausted, nil, "no tier")
+eq(early.effects[Game.FATIGUE], 3, "before cycle 5: no gain"); eq(early.effects.GE_OffDuty_Tired, nil, "no tier")
 eq(early.effects[Game.DEPLOYED], nil, "no marker")
 assert(logs[#logs]:find("cycle 3, before fatigue starts (cycle 5)", 1, true), logs[#logs])
 settings = { preset = "hard", start_cycle = 1 }
@@ -128,20 +128,20 @@ cycle = 10
 
 -- Required operators go in at half their fatigue (rounded down); fatigue itself still gains as usual.
 -- Every listed operator counts, blocking or not (a locked story operator reads non-blocking).
-local hero = operator("Hawks", "H", 5)      -- Spent at 5; half is 2: Tired
-local forced = operator("Cly", "C", 3)      -- Exhausted at 3; half is 1: Tired
-local rested = operator("Tel", "E", 1)      -- Tired at 1; half is 0: rested
-local suggested = operator("Xel", "XL", 3)  -- listed, non-blocking: still half (1, Tired)
+local hero = operator("Hawks", "H", 6)      -- Spent at 6; half is 3: Tired
+local forced = operator("Cly", "C", 4)      -- Exhausted at 4; half is 2: Tired
+local rested = operator("Tel", "E", 2)      -- Tired at 2; half is 1: rested
+local suggested = operator("Xel", "XL", 4)  -- listed, non-blocking: still half (2, Tired)
 roster[#roster + 1], roster[#roster + 2], roster[#roster + 3], roster[#roster + 4] = hero, forced, rested, suggested
 required = { H = true, C = true, E = true, XL = false }
 for _, op in ipairs({ hero, forced, rested, suggested }) do mission_start(nil, op) end
 eq(hero.effects.GE_OffDuty_Tired, 1, "required Spent operator goes in Tired"); eq(hero.effects.GE_OffDuty_Spent, nil, "no Spent effect")
 eq(hero.effects[ACCURACY], 1, "required: Tired accuracy only"); eq(hero.effects[Game.FATIGUE], 7, "required: fatigue still +2 (capped)")
 eq(hero.effects[Game.DEPLOYED], 2, "required: marker records the tier they went in at")
-eq(forced.effects.GE_OffDuty_Tired, 1, "required Exhausted operator goes in Tired"); eq(forced.effects[Game.FATIGUE], 5, "required: +2")
+eq(forced.effects.GE_OffDuty_Tired, 1, "required Exhausted operator goes in Tired"); eq(forced.effects[Game.FATIGUE], 6, "required: +2")
 eq(rested.effects.GE_OffDuty_Tired, nil, "required Tired operator goes in rested"); eq(rested.effects[ACCURACY], nil, "no accuracy loss")
 eq(suggested.effects.GE_OffDuty_Tired, 1, "non-blocking listing is still required"); eq(suggested.effects.GE_OffDuty_Exhausted, nil, "not Exhausted")
-assert(table.concat(logs, "\n"):find("Hawks | fatigue 5 -> 7 | required: tier from half fatigue (2)", 1, true), "required logged")
+assert(table.concat(logs, "\n"):find("Hawks | fatigue 6 -> 7 | required: tier from half fatigue (3)", 1, true), "required logged")
 required = {}
 
 -- At mission load the roster can't be read yet: processing waits for it.
@@ -151,10 +151,10 @@ g.roster_ids = function(...)
     if unreadable > 0 then unreadable = unreadable - 1; return {} end
     return roster_ids(...)
 end
-local late = operator("Tel-Rea", "V", 1)
+local late = operator("Tel-Rea", "V", 2)
 roster[#roster + 1] = late
 mission_start(nil, late)
-eq(late.effects[Game.FATIGUE], 3, "processed once the roster answers")
+eq(late.effects[Game.FATIGUE], 4, "processed once the roster answers")
 eq(late.effects.GE_OffDuty_Tired, 1, "late: tier applied")
 unreadable = 99
 local never = operator("Luco2", "L2", 1)
@@ -166,7 +166,7 @@ g.roster_ids = roster_ids
 
 -- A second call in the same turn changes nothing.
 mission_start(nil, kabb)
-eq(kabb.effects[Game.FATIGUE], 5, "no double gain"); eq(kabb.effects[ACCURACY], 2, "no double penalty")
+eq(kabb.effects[Game.FATIGUE], 6, "no double gain"); eq(kabb.effects[ACCURACY], 2, "no double penalty")
 
 -- Loading a tactical save: the hook fires before the save restores effects (mission not ready yet).
 -- Once ready, the restored marker means "already counted": no gain; the tier is restored.
@@ -189,11 +189,11 @@ eq(restored.effects[ACCURACY], 4, "loaded save: accuracy re-applied for the tier
 assert(logs[#logs]:find("Mission resumed", 1, true), logs[#logs])
 g.loading_from_save = function() return false end
 -- An older save without the tier effect: fall back to the tier this mission started at (fatigue - gain).
-local old = operator("Old", "O1", 5, { effects = { [Game.FATIGUE] = 5, [Game.DEPLOYED] = 1 }, from_save = true })
+local old = operator("Old", "O1", 6, { effects = { [Game.FATIGUE] = 6, [Game.DEPLOYED] = 1 }, from_save = true })
 roster[#roster + 1] = old
 mission_start(nil, old)
-eq(old.effects.GE_OffDuty_Exhausted, 1, "old save: tier from fatigue before the mission (3)")
-eq(old.effects[Game.FATIGUE], 5, "old save: no gain")
+eq(old.effects.GE_OffDuty_Exhausted, 1, "old save: tier from fatigue before the mission (4)")
+eq(old.effects[Game.FATIGUE], 6, "old save: no gain")
 -- Fatigue above the cap (an earlier bug) is clamped.
 local over = operator("Over", "O2", 9, { effects = { [Game.FATIGUE] = 9, [Game.DEPLOYED] = 1 } })
 roster[#roster + 1] = over
@@ -213,21 +213,22 @@ mission_start(nil, fresh)
 eq(fresh.effects[ACCURACY], nil, "rested: no accuracy penalty"); eq(fresh.effects[Game.FATIGUE], 2, "rested +2")
 
 -- Turn end: deployed keep their fatigue (marker cleared), benched recover, away are frozen.
+-- Hard recovers 1.5: 1 and a banked half point (GE_OffDuty_RestCredit), then 2.
 end_turn()
-eq(kabb.effects[Game.FATIGUE], 5, "deployed don't recover"); eq(kabb.effects[Game.DEPLOYED], 0, "marker cleared")
-eq(benched.effects[Game.FATIGUE], 2, "benched recover 1")
+eq(kabb.effects[Game.FATIGUE], 6, "deployed don't recover"); eq(kabb.effects[Game.DEPLOYED], 0, "marker cleared")
+eq(benched.effects[Game.FATIGUE], 2, "benched recover 1 (Hard)"); eq(benched.effects[Game.REST_CREDIT], 1, "half point banked")
 eq(away.effects[Game.FATIGUE], 4, "away frozen")
 eq(absent.effects[Game.FATIGUE], 2, "no hub actor: unchanged")
 -- Next turn everyone sits out: the deployed recover too.
 end_turn()
-eq(kabb.effects[Game.FATIGUE], 4, "recovers the turn after")
-eq(benched.effects[Game.FATIGUE], 1, "benched again")
+eq(kabb.effects[Game.FATIGUE], 5, "recovers the turn after (1, banks a half)"); eq(kabb.effects[Game.REST_CREDIT], 1, "Kabb banked")
+eq(benched.effects[Game.FATIGUE], 0, "banked half + 1.5 = 2"); eq(benched.effects[Game.REST_CREDIT], 0, "bank spent")
 
--- Settings: Standard preset and custom gain/rest.
-settings = { preset = "standard", fatigue_per_mission = 3, recovery_per_turn = 2 }
+-- Settings: Standard preset (recovery 2) and a custom gain.
+settings = { preset = "standard", fatigue_per_mission = 3 }
 local std = operator("Tel", "E", 3)
 roster[#roster + 1] = std
-mission_start(nil, std) -- 3 on Standard is Tired (2), not Exhausted (4)
+mission_start(nil, std) -- 3 is Tired (2), not Exhausted (4)
 eq(std.effects.GE_OffDuty_Tired, 1, "standard tier"); eq(std.effects[Game.FATIGUE], 6, "standard +3")
 end_turn(); end_turn()
 eq(std.effects[Game.FATIGUE], 4, "rest 2 per turn after the deployed turn")

@@ -4,7 +4,8 @@
 [list]
 [*]Fatigue starts counting at [b]cycle 5[/b] by default, once your roster is big enough to rotate. Before that, missions add no fatigue.[/*]
 [*]Each operator who deploys gains [b]2 fatigue per mission[/b] by default.[/*]
-[*]Operators recover [b]1 fatigue per strategy turn off duty[/b] by default. If they're away on an operation, their fatigue stays where it is until they return.[/*]
+[*]Operators recover [b]2 fatigue per strategy turn off duty[/b] by default (3 on Easy, 1.5 on Hard). If they're away on an operation, their fatigue stays where it is until they return.[/*]
+[*]On the default settings, [b]two squads taking turns stay rested[/b]. Each mission in a row makes an operator one tier more tired.[/*]
 [*]Fatigue determines their penalties for the next mission. [b]It never stops you from deploying them.[/b][/*]
 [*]If a mission requires an operator, their fatigue counts as [b]half[/b] when deciding their penalties, rounded down. Their actual fatigue stays the same, and the mission still adds fatigue as usual.[/*]
 [*]Every squad slot shows a banner: RESTED, REQUIRED, TIRED, EXHAUSTED or SPENT. Hover over it to see the operator's fatigue, penalties and recovery time. Roster portraits also mark tired and required operators.[/*]
@@ -13,24 +14,23 @@
 [/list]
 
 [heading]Tiers[/heading]
-These are the fatigue ranges and penalties for each preset:
+These are the fatigue ranges and penalties (the same on every preset):
 [list]
-[*][b]Tired[/b] (Easy 3–4, Standard 2–3, Hard 1–2): −5% hit chance, −5% max health[/*]
-[*][b]Exhausted[/b] (Easy 5–6, Standard 4–5, Hard 3–4): −10% hit chance, −10% max health, 10% chance each turn to lose 1 AP[/*]
-[*][b]Spent[/b] (Easy 7, Standard 6–7, Hard 5–7): −20% hit chance, −20% max health, −10% movement, 15% chance each turn to lose 1 AP[/*]
+[*][b]Tired[/b] (2–3 fatigue): −5% hit chance, −5% max health[/*]
+[*][b]Exhausted[/b] (4–5): −10% hit chance, −10% max health, 10% chance each turn to lose 1 AP[/*]
+[*][b]Spent[/b] (6–7): −20% hit chance, −20% max health, −10% movement, 15% chance each turn to lose 1 AP[/*]
 [/list]
 The penalties were tuned over hundreds of AI-vs-AI test missions.
 
 [heading]Settings[/heading]
 Install [url=https://www.nexusmods.com/starwarszerocompany/mods/149]Mixamoo Mod Config Manager[/url] to adjust these settings in game:
 [list]
-[*][b]Preset[/b]: Easy (tiers at 3 / 5 / 7), Standard (2 / 4 / 6, the default) or Hard (1 / 3 / 5); fatigue caps at 7[/*]
+[*][b]Preset[/b]: how fast operators recover off duty: Easy (3 per turn), Standard (2, the default) or Hard (1.5)[/*]
 [*][b]Fatigue per mission[/b]: 0–4[/*]
-[*][b]Recovery per turn off duty[/b]: 0–3[/*]
 [*][b]Fatigue starts at cycle[/b]: 1–20[/*]
 [*][b]AP loss[/b]: turn the chance to lose 1 AP on or off[/*]
 [/list]
-Without the config manager, Off Duty uses the Standard preset, 2 fatigue per mission, 1 recovery per turn off duty, fatigue starting at cycle 5 and AP loss enabled.
+Without the config manager, Off Duty uses the Standard preset, 2 fatigue per mission, fatigue starting at cycle 5 and AP loss enabled.
 
 [heading]Requirements[/heading]
 [list]

@@ -83,6 +83,14 @@ EFFECTS = [
         "modifiers": [],
     },
     {
+        # A banked half point of recovery: Hard recovers 1.5 per strategy turn off duty, as 1 then 2. Saved
+        # (Persists) like the fatigue counter; one stack at most.
+        "name": "GE_OffDuty_RestCredit",
+        "defaults": dict(COMMON, stack_limit_count=1, include_in_save_data=True, terminate_with_combat=False),
+        "asset_tags": [PERSISTS],
+        "modifiers": [],
+    },
+    {
         "name": "GE_OffDuty_Tired",
         "defaults": NEXT_MISSION_PENALTY,
         "asset_tags": TIER_TAGS,

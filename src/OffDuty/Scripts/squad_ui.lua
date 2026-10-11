@@ -428,7 +428,7 @@ function M.new(ctx)
         local wco = g.world_context()
         local active = Rules.active(wco and g.strategy_turn(wco) or nil, s)
         local view = { by_name = by_name, by_id = by_id, active = active, start = s.start,
-                       settings = string.format("%s/%d/%d/%s/%d/%s", s.preset, s.gain, s.rest, tostring(s.ap_loss),
+                       settings = string.format("%s/%d/%s/%s/%d/%s", s.preset, s.gain, tostring(s.rest), tostring(s.ap_loss),
                            s.start, tostring(active)) }
         local refreshers = { slot = refresh_slot, tile = refresh_tile }
         local function run(kind, widget)

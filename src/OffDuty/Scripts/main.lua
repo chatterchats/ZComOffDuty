@@ -56,8 +56,8 @@ local function start()
         end)
     end)
     local s = require("rules").normalise(Settings.All())
-    logger:transition("runtime", "ready", string.format("preset=%s gain=%d rest=%d ap_loss=%s start_cycle=%d",
-        s.preset, s.gain, s.rest, tostring(s.ap_loss), s.start))
+    logger:transition("runtime", "ready", string.format("preset=%s gain=%d rest=%s ap_loss=%s start_cycle=%d",
+        s.preset, s.gain, tostring(s.rest), tostring(s.ap_loss), s.start))
 end
 
 -- This MUST remain the final operation: all Unreal work starts on the game

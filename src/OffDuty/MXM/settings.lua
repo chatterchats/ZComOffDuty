@@ -10,21 +10,16 @@ return {
         { key = "preset", type = "choice",
           name = "Preset", default = "standard",
           choices = {
-              { value = "easy", label = "Easy: tiers at 3 / 5 / 7" },
-              { value = "standard", label = "Standard: tiers at 2 / 4 / 6" },
-              { value = "hard", label = "Hard: tiers at 1 / 3 / 5" },
+              { value = "easy", label = "Easy: recover 3 per turn off duty" },
+              { value = "standard", label = "Standard: recover 2 per turn off duty" },
+              { value = "hard", label = "Hard: recover 1.5 per turn off duty" },
           },
-          desc = "Fatigue points at which an operator becomes Tired, Exhausted and Spent. Fatigue caps at 7." },
+          desc = "How fast operators recover off duty. Every preset: Tired at 2 fatigue, Exhausted at 4, Spent at 6; fatigue caps at 7." },
 
         { key = "fatigue_per_mission", type = "number",
           name = "Fatigue per mission", default = 2,
           min = 0, max = 4, step = 1,
           desc = "Added to every operator who deploys." },
-
-        { key = "recovery_per_turn", type = "number",
-          name = "Recovery per turn off duty", default = 1,
-          min = 0, max = 3, step = 1,
-          desc = "Removed each strategy turn an operator sits out. Operators away on an operation don't change." },
 
         { key = "start_cycle", type = "number",
           name = "Fatigue starts at cycle", default = 5,

@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fatigue, and squad select says when tracking starts. Change it with the new "Fatigue starts at cycle"
   setting (1–20).
 
+### Changed
+
+- Tuned for two squads: by default operators now recover 2 fatigue per turn off duty, so two squads
+  taking turns stay rested, while each mission in a row still makes an operator one tier more tired.
+- Presets now set recovery speed (Easy 3, Standard 2, Hard 1.5 per turn off duty); every preset uses the
+  same tiers (Tired at 2, Exhausted at 4, Spent at 6). The separate recovery setting is gone.
+
 ### Fixed
 
 - The AP loss setting's description listed the old odds; it now says 10% (Exhausted) and 15% (Spent).

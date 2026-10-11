@@ -2,11 +2,13 @@
 -- Pure Lua (no Unreal calls), so tests can load it directly.
 local M = {}
 
--- Thresholds per preset (fatigue points at which each tier starts) and the cap (7 for all).
+-- Presets differ in recovery per strategy turn off duty; the tiers (2 / 4 / 6) and cap (7) are shared.
+-- With the default +2 per mission and Standard's -2, two squads alternating stay rested, and each mission
+-- in a row puts an operator one tier higher. Hard's 1.5 alternates 1 and 2 (a banked half point).
 M.PRESETS = {
-    hard = { label = "Hard", tired = 1, exhausted = 3, spent = 5, cap = 7 },
-    standard = { label = "Standard", tired = 2, exhausted = 4, spent = 6, cap = 7 },
-    easy = { label = "Easy", tired = 3, exhausted = 5, spent = 7, cap = 7 },
+    easy = { label = "Easy", recovery = 3, tired = 2, exhausted = 4, spent = 6, cap = 7 },
+    standard = { label = "Standard", recovery = 2, tired = 2, exhausted = 4, spent = 6, cap = 7 },
+    hard = { label = "Hard", recovery = 1.5, tired = 2, exhausted = 4, spent = 6, cap = 7 },
 }
 M.DEFAULT_PRESET = "standard"
 M.DEFAULT_START_CYCLE = 5
@@ -54,6 +56,12 @@ M.RESTED = {
     penalties = {},
 }
 
+-- 2 -> "2", 1.5 -> "1.5"
+function M.format_number(value)
+    if value == math.floor(value) then return string.format("%d", value) end
+    return string.format("%.1f", value)
+end
+
 local by_id = {}
 for _, tier in ipairs(M.TIERS) do by_id[tier.id] = tier end
 
@@ -74,19 +82,19 @@ local function whole(value, default, low, high)
 end
 
 -- Settings come from MXM (or a hand-edited values.lua): clamp everything. Idempotent: an already
--- normalised table (gain/rest keys) passes through unchanged.
+-- normalised table (gain/start keys) passes through unchanged. Recovery (rest) comes from the preset;
+-- 1.0.0's recovery_per_turn setting is ignored.
 function M.normalise(settings)
     settings = settings or {}
     local gain = settings.fatigue_per_mission
     if gain == nil then gain = settings.gain end
-    local rest = settings.recovery_per_turn
-    if rest == nil then rest = settings.rest end
     local start = settings.start_cycle
     if start == nil then start = settings.start end
+    local preset = M.PRESETS[settings.preset] and settings.preset or M.DEFAULT_PRESET
     return {
-        preset = M.PRESETS[settings.preset] and settings.preset or M.DEFAULT_PRESET,
+        preset = preset,
         gain = whole(gain, 2, 0, 7),
-        rest = whole(rest, 1, 0, 7),
+        rest = M.PRESETS[preset].recovery,
         ap_loss = settings.ap_loss ~= false,
         start = whole(start, M.DEFAULT_START_CYCLE, 1, 99),
     }
@@ -123,18 +131,26 @@ function M.after_mission(points, settings)
     return math.min((tonumber(points) or 0) + s.gain, M.preset(s.preset).cap)
 end
 
-function M.after_rest(points, settings)
-    local s = M.normalise(settings)
-    return math.max((tonumber(points) or 0) - s.rest, 0)
-end
-
--- Strategy turns off duty until fully rested (nil if recovery is off).
-function M.turns_to_rest(points, settings)
+-- One strategy turn off duty. Recovery is counted in half points so Hard's 1.5 works with whole fatigue
+-- stacks: `banked` is a carried half point (saved as GE_OffDuty_RestCredit). Returns the new fatigue and
+-- whether a half point is banked; nothing stays banked once fatigue reaches 0.
+function M.after_rest(points, settings, banked)
     local s = M.normalise(settings)
     points = tonumber(points) or 0
-    if points <= 0 then return 0 end
-    if s.rest <= 0 then return nil end
-    return math.ceil(points / s.rest)
+    local halves = math.floor(s.rest * 2 + 0.5) + (banked and 1 or 0)
+    local after = math.max(points - math.floor(halves / 2), 0)
+    return after, after > 0 and halves % 2 == 1
+end
+
+-- Strategy turns off duty until fully rested.
+function M.turns_to_rest(points, settings, banked)
+    points = tonumber(points) or 0
+    local turns = 0
+    while points > 0 and turns < 99 do
+        points, banked = M.after_rest(points, settings, banked)
+        turns = turns + 1
+    end
+    return turns
 end
 
 -- A tier's penalty lines under these settings (the AP-loss line only while AP loss is on).
@@ -160,8 +176,8 @@ function M.tooltip(tier, points, settings, required, starts_at)
     local s = M.normalise(settings)
     local cap = M.preset(s.preset).cap
     local lines = {
-        string.format("Fatigue <Bold>%d</> of %d. Each mission adds %d; each turn off duty removes %d.",
-            points, cap, s.gain, s.rest),
+        string.format("Fatigue <Bold>%d</> of %d. Each mission adds %d; each turn off duty removes %s.",
+            points, cap, s.gain, M.format_number(s.rest)),
     }
     if starts_at then
         lines[#lines + 1] = string.format("Fatigue tracking starts at cycle <Bold>%d</>.", starts_at)
@@ -181,7 +197,7 @@ function M.tooltip(tier, points, settings, required, starts_at)
         for _, penalty in ipairs(penalties) do lines[#lines + 1] = "  " .. penalty end
     end
     local turns = M.turns_to_rest(points, settings)
-    if turns then
+    if turns > 0 then
         lines[#lines + 1] = ""
         lines[#lines + 1] = string.format("Fully rested after <Bold>%d</> turn%s off duty.", turns, turns == 1 and "" or "s")
     end
