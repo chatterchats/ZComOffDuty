@@ -6,8 +6,8 @@ they're off duty**, so the rest of your company gets a chance to shine.
 
 ## How it works
 
-- **Fatigue starts at cycle 5** (adjustable), once your roster is big enough to
-  rotate. Before that, missions add no fatigue.
+- **Fatigue starts after cycle 5** (adjustable), once your roster is big enough
+  to rotate. Until then, missions add no fatigue.
 - **Every mission adds fatigue** to each operator who deploys (2 by default).
 - **Every strategy turn off duty removes some**: 3 on Easy, 2 on Standard (the
   default), 1.5 on Hard. Operators away on an operation neither gain nor
@@ -47,10 +47,10 @@ settings page:
 - **Preset:** how fast operators recover off duty: Easy (3 a turn), Standard
   (2) or Hard (1.5).
 - **Fatigue per mission:** 0–4.
-- **Fatigue starts at cycle:** 1–20 (5 by default).
+- **Fatigue starts after cycle:** 1–20 (5 by default).
 - **AP loss:** turn the chance to lose an AP on or off.
 
-Without it, Off Duty uses the defaults (Standard, 2 per mission, cycle 5, AP
+Without it, Off Duty uses the defaults (Standard, 2 per mission, after cycle 5, AP
 loss on). Changes apply
 from the next mission or strategy turn.
 

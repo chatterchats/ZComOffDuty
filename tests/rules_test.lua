@@ -86,7 +86,7 @@ eq(rules.mission_points(1, true), 0, "required: half of 1 rounds down")
 assert(not rules.active(4, {}) and rules.active(5, {}) and rules.active(nil, {}), "start cycle 5")
 assert(rules.active(1, { start_cycle = 1 }) and not rules.active(9, { start_cycle = 10 }), "custom start cycle")
 eq(rules.normalise({ start_cycle = 0 }).start, 1, "start cycle clamps to 1")
-assert(rules.tooltip(rules.RESTED, 0, {}, false, 5):find("Fatigue tracking starts at cycle <Bold>5</>.", 1, true), "early tooltip")
+assert(rules.tooltip(rules.RESTED, 0, {}, false, 5):find("Fatigue tracking starts after cycle <Bold>5</>.", 1, true), "early tooltip")
 -- The squad-select tooltip says when a required operator's fatigue counts as half.
 local req = rules.tooltip(rules.tier_by_id("tired"), 5, {}, true)
 assert(req:find("<Bold>Required:</> fatigue counts as half for this mission (2 instead of 5).", 1, true), req)

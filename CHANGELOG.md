@@ -11,9 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Fatigue now starts at cycle 5, once the roster is big enough to rotate. Before that, missions add no
-  fatigue, and squad select says when tracking starts. Change it with the new "Fatigue starts at cycle"
-  setting (1–20).
+- Fatigue now starts after cycle 5, once the roster is big enough to rotate. Until then, missions add no
+  fatigue, and squad select says when tracking starts. Change it with the new "Fatigue starts after
+  cycle" setting (1–20).
 
 ### Changed
 

@@ -117,7 +117,7 @@ roster[#roster + 1] = early
 mission_start(nil, early)
 eq(early.effects[Game.FATIGUE], 3, "before cycle 5: no gain"); eq(early.effects.GE_OffDuty_Tired, nil, "no tier")
 eq(early.effects[Game.DEPLOYED], nil, "no marker")
-assert(logs[#logs]:find("cycle 3, before fatigue starts (cycle 5)", 1, true), logs[#logs])
+assert(logs[#logs]:find("cycle 4, fatigue starts after cycle 5", 1, true), logs[#logs]) -- turn 3 shows as Cycle 4
 settings = { preset = "hard", start_cycle = 1 }
 local first = operator("Day One", "D1", 0)
 roster[#roster + 1] = first

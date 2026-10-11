@@ -100,8 +100,10 @@ function M.normalise(settings)
     }
 end
 
--- Fatigue only counts from a chosen cycle (strategy turn): early on the roster is too small to rotate.
--- An unreadable turn counts as active, so a failed read never silently switches the mod off.
+-- Fatigue only counts after a chosen cycle: early on the roster is too small to rotate. `turn` is the
+-- game's strategy turn, which runs one behind the cycle it displays (turn 5 is "Cycle 6"), so a setting of
+-- 5 starts fatigue on Cycle 6: "after cycle 5". An unreadable turn counts as active, so a failed read never
+-- silently switches the mod off.
 function M.active(turn, settings)
     turn = tonumber(turn)
     return turn == nil or turn >= M.normalise(settings).start
@@ -171,16 +173,16 @@ end
 
 -- Squad-select tooltip for one operator. `tier` is the tier they deploy at; for a required operator that
 -- comes from half their fatigue (M.mission_points), and the tooltip says so.
--- starts_at: set before the starting cycle, when nothing applies yet.
-function M.tooltip(tier, points, settings, required, starts_at)
+-- starts_after: the cycle setting, given while fatigue hasn't started yet.
+function M.tooltip(tier, points, settings, required, starts_after)
     local s = M.normalise(settings)
     local cap = M.preset(s.preset).cap
     local lines = {
         string.format("Fatigue <Bold>%d</> of %d. Each mission adds %d; each turn off duty removes %s.",
             points, cap, s.gain, M.format_number(s.rest)),
     }
-    if starts_at then
-        lines[#lines + 1] = string.format("Fatigue tracking starts at cycle <Bold>%d</>.", starts_at)
+    if starts_after then
+        lines[#lines + 1] = string.format("Fatigue tracking starts after cycle <Bold>%d</>.", starts_after)
     end
     if required and points > 0 then
         lines[#lines + 1] = string.format("<Bold>Required:</> fatigue counts as half for this mission (%d instead of %d).",

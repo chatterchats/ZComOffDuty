@@ -149,8 +149,8 @@ function M.new(ctx)
         self.reset_rounds()
         local turn = g.strategy_turn(g.world_context())
         if not Rules.active(turn, s) then
-            log("Mission start | %s | cycle %s, before fatigue starts (cycle %d) | no fatigue or penalty", name,
-                tostring(turn), s.start)
+            log("Mission start | %s | cycle %s, fatigue starts after cycle %d | no fatigue or penalty", name,
+                Game.cycle_label(turn), s.start)
             return
         end
         local points = Rules.mission_points(fatigue, required)
@@ -163,7 +163,7 @@ function M.new(ctx)
         end
         local after = g.set_effect_count(asc, fatigue_class, Rules.after_mission(fatigue, s))
         log("Mission start | %s | fatigue %d -> %d | %s%s | cycle %s", name, fatigue, after, summary, ready_note,
-            tostring(turn))
+            Game.cycle_label(turn))
         if ctx.on_mission_start then ctx.on_mission_start() end
     end
 

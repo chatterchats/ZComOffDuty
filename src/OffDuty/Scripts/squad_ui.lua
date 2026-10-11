@@ -222,7 +222,7 @@ function M.new(ctx)
     -- Squad slots (banner = true) show RESTED for everyone else; portrait tiles show nothing for them.
     local function current_tier(entry, required, banner, active)
         if not entry then return nil end
-        if not active then return banner and Rules.RESTED or nil end -- before the starting cycle
+        if not active then return banner and Rules.RESTED or nil end -- fatigue hasn't started yet
         local tier = Rules.tier(Rules.mission_points(entry.points, required), Rules.normalise(ctx.settings()).preset)
         if not tier and required then return Rules.REQUIRED_RESTED end
         if not tier and banner then return Rules.RESTED end

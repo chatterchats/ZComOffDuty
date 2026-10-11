@@ -12,8 +12,10 @@
 
 ## Working model (decided 2026-10-08; see penalty-theorycraft.md)
 
-- **Starting cycle:** fatigue only counts from cycle 5 (setting, 1–20); the early roster is too small to
-  rotate. Before it, missions add no fatigue and apply no tier.
+- **Starting cycle:** fatigue only counts after cycle 5 (setting, 1–20); the early roster is too small to
+  rotate. Until then, missions add no fatigue and apply no tier. The game's strategy turn runs one behind
+  the cycle it displays (turn 5 is "Cycle 6", verified 2026-10-11), so the setting compares against the
+  turn directly.
 - **Fatigue points:** +2 per mission played, cap 7. Operators on an operation are frozen (no gain,
   no recovery).
 - **Recovery per strategy turn off** is what the presets change: Easy −3, Standard −2 (default),

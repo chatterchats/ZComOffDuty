@@ -15,7 +15,7 @@ your best four.
   default); every strategy turn off duty removes some: 3 on Easy, 2 on
   Standard (the default), 1.5 on Hard. On Standard two squads taking turns
   stay rested, and each mission in a row is one tier worse. Operators away on
-  an operation are frozen. Fatigue starts at cycle 5 (adjustable), once the
+  an operation are frozen. Fatigue starts after cycle 5 (adjustable), once the
   roster is big enough to rotate.
 - **Push-through, never locked out.** Fatigue sets a tier with a penalty for
   the next mission, but anyone can always deploy, so a save can't get stuck.

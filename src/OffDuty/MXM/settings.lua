@@ -22,9 +22,9 @@ return {
           desc = "Added to every operator who deploys." },
 
         { key = "start_cycle", type = "number",
-          name = "Fatigue starts at cycle", default = 5,
+          name = "Fatigue starts after cycle", default = 5,
           min = 1, max = 20, step = 1,
-          desc = "Before this cycle missions add no fatigue and no penalties apply, while the early roster is too small to rotate." },
+          desc = "Until this cycle is over, missions add no fatigue and no penalties apply, while the early roster is too small to rotate." },
 
         { type = "header", name = "Penalties" },
 
