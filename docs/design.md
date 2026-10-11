@@ -38,6 +38,19 @@ A turn is 3 AP (moving, shooting, abilities); see penalty-theorycraft.md §8.
 Retuned 2026-10-10 after AI-vs-AI sims (Outlaw 1, 4x, ~26 runs per tier): with the first numbers only
 Spent moved the win rate (77% → 50%); Tired and Exhausted were inside the noise.
 
+Verified 2026-10-11 with the retuned numbers (326 runs, Outlaw 1, 4x, two game instances, no runs excluded;
+`dist/simtest/20261011T020022Z-i23-results.csv`):
+
+| Tier      | Runs | Win rate | Downed | Health lost | AP lost |
+| --------- | ---- | -------- | ------ | ----------- | ------- |
+| Baseline  | 82   | 82% ±8   | 2.2    | 70%         | 0       |
+| Tired     | 82   | 71% ±10  | 2.5    | 75%         | 0       |
+| Exhausted | 81   | 54% ±11  | 3.0    | 84%         | 3.4     |
+| Spent     | 81   | 33% ±10  | 3.3    | 89%         | 5.1     |
+
+Each tier costs roughly 10-20 points of win rate over the one before. Exhausted and Spent differ from the
+tier below them at about 98-99% confidence; Tired vs baseline (-11 points) at about 90%.
+
 - Push-through: any tier can deploy; story-required operators are never blocked.
 - Required operators (the mission can't launch without them) go in at the tier for half their fatigue,
   rounded down. Their fatigue itself is unchanged and the mission adds the usual gain.
