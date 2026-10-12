@@ -509,6 +509,14 @@ the imported texture and `BrushType` to None; never write `WeakResourceObject`.
 - **Verified (2026-10-09):** with tier effects unsaved and the tier in the marker, in-mission saves load
   without crashing; three reloads each logged `Mission resumed` with the right tier and unchanged fatigue.
   A fresh mission reported ready after ~16 s (7 tries), so the wait now runs about a minute.
+- **Correction 3 (2026-10-12):** that crash signature isn't specific to Off Duty. On Instance 2 every
+  in-mission save of a campaign created by ZC Sandbox (407CA394: Deep Cover and Unfinished Business) crashed
+  the same way (`+0x958c3da`, null+0xa68, a few seconds into the load) with Off Duty's Lua, its probe and its
+  pak all removed, and with Squad Six and ZC Sandbox off too. An in-mission save of the campaign it was
+  copied from (BA3302) loaded with the full mod set. So this address is a general failure to restore an
+  in-mission save, and on its own doesn't point at Off Duty. The 10-09 revert stands (the reloads above
+  verified it), but a crash here needs the same bisection (mods off one by one, then another campaign's
+  save) before it's blamed on a mod. Reported to ZC Sandbox's author.
 
 ### Squad-select UI in the real mod (2026-10-09)
 
