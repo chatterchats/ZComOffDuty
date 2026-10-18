@@ -43,10 +43,91 @@ function M.new(ctx)
     -- adds fatigue (the mission was counted when it started); it only restores the tier.
     -- A fresh mission took ~16 s to report ready (7 tries) in testing: retry quickly at first, then every
     -- 2 s for about a minute, so slower loads and longer intros aren't missed.
+    -- One readiness check serves every operator. The hook fires once per deployed operator, and a check
+    -- finds the game instance, world and mission actor with FindAllOf, which walks every object (UE4SS
+    -- can't use the engine's object hash tables in this game). A check per operator, six of them with
+    -- Squad Six Reforged, stuttered the travel scene and the squad's spawn (report, 2026-10-18).
     local READY_RETRY_MS = { 250, 500, 1000 }
     for _ = 1, 30 do READY_RETRY_MS[#READY_RETRY_MS + 1] = 2000 end
     local SAVE_SETTLE_MS = 500
+    -- Longer than every retry and the settle together. A check still unfinished after this was dropped
+    -- (its delayed action never ran): the next operator starts a new one rather than wait on it.
+    local CHECK_LIFETIME_S = 90
     local process_mission_start
+
+    -- Operators waiting for the mission to be ready, in hook order: { actor, name, id, from_save }. The
+    -- actors are held only until the check processes them, and validated then.
+    local waiting = {}
+    local check = nil -- the current check: { attempt, settled, loading, started }
+
+    local function take_waiting()
+        local entries = waiting
+        waiting, check = {}, nil
+        return entries
+    end
+
+    local function process_waiting(attempt, loading, ids, wco)
+        local required = nil
+        for _, entry in ipairs(take_waiting()) do
+            if not g.valid(entry.actor) then
+                log("Mission start | %s | gone before the mission was ready; no fatigue", entry.name)
+            elseif not ids[entry.id] then
+                log("Mission start | %s | not on the roster (guest unit); no fatigue", entry.name)
+            else
+                required = required or g.required_ids(wco)
+                local blocking = required[entry.id]
+                if blocking ~= nil then
+                    log("Mission start | %s | required for this mission (bBlockingRequirement %s)", entry.name,
+                        tostring(blocking))
+                end
+                g.safe("mission start", process_mission_start)(entry.actor, entry.name, attempt,
+                    entry.from_save or loading, blocking ~= nil, wco)
+            end
+        end
+    end
+
+    local run_check
+    local function try(current)
+        current.attempt = current.attempt + 1
+        local loading = g.loading_from_save()
+        current.loading = current.loading or loading
+        local wco = not loading and g.world_context() or nil
+        local ids = wco and g.roster_ids(wco) or {}
+        if loading or next(ids) == nil or not g.mission_ready(g.mission_actor()) then
+            local delay = READY_RETRY_MS[current.attempt]
+            if delay then
+                actions:schedule_after("mission_start", delay, function() run_check(current, "mission start retry") end)
+            else
+                for _, entry in ipairs(take_waiting()) do
+                    log("WARNING: mission start | %s | mission or roster not ready after %d tries; no fatigue this mission",
+                        entry.name, current.attempt)
+                end
+            end
+            return
+        end
+        local settle = false
+        for _, entry in ipairs(waiting) do
+            if g.valid(entry.actor) and ids[entry.id] then
+                entry.from_save = entry.from_save or g.was_loaded_from_save(entry.actor)
+                settle = settle or entry.from_save or current.loading
+            end
+        end
+        if settle and not current.settled then
+            current.settled = true -- one more beat after the load reports done
+            actions:schedule_after("mission_start", SAVE_SETTLE_MS, function() run_check(current, "mission start settle") end)
+            return
+        end
+        process_waiting(current.attempt, current.loading, ids, wco)
+    end
+
+    -- Runs `current` unless a newer check replaced it. An error drops the waiting operators: a check left
+    -- behind with nothing scheduled would hold every later operator.
+    function run_check(current, name)
+        if check ~= current then return end
+        local finished = false
+        g.safe(name, function() try(current); finished = true end)()
+        if not finished and check == current then take_waiting() end
+    end
 
     local function on_mission_start(_, character)
         local actor = g.unwrap(character)
@@ -54,40 +135,10 @@ function M.new(ctx)
         local name = g.character_name(actor) or g.full_name(actor)
         local id = g.character_id(actor)
         if not id then log("WARNING: mission start | %s | no character ID; skipped", name); return end
-        local attempt, settled = 0, false
-        local from_save = g.was_loaded_from_save(actor) or g.loading_from_save()
-        local function try()
-            attempt = attempt + 1
-            local loading = g.loading_from_save()
-            from_save = from_save or loading or g.was_loaded_from_save(actor)
-            local wco = not loading and g.world_context() or nil
-            local ids = wco and g.roster_ids(wco) or {}
-            if loading or next(ids) == nil or not g.mission_ready(g.mission_actor()) then
-                local delay = READY_RETRY_MS[attempt]
-                if delay then
-                    actions:schedule_after("mission_start", delay, g.safe("mission start retry", try), actor)
-                else
-                    log("WARNING: mission start | %s | mission or roster not ready after %d tries; no fatigue this mission",
-                        name, attempt)
-                end
-                return
-            end
-            if not ids[id] then
-                log("Mission start | %s | not on the roster (guest unit); no fatigue", name)
-                return
-            end
-            if from_save and not settled then
-                settled = true -- one more beat after the load reports done
-                actions:schedule_after("mission_start", SAVE_SETTLE_MS, g.safe("mission start settle", try), actor)
-                return
-            end
-            local blocking = g.required_ids(wco)[id]
-            if blocking ~= nil then
-                log("Mission start | %s | required for this mission (bBlockingRequirement %s)", name, tostring(blocking))
-            end
-            process_mission_start(actor, name, attempt, from_save, blocking ~= nil)
-        end
-        try()
+        waiting[#waiting + 1] = { actor = actor, name = name, id = id, from_save = g.was_loaded_from_save(actor) }
+        if check and os.time() - check.started <= CHECK_LIFETIME_S then return end -- the scheduled check takes it
+        check = { attempt = 0, settled = false, loading = false, started = os.time() }
+        run_check(check, "mission start")
     end
 
     local function apply_tier(asc, tier, name)
@@ -112,7 +163,8 @@ function M.new(ctx)
         return summary
     end
 
-    function process_mission_start(actor, name, attempt, from_save, required)
+    -- `wco`: the world context the readiness check just found (finding it again is another object walk).
+    function process_mission_start(actor, name, attempt, from_save, required, wco)
         if not g.valid(actor) then return end
         local asc = g.asc(actor)
         local fatigue_class, deployed_class = g.effect_class(Game.FATIGUE), g.effect_class(Game.DEPLOYED)
@@ -147,7 +199,7 @@ function M.new(ctx)
 
         actions:cancel_group("ap_loss", "mission start") -- a new mission session
         self.reset_rounds()
-        local turn = g.strategy_turn(g.world_context())
+        local turn = g.strategy_turn(wco)
         if not Rules.active(turn, s) then
             log("Mission start | %s | cycle %s, fatigue starts after cycle %d | no fatigue or penalty", name,
                 Game.cycle_label(turn), s.start)
@@ -163,7 +215,7 @@ function M.new(ctx)
         end
         local after = g.set_effect_count(asc, fatigue_class, Rules.after_mission(fatigue, s))
         log("Mission start | %s | fatigue %d -> %d | %s%s | cycle %s | operator cap %s", name, fatigue, after, summary,
-            ready_note, Game.cycle_label(turn), tostring(g.roster_cap(g.world_context())))
+            ready_note, Game.cycle_label(turn), tostring(g.roster_cap(wco)))
         if ctx.on_mission_start then ctx.on_mission_start() end
     end
 

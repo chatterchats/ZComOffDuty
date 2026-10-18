@@ -166,6 +166,48 @@ eq(never.effects[Game.FATIGUE], 1, "roster never readable: untouched")
 assert(logs[#logs]:find("not ready after 34 tries", 1, true), logs[#logs])
 g.roster_ids = roster_ids
 
+-- A six-operator squad deploys while the mission loads. Each readiness check walks every object in the
+-- game (FindAllOf), so one check serves the whole squad, retried on its own schedule, and the world
+-- context it found is the one processing uses.
+local queued = {}
+local run_now = ctx.actions.schedule_after
+ctx.actions.schedule_after = function(_, _, _, callback) queued[#queued + 1] = callback end
+local function step()
+    local callbacks = queued
+    queued = {}
+    for _, callback in ipairs(callbacks) do callback() end
+end
+local checks, contexts = 0, 0
+local mission_actor, world_context = g.mission_actor, g.world_context
+g.mission_actor = function() checks = checks + 1; return {} end
+g.world_context = function() contexts = contexts + 1; return {} end
+mission_ready = false
+local squad = {}
+for index = 1, 6 do
+    squad[index] = operator("Squad" .. index, "SQ" .. index, 0)
+    roster[#roster + 1] = squad[index]
+end
+for _, op in ipairs(squad) do mission_start(nil, op) end
+eq(checks, 1, "six operators at mission load: one check")
+eq(#queued, 1, "one retry scheduled for the squad")
+step(); step()
+eq(checks, 3, "one check per retry")
+eq(squad[1].effects[Game.FATIGUE], 0, "not processed before the mission is ready")
+mission_ready = true
+contexts = 0
+step()
+for _, op in ipairs(squad) do eq(op.effects[Game.FATIGUE], 2, op.name .. " processed once ready") end
+eq(contexts, 1, "processing reuses the check's world context")
+eq(#queued, 0, "nothing left scheduled")
+assert(logs[#logs]:find("Squad6 | fatigue 0 -> 2 | rested (ready after 4 tries)", 1, true), logs[#logs])
+-- The next mission's squad starts a check of its own.
+local next_op = operator("Next", "NX", 0)
+roster[#roster + 1] = next_op
+mission_start(nil, next_op)
+eq(next_op.effects[Game.FATIGUE], 2, "a later mission start is checked again")
+ctx.actions.schedule_after = run_now
+g.mission_actor, g.world_context = mission_actor, world_context
+
 -- A second call in the same turn changes nothing.
 mission_start(nil, kabb)
 eq(kabb.effects[Game.FATIGUE], 6, "no double gain"); eq(kabb.effects[ACCURACY], 2, "no double penalty")
