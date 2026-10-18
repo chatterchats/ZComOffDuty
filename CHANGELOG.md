@@ -7,9 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.2]
+
 ### Fixed
 - **Less stutter while a mission loads.** Off Duty waits for the mission to be ready before it
-  applies fatigue, and it no locker checks separately for every deployed operator, searching the game's
+  applies fatigue, and it no longer checks separately for every deployed operator, searching the game's
   objects each time, every 2 seconds through the travel scene and the squad's spawn. One check
   now serves the whole squad.
 
