@@ -20,7 +20,9 @@ M.LOSE_AP = "GE_OffDuty_LoseAP"
 M.ACCURACY = "/Game/Game/GameData/Progression/NextMissionGameplayEffects/"
     .. "GE_Lose_NextMission_RangedAccuracy.GE_Lose_NextMission_RangedAccuracy_C"
 M.PLAYER_TEAM = "/Game/Game/GameData/Teams/PlayerTeam.PlayerTeam_C"
-M.MAX_SAFE_INJURIES = 2 -- a third injury kills; Off Duty never adds injuries
+-- Off Duty never adds injuries. A third injury kills only under the game's default Three Strikes
+-- (1.2 campaign option); Two Strikes and Instant Death kill sooner.
+M.MAX_SAFE_INJURIES = 2
 
 function M.new(log)
     local g = {}
