@@ -3,7 +3,7 @@
 # The main install symlinks src/OffDuty, so only the copies need this. Run with the copies closed.
 set -euo pipefail
 repo=$(cd "$(dirname "$0")/.." && pwd)
-games=${SWZC_GAMES:-"/run/media/chats/e0057d4a-fe46-43eb-a837-db51979c500f/Games/STAR WARS Zero Company (2026)"}
+games=${SWZC_GAMES:-"/run/media/chats/e0057d4a-fe46-43eb-a837-db51979c500f/Games/NonSteam/STAR WARS Zero Company (2026)"}
 for dir in "$games"/Instance\ *; do
     [ -d "$dir" ] || continue
     root="$dir/Star Wars Zero Company/SWZeroCompany"
