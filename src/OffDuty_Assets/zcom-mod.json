@@ -7,7 +7,10 @@
   "description": "Off Duty's gameplay effects (fatigue, tiers, AP loss) and status tags. Required by Off Duty.",
   "game": {
     "appId": 2075800,
-    "testedBuilds": []
+    "testedBuilds": [
+      "25898267",
+      "26445778"
+    ]
   },
   "type": [
     "iostore"
