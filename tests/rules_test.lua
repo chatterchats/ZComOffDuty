@@ -1,5 +1,5 @@
--- Run from repository root: tools/run-tests.sh rules
-local scripts = assert(arg[1], "pass the mod Scripts directory")
+-- Run from the repo root: make test T=rules_test
+local scripts = arg[1] or "src/OffDuty/Scripts"
 package.path = scripts .. "/?.lua;" .. package.path
 local rules = require("rules")
 

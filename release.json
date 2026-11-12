@@ -1,0 +1,14 @@
+{
+  "name": "ZComOffDuty",
+  "title": "Off Duty",
+  "version": "1.1.2",
+  "nexusModId": 315,
+  "zipLayout": "game",
+  "shipped": [
+    {"folder": "OffDuty", "kind": "ue4ss", "exclude": ["MXM/values.lua*"]},
+    {"folder": "OffDuty_Assets", "kind": "pak", "exclude": ["BUILD.sha256"]}
+  ],
+  "versionSpots": [
+    {"file": "src/OffDuty/README.md", "pattern": "Off Duty v(\\S+) "}
+  ]
+}

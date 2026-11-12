@@ -14,7 +14,7 @@ from PIL import Image, ImageDraw
 
 SIZE, SCALE = 128, 8  # draw at 8x, then downsample for clean edges
 REPO = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
-OUTS = [os.path.join(REPO, "src", mod, "icons") for mod in ("OffDuty", "OffDutyProbe")]
+OUTS = [os.path.join(REPO, "src", "OffDuty", "icons"), os.path.join(REPO, "dev", "OffDutyProbe", "icons")]
 
 # (centre x, centre y, height) per Z, in 128-px units; each tier adds a bigger, higher Z.
 LAYOUTS = {

@@ -1,6 +1,6 @@
 -- Production wiring of main.lua under a controllable game-thread scheduler.
--- Run from repository root: tools/run-tests.sh bootstrap
-local scripts = assert(arg[1], "pass the mod Scripts directory")
+-- Run from the repo root: make test T=bootstrap_test
+local scripts = arg[1] or "src/OffDuty/Scripts"
 local queue, order, next_id, clears = {}, {}, 0, 0
 local writes = {}
 

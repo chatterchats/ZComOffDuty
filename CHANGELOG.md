@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The release ZIP is now named `ZComOffDuty-X.Y.Z.zip`; its contents are unchanged.
+
 ## [1.1.2]
 
 ### Fixed

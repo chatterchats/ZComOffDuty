@@ -1,6 +1,6 @@
 -- The fatigue loop against a fake game layer (effects are per-operator counters).
--- Run from repository root: tools/run-tests.sh fatigue
-local scripts = assert(arg[1], "pass the mod Scripts directory")
+-- Run from the repo root: make test T=fatigue_test
+local scripts = arg[1] or "src/OffDuty/Scripts"
 package.path = scripts .. "/?.lua;" .. package.path
 FName = FName or function(name) return name end -- UE4SS global
 local Game = require("game")

@@ -204,7 +204,7 @@ patched 5.6.1 Linux editor, scratch workspace). Both packages crash the editor
 
 This is the known missing-Wwise blocker (`AI+/BLOCKERS.md`): any UI package that
 references Wwise UI sounds can't be loaded in the SDK. Q3 stays with the in-game
-probe (`src/OffDutyProbe`). Data-only packages (GameplayEffects, recipes) without
+probe (`dev/OffDutyProbe`). Data-only packages (GameplayEffects, recipes) without
 audio references should still probe fine.
 
 ## Fatigue storage: a custom saved effect (2026-10-08)

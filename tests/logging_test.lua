@@ -1,5 +1,5 @@
--- Run from repository root: tools/run-tests.sh logging
-local scripts = assert(arg[1], "pass the mod Scripts directory")
+-- Run from the repo root: make test T=logging_test
+local scripts = arg[1] or "src/OffDuty/Scripts"
 local writes, console = {}, {}
 local closed, prior_teardown = false, false
 local original_open, original_print = io.open, print

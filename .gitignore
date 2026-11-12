@@ -1,6 +1,4 @@
-/debug/
 /dist/
-/*.zip
 *.log
 __pycache__/
 *.py[cod]
@@ -9,10 +7,12 @@ Thumbs.db
 *.swp
 *.tmp
 
+# Written by MXM while the mod is linked into the game
+values.lua
+
 # Unreal plugin build products (the plugin is symlinked into the SWZC Merged Kit)
 /unreal/OffDuty/Saved/
 /unreal/OffDuty/Intermediate/
 /unreal/OffDuty/Binaries/
 # Written by the MXM settings menu at runtime (the mod is symlinked into the game)
-/src/*/MXM/values.lua
 /src/*/MXM/values.lua.simtest-backup

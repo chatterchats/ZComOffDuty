@@ -1,5 +1,5 @@
--- Run from repository root: tools/run-tests.sh runtime
-local scripts = assert(arg[1], "pass the mod Scripts directory")
+-- Run from the repo root: make test T=runtime_test
+local scripts = arg[1] or "src/OffDuty/Scripts"
 local hooks, queue, cancelled = {}, {}, {}
 local next_id, clear_count, binding_registrations = 0, 0, 0
 local fail_unregister = false

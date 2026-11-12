@@ -97,7 +97,7 @@ grep -q 'mount point "../../../SWZeroCompany/"' "$logs/companion-list.log" \
 ( cd "$out" && sha256sum OffDuty_P.* ) > "$repo/dist/plugin/SHA256SUMS"
 cat "$repo/dist/plugin/SHA256SUMS"
 # The release ships these paks from src/OffDuty_Assets (CI can't cook). BUILD.sha256 records the paks and
-# the sources they were built from, so tools/package.py can refuse paks older than their sources.
+# the sources they were built from, so `make package` (tools/check_paks.py) refuses paks older than their sources.
 assets="$repo/src/OffDuty_Assets"
 cp "$out"/OffDuty_P.pak "$out"/OffDuty_P.ucas "$out"/OffDuty_P.utoc "$assets/"
 ( cd "$assets" && sha256sum OffDuty_P.pak OffDuty_P.ucas OffDuty_P.utoc

@@ -9,114 +9,49 @@ fatigue and recovery**: operators tire from back-to-back deployments and
 recover while they sit missions out, so the whole company matters, not just
 your best four.
 
-## Features
+Players should download the release ZIP from
+[Nexus Mods](https://www.nexusmods.com/starwarszerocompany/mods/315) or the
+[GitHub releases](https://github.com/chatterchats/ZComOffDuty/releases); the mod page text, with
+the rules and install steps, is in [`docs/nexus/`](docs/nexus/) and the in-ZIP player guide is
+`src/OffDuty/README.md`.
 
-- **Fatigue from deployment.** Every operator who deploys gains fatigue (2 by
-  default); every strategy turn off duty removes some: 3 on Easy, 2 on
-  Standard (the default), 1.5 on Hard, halved once Crew Quarters has room for
-  12+ operators. On Standard two squads taking turns stay rested (three with
-  12+ operator slots), and each mission in a row is one tier worse. Operators away on
-  an operation are frozen. Fatigue starts after cycle 5 (adjustable), once the
-  roster is big enough to rotate.
-- **Push-through, never locked out.** Fatigue sets a tier with a penalty for
-  the next mission, but anyone can always deploy, so a save can't get stuck.
-- **Story-safe.** Operators a mission requires go in at the tier for half
-  their fatigue (rounded down); their fatigue itself is unchanged.
-- **Clear at squad select.** Every squad slot shows a banner (RESTED,
-  REQUIRED, TIRED, EXHAUSTED or SPENT) with a tooltip giving the fatigue,
-  the exact penalties and the turns until fully rested. Roster portraits mark
-  tired and required operators.
-- **Visible in the mission.** The tier is a debuff under the health bar and in
-  the Inspect panel; the hit chance penalty is the game's own "Penalty from
-  Operation".
-- **Separate from injuries.** The game's injury system is left alone.
-- **Settings** through the [Mixamoo Mod Config Manager](https://www.nexusmods.com/starwarszerocompany/mods/149): preset (recovery
-  speed), fatigue per mission, starting cycle, AP loss on/off.
+## Commands
 
-| Tier      | Fatigue | Next mission                                                                 |
-| --------- | ------- | ---------------------------------------------------------------------------- |
-| Rested    | 0–1     | No penalty                                                                   |
-| Tired     | 2–3     | −5% hit chance, −5% max health                                               |
-| Exhausted | 4–5     | −10% hit chance, −10% max health, 10% chance per turn to lose 1 AP           |
-| Spent     | 6–7     | −20% hit chance, −20% max health, −10% movement, 15% chance per turn to lose 1 AP |
+`make help` lists everything. The usual loop: edit, `make test`, `make install`, restart the game.
 
-Fatigue caps at 7; the tiers are the same on every preset. The numbers come from AI-vs-AI
-simulations; see [docs/design.md](docs/design.md).
+| Target | Does |
+| --- | --- |
+| `make test` | the LuaJIT tests (UE4SS fakes) and the script-reachability test |
+| `make install` / `make uninstall` | link `src/OffDuty` into `ue4ss/Mods` and `src/OffDuty_Assets` into `~mods`, or remove the links |
+| `make package` | `dist/ZComOffDuty-X.Y.Z.zip`, laid out as the game's `SWZeroCompany` folder; refuses stale paks |
+| `make bump V=X.Y.Z` | set the version everywhere (both components, the player README title), date the changelog |
+| `make release` | check, test, tag, push; CI publishes to GitHub and Nexus (mod 315) |
+| `make build-plugin` | cook the gameplay effects and tags with the SWZC Merged Kit into `src/OffDuty_Assets` (`ARGS=--install` also copies them into the game) |
+| `make simtest ARGS='…'` | AI-vs-AI balance sims through ZC Sandbox on a game copy ([docs/simtest-handoff.txt](docs/simtest-handoff.txt)) |
+| `make sync-instances` | copy the scripts and paks into the simtest game copies |
+| `make check` / `make sync` | drift from the standard / fetch the latest shared files |
 
-## Requirements
+## Layout
 
-- **Star Wars: Zero Company**; tested on the Steam build
-- **UE4SS** for Zero Company: the recommended build (v3.0.1 Beta, `a1e7f571`)
-- Optional: **[Mixamoo Mod Config Manager](https://www.nexusmods.com/starwarszerocompany/mods/149)** for the in-game settings page
+The standard layout (see `../ModTemplate/STANDARD.md`). Specific to this repo:
 
-## Installation
-
-Download the release ZIP from
-[Nexus Mods](https://www.nexusmods.com/starwarszerocompany/mods/315), not
-GitHub's source-code archive. It mirrors the game's `SWZeroCompany` folder and
-holds two components, and both are needed:
-
-| Path in the ZIP                       | Contents                                    |
-| ------------------------------------- | ------------------------------------------- |
-| `Binaries/Win64/ue4ss/Mods/OffDuty`   | the UE4SS Lua mod                           |
-| `Content/Paks/~mods/OffDuty_Assets`   | `OffDuty_P.pak/.ucas/.utoc` (effects, tags) |
-
-Each carries `modinfo.json` and `zcom-mod.json`, so Zero Mod Manager and Zero
-Company Mod Command recognise them as a pair. Vortex installs the whole ZIP as
-one combo mod.
-
-### With a mod manager
-
-- **[Zero Mod Manager](https://github.com/stellamarislabs/zero-mod-manager)**:
-  drop the ZIP on **Install**, choose **Install all components**, then check
-  both are enabled under **Mods**.
-- **[Zero Company Mod Command](https://github.com/EnvianMods/ZeroCompanyModCommand)**:
-  drag the ZIP into the **Hangar Bay**; it adds Off Duty and Off Duty — Assets
-  as two entries. Check both are enabled.
-- **Vortex** (with the Star Wars Zero Company extension): install the ZIP; it
-  deploys both components and adds `OffDuty` to the UE4SS load order.
-
-### By hand
-
-1. Install UE4SS for Star Wars: Zero Company and close the game.
-2. Extract the ZIP into the game's `SWZeroCompany` folder (the one holding
-   `Binaries` and `Content`), merging folders.
-3. If your UE4SS setup ignores the packaged `enabled.txt`, add
-   `OffDuty : 1` to `ue4ss/Mods/mods.txt`.
-
-### Updating and uninstalling
-
-Close the game, then install the new ZIP the same way. Restart the game after
-installing or updating; don't use UE4SS's Reload All Mods.
-
-Manual installs of 1.1.0 or earlier put the three `OffDuty_P` files directly in
-`Content/Paks/~mods/`; delete those when you update, since the new ones live in
-`~mods/OffDuty_Assets/`.
-
-To uninstall, disable or remove both components in your mod manager, or
-delete the `ue4ss/Mods/OffDuty` and `Content/Paks/~mods/OffDuty_Assets`
-folders. Saves stay loadable; operators simply stop tiring.
-
-## Compatibility
-
-- Leaves the game's own systems in charge: fatigue is a saved gameplay effect
-  on each operator, and penalties use the game's next-mission effects.
-- Guest units who aren't on the roster (such as Rex) don't gain fatigue.
-- Tell us about conflicts in the [issues](https://github.com/chatterchats/ZComOffDuty/issues).
-
-## Troubleshooting
-
-Off Duty writes `off_duty.log` beside the installed mod. `UE4SS.log` remains
-the startup and crash log.
-
-### Reporting a bug
-
-Open an [issue](https://github.com/chatterchats/ZComOffDuty/issues) with:
-
-- the game build and UE4SS version;
-- other installed mods;
-- what you were doing and the steps to reproduce it; and
-- `off_duty.log` and `UE4SS.log`.
+- Two shipped folders: `src/OffDuty/` (the UE4SS mod: `Scripts/`, the tier `icons/`,
+  `MXM/settings.lua`) and `src/OffDuty_Assets/` (the committed paks with their own manifests).
+  The ZIP puts them at `Binaries/Win64/ue4ss/Mods/OffDuty` and
+  `Content/Paks/~mods/OffDuty_Assets`: Vortex's Zero Company extension needs both `Binaries` and
+  `Content` at the root to install it as one combo mod, and each component keeps its manifests so
+  Zero Mod Manager and Mod Command install the pair as two entries.
+- `src/OffDuty_Assets/BUILD.sha256` records the paks and the sources they were cooked from
+  (`unreal/scripts/create_effects.py`, the tags `.ini`); it doesn't ship. CI can't cook, so
+  after changing either source run `make build-plugin` and commit the new paks.
+- `unreal/OffDuty/` is the Unreal plugin (gameplay effects and tags); `unreal/scripts/` holds
+  `create_effects.py` (assets) and `draw_icons.py` (the tier PNGs).
+- `dev/OffDutyProbe/` answers open questions about the game (see its README; install it on its
+  own, on a throwaway save). `dev/QuickWin/` wins the current tactical mission with
+  Ctrl+Shift+W. Neither ships; link them into `ue4ss/Mods` by hand.
+- `tools/minidump.py` reads a crash dump's module and stack.
+- `docs/`: [design](docs/design.md), [phase 0 findings](docs/phase0-findings.md), penalty
+  theorycraft and the simtest notes.
 
 ## How it works
 
@@ -139,126 +74,12 @@ Open an [issue](https://github.com/chatterchats/ZComOffDuty/issues) with:
 The research behind each piece is in
 [docs/phase0-findings.md](docs/phase0-findings.md).
 
-## Repository layout
+## Testing in game
 
-```text
-.
-├── .github/workflows/release-nexus.yml   # manual Nexus release
-├── CHANGELOG.md                          # player-facing notes per release
-├── LICENSE
-├── README.md
-├── Zero_Company_UE4SS_Lua_Guide.md       # general UE4SS lessons
-├── docs/
-│   ├── design.md                         # decisions and working model
-│   ├── phase0-findings.md                # game systems the design relies on
-│   └── nexus/                            # mod page summary, BBCode description and media/ (banner, screenshots)
-├── src/
-│   ├── OffDuty/                          # the UE4SS mod component
-│   │   ├── Scripts/                      # main.lua and modules
-│   │   ├── icons/                        # Zzz tier icons and the RESTED sun (PNG)
-│   │   ├── MXM/settings.lua              # settings page schema
-│   │   ├── README.md                     # player guide
-│   │   ├── enabled.txt
-│   │   ├── modinfo.json                  # Zero Company Mod Command
-│   │   └── zcom-mod.json                 # Zero Mod Manager
-│   ├── OffDuty_Assets/                   # the pak component: committed build + manifests
-│   └── OffDutyProbe/                     # developer probe; never packaged
-├── unreal/
-│   ├── OffDuty/                          # Unreal plugin: Off Duty's gameplay effects and tags
-│   └── scripts/                          # create_effects.py (assets), draw_icons.py (PNGs)
-├── tests/                                # LuaJIT tests with UE4SS fakes
-└── tools/
-    ├── build_plugin.sh                   # cook + package the paks into src/OffDuty_Assets (SWZC Merged Kit)
-    ├── bump_version.py                   # version bump + changelog promotion
-    ├── nexus_changelog.py                # a release's notes as Nexus text
-    ├── package.py                        # release ZIP (adds LICENSE)
-    ├── run-tests.sh
-    ├── simtest.py                        # AI-vs-AI balance sims (docs/simtest-handoff.txt)
-    └── sync_instances.sh                 # update the simtest game copies
-```
-
-`tools/package.py` zips `src/OffDuty` (with the LICENSE, checking every script
-is reachable from `main.lua`) and `src/OffDuty_Assets` (checking the committed
-paks against `BUILD.sha256` and the sources they were built from), laid out as
-the game's `SWZeroCompany` folder: `Binaries/Win64/ue4ss/Mods/OffDuty` and
-`Content/Paks/~mods/OffDuty_Assets`. Vortex's Zero Company extension needs both
-`Binaries` and `Content` at the root to install it as one combo mod; anything
-else at the root would be deployed loose into `SWZeroCompany`.
-
-## Development
-
-1. Clone the repository and copy `src/OffDuty` into the game's `ue4ss/Mods`
-   folder.
-2. Run the tests (needs `luajit`):
-
-   ```bash
-   tools/run-tests.sh            # every test
-   tools/run-tests.sh bootstrap  # selected tests
-   ```
-
-3. Restart the game and test in game; the tests only fake UE4SS and the
-   game's objects.
-
-`src/OffDutyProbe` is a separate diagnostic mod for answering open questions
-about the game (see its README). Install it on its own, on a throwaway save.
-
-Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/)
-(`feat(fatigue): …`, `fix(squad-select): …`, `chore(release): v1.0.0`).
-
-## Releasing
-
-The manually run **Release to Nexus Mods** workflow publishes a release; use
-`tools/package.py` for a local, package-only build.
-
-1. If `unreal/scripts/create_effects.py` or the tags changed, rebuild the paks
-   with `tools/build_plugin.sh` (needs the SWZC Merged Kit) and commit
-   `src/OffDuty_Assets`.
-2. Add player-facing notes under `## [Unreleased]` in
-   [`CHANGELOG.md`](CHANGELOG.md), grouped as Added / Changed / Fixed /
-   Removed.
-3. Bump the version with `patch`, `minor` or `major`:
-
-   ```bash
-   python3 tools/bump_version.py minor
-   ```
-
-   It updates both components' `modinfo.json` and `zcom-mod.json`, the MXM
-   settings, `Scripts/main.lua` and the player README title, and turns
-   `[Unreleased]` into the new version.
-
-4. Run `tools/run-tests.sh` and `python3 tools/package.py`, then check
-   `dist/OffDuty-#.#.#.zip` with the mod managers (Vortex included) and a clean
-   manual install.
-   A built version is immutable: the packager refuses to overwrite a ZIP with
-   different contents.
-5. Commit (`chore(release): v#.#.#`), merge to `main` and push.
-6. Run **Release to Nexus Mods** from the **Actions** tab. It needs the
-   `NEXUSMODS_API_KEY` repository secret.
-
-The workflow:
-
-- requires both components' `modinfo.json` and `zcom-mod.json`, `main.lua` and
-  the player README title to hold the same `#.#.#` version;
-- reads that version's notes from `CHANGELOG.md`;
-- runs the tests and builds the ZIP with `tools/package.py`; and
-- uploads it to Nexus as `OffDuty v#.#.#.zip`, finding the mod and its single
-  active file through the API (exactly one active file is required, so the
-  first file must be uploaded by hand).
-
-## Contributing
-
-Bug reports, compatibility findings and focused pull requests are welcome
-through [Issues](https://github.com/chatterchats/ZComOffDuty/issues) and
-[Pull Requests](https://github.com/chatterchats/ZComOffDuty/pulls). Keep the
-game's own systems as the source of truth, and refuse unrecognized state
-rather than guessing.
-
-## Support
-
-- Downloads: [Nexus Mods](https://www.nexusmods.com/starwarszerocompany/mods/315)
-- Changes: [`CHANGELOG.md`](CHANGELOG.md)
-- Bugs and requests: [GitHub Issues](https://github.com/chatterchats/ZComOffDuty/issues)
+Restart the game after `make install`. Off Duty writes `off_duty.log` beside the installed mod;
+`UE4SS.log` remains the startup and crash log. Test on a copy or a save the user names, never a
+real campaign; sims run in ZC Sandbox's own forked campaign at speed 4.
 
 ## License
 
-[MIT](LICENSE) © 2026 Chatter Chats. The release ZIP includes the license.
+[MIT](LICENSE), copyright 2026 Chatter Chats.

@@ -73,4 +73,4 @@ tier below them at about 98-99% confidence; Tired vs baseline (-11 points) at ab
    (`EndStrategyTurn`) adds/removes fatigue and queues next cycle's penalties.
 4. Roster badge and squad-select warning; settings through MXM when present.
 
-Open questions and evidence: `phase0-findings.md`. Probe: `../src/OffDutyProbe/`.
+Open questions and evidence: `phase0-findings.md`. Probe: `../dev/OffDutyProbe/`.
